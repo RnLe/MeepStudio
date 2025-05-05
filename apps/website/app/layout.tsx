@@ -15,12 +15,9 @@ export const metadata = {
 import { Providers } from "@meepstudio/providers"
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Control variables
-  const highlightEnabled = false;
   
   // Logging
   logger.trace('Calling RootLayout');
-  logger.info('Highlight enabled: %s', highlightEnabled);
 
   // Return the layout
   return (

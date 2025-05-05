@@ -21,6 +21,7 @@
   "dependencies": {
     "@meepstudio/utils": "workspace:*",
     "@meepstudio/providers": "workspace:*",
+    "@meepstudio/types": "workspace:*",
 
     "use-sync-external-store": "^1.2.0",
     "pino": "^9.0.0",

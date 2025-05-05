@@ -9,3 +9,6 @@ node_modules/
 dist-out/
 dist/
 .turbo/
+
+# Ignore build cache (this means cloning the repo requires a full re-build. This is intentional)
+**/*.tsbuildinfo
