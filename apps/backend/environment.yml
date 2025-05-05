@@ -1,0 +1,19 @@
+name: meepstudio
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pymeep=*=mpi_mpich_*
+  - pymeep-extras
+  - h5py
+  - fastapi
+  - uvicorn
+  - python-multipart
+  - imageio
+  - imageio-ffmpeg
+  - numpy
+  - scipy
+  - matplotlib
+  - pandas
+  - pip

@@ -1,0 +1,11 @@
+# Ignore sensitive files
+trace
+
+# Ignore node-related installation folders in all directories
+.next/
+node_modules/
+
+# Ignore build artifacts
+dist-out/
+dist/
+.turbo/

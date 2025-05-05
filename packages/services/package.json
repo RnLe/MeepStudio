@@ -1,0 +1,35 @@
+{
+    "name": "@meepstudio/services",
+    "version": "0.1.0",
+    "private": true,
+    "description": "",  
+    "author": "Rene-Marcel Lehner",
+    "license": "MIT",
+  
+    "main": "dist/index.js",
+    "module": "dist/index.esm.js",
+    "types": "dist/index.d.ts",
+    "files": [
+      "dist"
+    ],
+  
+    "engines": {
+      "node": ">=16"
+    },
+  
+    "scripts": {
+      "build": "tsc -b",
+      "dev": "tsc -b --watch",
+      "lint": "eslint \"src/**/*.{ts,tsx}\"",
+      "test": "jest"
+    },
+  
+    "dependencies": {
+      "@meepstudio/types": "workspace:*",
+      "@meepstudio/utils": "workspace:*",
+
+      "nanoid": "^5.0.0"
+    },
+    "devDependencies": {
+    }
+}

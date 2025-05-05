@@ -1,0 +1,13 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+      "rootDir": "src",
+      "outDir": "dist"
+    },
+    "include": ["src", "../providers/src/CanvasStore.tsx"],
+    "references": [
+      { "path": "../hooks" },
+      { "path": "../providers" },
+      { "path": "../types" },
+    ]
+}

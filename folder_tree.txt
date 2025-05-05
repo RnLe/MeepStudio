@@ -1,0 +1,117 @@
+.
+├── LICENSE
+├── apps
+│   ├── backend
+│   │   ├── __pycache__
+│   │   │   └── api.cpython-311.pyc
+│   │   ├── api.py
+│   │   └── environment.yml
+│   ├── desktop
+│   │   ├── next-env.d.ts
+│   │   ├── next.config.ts
+│   │   ├── package-lock.json
+│   │   ├── package.json
+│   │   ├── postcss.config.js
+│   │   ├── src
+│   │   │   ├── components
+│   │   │   ├── main.js
+│   │   │   └── preload.ts
+│   │   ├── tailwind.config.ts
+│   │   └── tsconfig.json
+│   └── website
+│       ├── next.config.ts
+│       ├── package.json
+│       ├── public
+│       ├── src
+│       │   ├── app
+│       │   │   ├── favicon.ico
+│       │   │   ├── layout.tsx
+│       │   │   └── page.tsx
+│       │   └── components
+│       └── tsconfig.json
+├── docker
+│   ├── backend.Dockerfile
+│   ├── desktop.Dockerfile
+│   └── website.Dockerfile
+├── docker-compose.yml
+├── folder_tree
+├── package copy.json
+├── package.json
+├── packages
+│   ├── api
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── index.ts
+│   │   │   └── meepProjectsIO.ts
+│   │   └── tsconfig.json
+│   ├── helpers
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── index.ts
+│   │   │   └── timesToString.ts
+│   │   ├── tsconfig.json
+│   │   └── tsconfig.tsbuildinfo
+│   ├── hooks
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── index.ts
+│   │   │   └── useMeepProjects.ts
+│   │   └── tsconfig.json
+│   ├── providers
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── CanvasStore.tsx
+│   │   │   ├── index.ts
+│   │   │   └── providers.tsx
+│   │   └── tsconfig.json
+│   ├── services
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── index.ts
+│   │   │   └── meepProjectService.ts
+│   │   └── tsconfig.json
+│   ├── types
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── canvasElementTypes.ts
+│   │   │   ├── index.ts
+│   │   │   ├── materialTypes.ts
+│   │   │   └── meepProjectTypes.ts
+│   │   ├── tsconfig.json
+│   │   └── tsconfig.tsbuildinfo
+│   ├── ui
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── index.ts
+│   │   │   ├── meepStudio
+│   │   │   │   ├── SimulationConsole.tsx
+│   │   │   │   ├── StudioTabsContext.tsx
+│   │   │   │   ├── canvas
+│   │   │   │   │   └── ProjectCanvas.tsx
+│   │   │   │   └── editorView
+│   │   │   │       ├── CanvasToolbar.tsx
+│   │   │   │       ├── LeftSidebar.tsx
+│   │   │   │       ├── ObjectList.tsx
+│   │   │   │       ├── ObjectPropertiesPanels.tsx
+│   │   │   │       ├── ProjectExplorer.tsx
+│   │   │   │       ├── RightSidebar.tsx
+│   │   │   │       ├── StudioLayout.tsx
+│   │   │   │       ├── TabWindowContainer.tsx
+│   │   │   │       └── TopNavBar.tsx
+│   │   │   └── topnav.tsx
+│   │   └── tsconfig.json
+│   └── utils
+│       ├── package.json
+│       ├── src
+│       │   ├── fileUtils.ts
+│       │   ├── index.ts
+│       │   └── logger.ts
+│       ├── tsconfig.json
+│       └── tsconfig.tsbuildinfo
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── turbo.json
+
+32 directories, 82 files

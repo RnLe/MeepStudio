@@ -1,0 +1,41 @@
+{
+    "name": "@meepstudio/ui",
+    "version": "0.1.0",
+    "private": true,
+    "description": "",  
+    "author": "Rene-Marcel Lehner",
+    "license": "MIT",
+  
+    "main": "dist/index.js",
+    "module": "dist/index.esm.js",
+    "types": "dist/index.d.ts",
+    "files": [
+      "dist"
+    ],
+  
+    "engines": {
+      "node": ">=16"
+    },
+  
+    "scripts": {
+      "build": "tsc -b",
+      "dev": "tsc -b --watch",
+      "lint": "eslint \"src/**/*.{ts,tsx}\"",
+      "test": "jest"
+    },
+  
+    "dependencies": {
+      "@meepstudio/hooks": "workspace:*",
+      "@meepstudio/providers": "workspace:*",
+      "@meepstudio/types": "workspace:*",
+
+      "@xterm/xterm": "^5.0.0",
+      "konva": "^9.0.0",
+      "lucide-react": "^0.507.0",
+      "nanoid": "^5.0.0",
+      "react-konva": "^19.0.0",
+      "zustand": "^5.0.0"
+    },
+    "devDependencies": {
+    }
+}
