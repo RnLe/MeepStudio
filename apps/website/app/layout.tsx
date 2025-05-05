@@ -1,11 +1,14 @@
 // root layout
-
 import React from "react"
 
 // Import logger
 import { logger } from "@meepstudio/utils";
+import { ThemeProvider } from "next-themes";
+
+import { TopNavBar } from "src/ui/topNavBar";
 
 // Misc
+import './global.css'
 
 export const metadata = {
   title: 'MeepStudio',
@@ -24,9 +27,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head />
       <body className="w-screen h-screen">
-        <Providers>
-          {children}
-        </Providers>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Providers>
+            <TopNavBar />
+            <div className="flex justify-center items-center h-auto">
+              {children}
+            </div>
+          </Providers>
+        </ThemeProvider>
       </body>
     </html>
   );

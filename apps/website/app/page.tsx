@@ -7,8 +7,8 @@ export default function HomePage() {
  
   // Return the JSX
   return (
-    <div className="w-full h-full flex">
-      It works!!
+    <div className="w-auto h-auto">
+      Hey!
     </div>
   );
 }

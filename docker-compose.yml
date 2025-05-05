@@ -11,12 +11,9 @@ services:
       - "3000:3000"
     volumes:
       # Mount the packages components (note: this copies EVERYTHING in the packages directory, including node_modules and dist)
-      - ./packages:/repo/packages
+      - ./packages:/repo/packages:cached
       # Mount the website app
-      - ./apps/website/src:/repo/apps/website/src
-      - ./apps/website/app:/repo/apps/website/app
-      - ./apps/website/public:/repo/apps/website/public
-      - ./apps/website/next.config.ts:/repo/apps/website/next.config.ts
+      - ./apps/website/:/repo/apps/website/:cached
       # Mask the node_modules folders (the less node_modules are copied over, the better/faster)
       - /repo/node_modules
       - /repo/apps/website/node_modules
