@@ -17,6 +17,7 @@ services:
       # Mask the node_modules folders (the less node_modules are copied over, the better/faster)
       - /repo/node_modules
       - /repo/apps/website/node_modules
+      - /repo/apps/website/.next
     working_dir: /repo/apps/website
 
   meepstudio_backend:

@@ -1,3 +1,10 @@
+/* Import the main tailwind class */
 @import "tailwindcss";
-@import "tailwindcss/preflight";
-@tailwind utilities;
+/* Do NOT import the "tailwindcss/preflight" class as it will break the styling */
+
+/* With the following line of code, instead of dark:* utilities being applied based on prefers-color-scheme,
+they will be applied whenever the dark class is present earlier in the HTML tree 
+Or in simpler terms: Dark Mode - Activated
+Ignore the "Unknown at rule @custom-variant" warning
+*/
+@custom-variant dark (&:where(.dark, .dark *));
