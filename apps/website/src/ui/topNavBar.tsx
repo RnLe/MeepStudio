@@ -33,7 +33,7 @@ export function TopNavBar() {
             href="/download"
             className={`
               ${baseLink} 
-              ${pathname === '/download' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
+              ${pathname === '/download/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
             `}
           >
             Download
@@ -42,7 +42,7 @@ export function TopNavBar() {
             href="/contribute"
             className={`
               ${baseLink} 
-              ${pathname === '/contribute' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
+              ${pathname === '/contribute/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
             `}
           >
             Contribute
@@ -56,7 +56,7 @@ export function TopNavBar() {
               ${baseLink}
               ${hoverLink}
               w-40 text-2xl
-              ${pathname === '/meepstudio' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
+              ${pathname === '/meepstudio/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
             `}
           >
             MeepStudio

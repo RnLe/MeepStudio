@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+# run on every push to main
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+
+    # allow writing to Pages
+    permissions:
+      contents: read
+      pages:   write
+      id-token: write
+
+    steps:
+      # 1) grab your repo
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2) install PNPM
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      # 3) install Node + cache your deps
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      # 4) install all packages in the monorepo
+      - name: Install dependencies
+        run: pnpm install
+
+      # 5) build everything (packages + website)
+      - name: Build & export
+        run: pnpm run build
+
+      # 6) configure Pages
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v3
+
+      # 7) upload the static “out/” dir for your website
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: apps/website/out
+
+      # 8) finally, deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v1

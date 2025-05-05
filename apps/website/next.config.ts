@@ -1,13 +1,50 @@
 // apps/website/next.config.ts
-import { NextConfig } from "next";
+// This file might look somewhat complex, but it's straightforward.
 
-const config: NextConfig = {
-    // Tell next.js to use packages outside of the root directory
-    transpilePackages: [
-        "@meepstudio/utils",
-        // add any other @meepstudio/* package you import
-    ],
-    serverExternalPackages: ['pino'],
-};
+// These elements are for internal functionality:
+// transpilePackages: [
+//     "@meepstudio/utils",
+//     // add any other @meepstudio/* package
+// ],
+// serverExternalPackages: ['pino'],
 
-export default config;
+// The rest of the code is to differentiate between the GitHub Pages and local deployments.
+// GitHub sets the environment variable GITHUB_ACTIONS to true when running on GitHub Pages, which controls the basePath and assetPrefix.
+// For local deployment, these need to be empty strings.
+
+const { PHASE_PRODUCTION_BUILD } = require('next/constants')
+import { NextConfig as NextConfigType } from "next"
+const isGHPages = process.env.GITHUB_ACTIONS === 'true'  // set by GitHub
+const repoName = 'MeepStudio'
+
+/** @type {import('next').NextConfig} */
+interface MeepNextConfig extends NextConfigType {
+    transpilePackages: string[]
+    serverExternalPackages: string[]
+}
+
+type NextConfigPhaseFunction = (phase: string) => MeepNextConfig
+
+const moduleExports: NextConfigPhaseFunction = (phase) => {
+        const isProd = phase === PHASE_PRODUCTION_BUILD
+        const useBase = isProd && isGHPages
+
+        return {
+            // EXPORT RELATED CONFIG
+            output: 'export',
+            // when NODE_ENV=production, prefix all routes/assets with /MeepStudio
+            basePath:    useBase ? `/${repoName}` : '',
+            assetPrefix: useBase ? `/${repoName}/` : '',
+            trailingSlash: true,         // output /about/index.html instead of about.html
+            
+            // FUNCTIONALITY RELATED CONFIG
+            // GitHub Pages requires static export and serves from /MeepStudio, so we need Next to emit all HTML/CSS/JS under that path.
+            transpilePackages: [
+                    "@meepstudio/utils",
+                    // add any other @meepstudio/* package
+            ],
+            serverExternalPackages: ['pino'],
+        }
+}
+
+module.exports = moduleExports

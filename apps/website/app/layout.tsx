@@ -22,11 +22,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head />
-      <body className="w-screen h-screen">
+      <body className="flex flex-col h-screen w-screen">
         <ClientThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Providers>
             <TopNavBar />
+            {/* fill remaining space and allow inner scrolling */}
+            <div className="flex-1 overflow-auto dark:bg-neutral-800">
               {children}
+            </div>
           </Providers>
         </ClientThemeProvider>
       </body>

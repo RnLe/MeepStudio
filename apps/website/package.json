@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "deploy": "pnpm run build",
     "start": "next start"
   },
   "build": {
