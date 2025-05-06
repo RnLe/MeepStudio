@@ -1,6 +1,6 @@
 // src/components/layout/RightSidebar.tsx
 import React from "react";
-import { SimulationConsole } from "../SimulationConsole";
+import { SimulationConsole } from "./SimulationConsole";
 import { MeepProject } from "@meepstudio/types";
 import ObjectsList from "./ObjectList";
 import ObjectPropertiesPanel from "./ObjectPropertiesPanels";

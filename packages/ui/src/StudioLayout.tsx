@@ -6,7 +6,7 @@ import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
 import TopNavBar from "./TopNavBar";
 import TabWindowContainer from "./TabWindowContainer";
-import { StudioTabsProvider, useStudioTabs } from "../StudioTabsContext";
+import { StudioTabsProvider, useStudioTabs } from "./StudioTabsContext";
 import { useMeepProjects } from "@meepstudio/hooks";
 
 interface Props {
