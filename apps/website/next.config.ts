@@ -33,10 +33,10 @@ const moduleExports: NextConfigPhaseFunction = (phase) => {
             // EXPORT RELATED CONFIG
             output: 'export',
             // when NODE_ENV=production, prefix all routes/assets with /MeepStudio
-            // basePath:    useBase ? `/${repoName}` : '',
-            // assetPrefix: useBase ? `/${repoName}/` : '',
-            basePath: `/${repoName}`,
-            assetPrefix: `/${repoName}/`,
+            basePath:    useBase ? `/${repoName}` : '',
+            assetPrefix: useBase ? `/${repoName}/` : '',
+            // basePath: `/${repoName}`,
+            // assetPrefix: `/${repoName}/`,
             trailingSlash: true,         // output /about/index.html instead of about.html
             
             // FUNCTIONALITY RELATED CONFIG

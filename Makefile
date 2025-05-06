@@ -43,3 +43,38 @@ rebuild:
 	pnpm install
 	@echo "🏗️ Building packages in packages/…"
 	pnpm run build:packages
+
+
+# Make your life easier connecting to the container
+
+# Convenience variable for executing commands in the running container.
+DC      := docker-compose exec meepstudio_website_dev
+SHELL   := /bin/bash
+.PHONY: shell build serve dev run runb down
+
+# 0) Run the container
+run:
+	docker compose up meepstudio_website_dev
+runb:
+	docker compose up meepstudio_website_dev --build
+down:
+	docker compose down -v
+
+# 1) Drop into a shell in the container
+shell:
+	$(DC) sh
+
+# 2) Build everything from repo root
+build:
+	$(DC) sh -c "cd /repo && pnpm run build"
+
+# 3) Serve the website’s out/ folder on 3001
+#
+#    Assumes both:
+#      • a package.json script like "serve:out": "serve out -l 3001"
+#      • AND that 'serve' is in the devDependencies of the package.json
+serve:
+	pnpm --filter meepstudio-website run serve:out
+
+# 4) One-step: build + serve
+dev: build serve

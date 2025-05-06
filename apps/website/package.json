@@ -7,7 +7,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "deploy": "pnpm run build",
-    "start": "next start"
+    "start": "next start",
+    "serve:out": "serve out -l 3001"
   },
   "build": {
     "productName": "MeepStudio",
@@ -47,6 +48,7 @@
     "typescript": "^5.5.0",
     "ts-node": "^10.9.2",
     "wait-on": "^8.0.0",
-    "concurrently": "^9.0.0"
+    "concurrently": "^9.0.0",
+    "serve": "^14.0.0"
   }
 }
