@@ -14,8 +14,7 @@
 
 const { PHASE_PRODUCTION_BUILD } = require('next/constants')
 import { NextConfig as NextConfigType } from "next"
-const isGHPages = process.env.GITHUB_ACTIONS === 'true'  // set by GitHub
-const repoName = 'MeepStudio'
+const base = process.env.NEXT_BASE_PATH ?? ''
 
 /** @type {import('next').NextConfig} */
 interface MeepNextConfig extends NextConfigType {
@@ -26,17 +25,13 @@ interface MeepNextConfig extends NextConfigType {
 type NextConfigPhaseFunction = (phase: string) => MeepNextConfig
 
 const moduleExports: NextConfigPhaseFunction = (phase) => {
-        const isProd = phase === PHASE_PRODUCTION_BUILD
-        const useBase = isProd && isGHPages
 
         return {
             // EXPORT RELATED CONFIG
             output: 'export',
-            // when NODE_ENV=production, prefix all routes/assets with /MeepStudio
-            basePath:    useBase ? `/${repoName}` : '',
-            assetPrefix: useBase ? `/${repoName}/` : '',
-            // basePath: `/${repoName}`,
-            // assetPrefix: `/${repoName}/`,
+            // when exporting to gh pages, prefix all routes/assets with /MeepStudio
+            basePath: base,
+            assetPrefix: base ? `${base}/` : '',
             trailingSlash: true,         // output /about/index.html instead of about.html
             
             // FUNCTIONALITY RELATED CONFIG
