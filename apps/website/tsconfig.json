@@ -44,6 +44,15 @@
     },
     {
       "path": "../../packages/types"
+    },
+    {
+      "path": "../../packages/ui"
+    },
+    {
+      "path": "../../packages/hooks"
+    },
+    {
+      "path": "../../packages/services"
     }
   ],
   "include": [

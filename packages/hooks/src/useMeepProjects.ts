@@ -1,11 +1,13 @@
 // src/hooks/useMeepProjects.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MeepProject } from "@meepstudio/types";
+import { ghPagesSvc } from "./ghPagesProjectsStore";
 
-type Svc = {
+/* ---------- Service interface ---------- */
+export type Svc = {
   fetchProjects: () => Promise<MeepProject[]>;
-  createProject: (p: Partial<MeepProject>) => Promise<MeepProject>;
-  updateProject: (d: { documentId: string; project: MeepProject }) => Promise<MeepProject>;
+  createProject: (p: Partial<Omit<MeepProject, "documentId" | "createdAt" | "updatedAt">>) => Promise<MeepProject>;
+  updateProject: (d: { documentId: string; project: Partial<MeepProject> }) => Promise<MeepProject | undefined>;
   deleteProject: (id: string) => Promise<void>;
 };
 
@@ -15,23 +17,24 @@ declare global {
   }
 }
 
-function getService(): Svc {
-  /* --------------------------------------------------------
-     If Electron exposes window.api, prefer that.
-     Fallback to the Next API routes when we are in the browser
-     (dev server, Storybook, unit tests, …)
-  --------------------------------------------------------- */
+/* ---------- Detect environment & build service ---------- */
+function buildDefaultService(): Svc {
   if (typeof window !== "undefined" && window.api) {
+    // Electron path (files on disk)
     return window.api;
   }
-  // Browser / docker-dev — call Next’s API routes
-  const wrapFetch = <T>(url: string, init?: RequestInit) =>
+
+  // Browser ↔ Next.js API routes
+  const wrapFetch = async <T>(url: string, init?: RequestInit) =>
     fetch(url, init).then((r) => r.json() as Promise<T>);
 
   return {
     fetchProjects: () => wrapFetch<MeepProject[]>("/api/projects"),
     createProject: (p) =>
-      wrapFetch<MeepProject>("/api/projects", { method: "POST", body: JSON.stringify(p) }),
+      wrapFetch<MeepProject>("/api/projects", {
+        method: "POST",
+        body: JSON.stringify(p),
+      }),
     updateProject: ({ documentId, project }) =>
       wrapFetch<MeepProject>(`/api/projects/${documentId}`, {
         method: "PUT",
@@ -41,51 +44,53 @@ function getService(): Svc {
   };
 }
 
-const svc = getService();
+const remoteSvc = buildDefaultService();
 
-export function useMeepProjects() {
+/* ---------- Main hook ---------- */
+export function useMeepProjects(opts: { ghPages?: boolean } = {}) {
+  const { ghPages = false } = opts;
   const qc = useQueryClient();
+  const service = ghPages ? ghPagesSvc : remoteSvc;
 
-  /* ---------- READ ---------- */
+  /* READ */
   const {
     data: projects = [],
     isLoading,
     error,
-  } = useQuery<MeepProject[]>({
+  } = useQuery({
     queryKey: ["meepProjects"],
-    queryFn: svc.fetchProjects,
+    queryFn: service.fetchProjects,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 
-  /* ---------- CREATE ---------- */
+  /* CREATE */
   const createMut = useMutation({
-    mutationFn: svc.createProject,
+    mutationFn: service.createProject,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meepProjects"] }),
   });
 
-  /* ---------- UPDATE ---------- */
+  /* UPDATE (optimistic) */
   const updateMut = useMutation({
-    mutationFn: svc.updateProject,
+    mutationFn: service.updateProject,
     onMutate: async (vars) => {
       await qc.cancelQueries({ queryKey: ["meepProjects"] });
       const prev = qc.getQueryData<MeepProject[]>(["meepProjects"]);
       if (prev) {
         qc.setQueryData<MeepProject[]>(["meepProjects"], (old) =>
-          old!.map((p) => (p.documentId === vars.documentId ? vars.project : p))
+          old!.map((p) => (p.documentId === vars.documentId ? { ...p, ...vars.project } : p)),
         );
       }
       return { prev };
     },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["meepProjects"], ctx.prev);
-    },
+    onError: (_err, _vars, ctx) =>
+      ctx?.prev && qc.setQueryData(["meepProjects"], ctx.prev),
     onSettled: () => qc.invalidateQueries({ queryKey: ["meepProjects"] }),
   });
 
-  /* ---------- DELETE ---------- */
+  /* DELETE */
   const deleteMut = useMutation({
-    mutationFn: svc.deleteProject,
+    mutationFn: service.deleteProject,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meepProjects"] }),
   });
 

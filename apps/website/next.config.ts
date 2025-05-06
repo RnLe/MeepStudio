@@ -43,9 +43,26 @@ const moduleExports: NextConfigPhaseFunction = (phase) => {
             // GitHub Pages requires static export and serves from /MeepStudio, so we need Next to emit all HTML/CSS/JS under that path.
             transpilePackages: [
                     "@meepstudio/utils",
-                    // add any other @meepstudio/* package
+                    "@meepstudio/ui",
+                    "@meepstudio/types",
+                    "@meepstudio/providers"
             ],
             serverExternalPackages: ['pino'],
+            turbopack: {
+                resolveAlias: {
+                    canvas: "./empty-module.ts",
+                }
+            },
+            // Webpack fallback for production builds
+            webpack(config) {
+                // Stub out 'canvas' for client and server bundles via fallback
+                config.resolve.fallback = {
+                    ...(config.resolve.fallback ?? {}),
+                    canvas: false,
+                };
+
+                return config;
+            },
         }
 }
 

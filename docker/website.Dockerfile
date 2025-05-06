@@ -4,7 +4,7 @@ WORKDIR /repo
 ENV NODE_ENV=development
 
 # 1a) Copy workspace manifests & install
-COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
+COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json .npmrc Makefile ./
 COPY packages packages/
 COPY apps/website apps/website
 # Install pnpm for faster package management; then install all dependencies

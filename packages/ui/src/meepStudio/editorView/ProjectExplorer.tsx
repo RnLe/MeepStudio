@@ -1,4 +1,6 @@
 // src/components/meep/Explorer/ProjectExplorer.tsx
+"use client";
+
 import React, { useState } from "react";
 import { nanoid } from "nanoid";
 import { MeepProject } from "@meepstudio/types";

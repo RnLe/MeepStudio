@@ -1,4 +1,3 @@
-export * from "./topnav";
 export * from "./meepStudio/SimulationConsole";
 export * from "./meepStudio/StudioTabsContext";
 export * from "./meepStudio/canvas/ProjectCanvas";

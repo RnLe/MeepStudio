@@ -34,7 +34,7 @@ export default function LeftSidebar({ projects, openProject, createProject }: Pr
               key={key}
               onClick={() => toggle(key)}
               title={title}
-              className={`group relative flex items-center justify-center w-full h-12 box-border ${
+              className={`group cursor-pointer relative flex items-center justify-center w-full h-12 box-border ${
                 isActive ? "border-l-4 border-blue-400" : "border-l-4 border-transparent"
               }`}
             >
@@ -51,7 +51,7 @@ export default function LeftSidebar({ projects, openProject, createProject }: Pr
 
       {/* Sliding panel */}
       <div
-        className={`flex-none bg-gray-900 border-r border-gray-700 overflow-hidden transition-all duration-200 ${
+        className={`flex-none bg-neutral-800 border-r border-gray-700 overflow-hidden transition-all duration-200 ${
           panel ? "w-64" : "w-0"
         }`}
       >

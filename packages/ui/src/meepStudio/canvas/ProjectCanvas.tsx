@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useMemo } from "react";
-import dynamic from "next/dynamic";
 import { shallow } from "zustand/shallow";
 import { useCanvasStore } from "@meepstudio/providers";
 import {
@@ -9,12 +8,7 @@ import {
   Rectangle as RectEl,
 } from "@meepstudio/types";
 
-/* dynamically load every Konva primitive on the client only */
-const Stage  = dynamic(() => import("react-konva").then((m) => m.Stage),  { ssr: false });
-const Layer  = dynamic(() => import("react-konva").then((m) => m.Layer),  { ssr: false });
-const Line   = dynamic(() => import("react-konva").then((m) => m.Line),   { ssr: false });
-const Circle = dynamic(() => import("react-konva").then((m) => m.Circle), { ssr: false });
-const Rect   = dynamic(() => import("react-konva").then((m) => m.Rect),   { ssr: false });
+import { Stage, Layer, Line, Circle, Rect } from 'react-konva';
 
 /* grid constants */
 const GRID_PX = 40;

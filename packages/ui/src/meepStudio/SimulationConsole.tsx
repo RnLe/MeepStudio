@@ -8,7 +8,7 @@ import "@xterm/xterm/css/xterm.css";
 interface Props {
   logs: string[];
 }
-export default function SimulationConsole({ logs }: Props) {
+export function SimulationConsole({ logs }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
 

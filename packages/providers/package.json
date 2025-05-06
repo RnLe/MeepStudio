@@ -26,9 +26,7 @@
   
     "dependencies": {
       "@meepstudio/types": "workspace:*",
-
       "@tanstack/react-query": "^5.0.0",
-
       "nanoid": "^5.0.0",
       "zustand": "^5.0.0"
     },

@@ -9,8 +9,12 @@ import TabWindowContainer from "./TabWindowContainer";
 import { StudioTabsProvider, useStudioTabs } from "../StudioTabsContext";
 import { useMeepProjects } from "@meepstudio/hooks";
 
-const InnerLayout: React.FC = () => {
-  const { projects, isLoading, createProject } = useMeepProjects();
+interface Props {
+  ghPages: boolean;     // Whether to use GitHub Pages; controls the availability of some features
+}
+
+const InnerLayout: React.FC<Props> = ({ghPages}) => {
+  const { projects, isLoading, createProject } = useMeepProjects({ ghPages });
   const [rightOpen, setRightOpen] = useState(true);
   const { tabs, activeId, openTab, closeTab, selectTab } = useStudioTabs();
   const active = tabs.find((t) => t.documentId === activeId) || null;
@@ -18,7 +22,7 @@ const InnerLayout: React.FC = () => {
   if (isLoading) return <div className="p-4">Loading …</div>;
 
   return (
-    <div className="flex h-full w-full bg-gray-900 text-white overflow-hidden">
+    <div className="flex h-full w-full bg-neutral-900 text-white overflow-hidden">
       <LeftSidebar projects={projects} openProject={openTab} createProject={createProject} />
 
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -49,10 +53,12 @@ const InnerLayout: React.FC = () => {
   );
 };
 
-const StudioLayout = () => (
+interface StudioLayoutProps {
+  ghPages: boolean;     // Whether to use GitHub Pages; controls the availability of some features
+}
+
+export const StudioLayout: React.FC<StudioLayoutProps> = ({ ghPages }) => (
   <StudioTabsProvider>
-    <InnerLayout />
+    <InnerLayout ghPages={ghPages} />
   </StudioTabsProvider>
 );
-
-export default StudioLayout;
