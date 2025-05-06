@@ -2,12 +2,12 @@
 const config = {
   darkMode: 'class',
   content: [
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/*.{js,ts,jsx,tsx,mdx}',
-    '../../packages/**/**/*.{js,ts,jsx,tsx,mdx}',
-    '../../packages/**/**/**/*.{js,ts,jsx,tsx,mdx}',
-    '../../packages/**/**/**/**/*.{js,ts,jsx,tsx,mdx}',
+    join(__dirname, 'app/**/*.{js,ts,jsx,tsx,mdx}'),
+    join(__dirname, 'src/**/*.{js,ts,jsx,tsx,mdx}'),
+    // Workspace packages (source)
+    join(__dirname, '../../packages/**/*.{js,ts,jsx,tsx,mdx}'),
+    // Linked copies inside node_modules
+    join(__dirname, '../../../node_modules/@meepstudio/**/*.{js,ts,jsx,tsx}'),
   ],
   theme: { extend: {} },
   plugins: [
