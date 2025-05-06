@@ -12,7 +12,6 @@
 // GitHub sets the environment variable GITHUB_ACTIONS to true when running on GitHub Pages, which controls the basePath and assetPrefix.
 // For local deployment, these need to be empty strings.
 
-const { PHASE_PRODUCTION_BUILD } = require('next/constants')
 import { NextConfig as NextConfigType } from "next"
 const base = process.env.NEXT_BASE_PATH ?? ''
 

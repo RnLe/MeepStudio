@@ -7,6 +7,7 @@ const config = {
     './app/*.{js,ts,jsx,tsx,mdx}',
     '../../packages/**/**/*.{js,ts,jsx,tsx,mdx}',
     '../../packages/**/**/**/*.{js,ts,jsx,tsx,mdx}',
+    '../../packages/**/**/**/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: { extend: {} },
   plugins: [
