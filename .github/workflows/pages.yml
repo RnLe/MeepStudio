@@ -26,6 +26,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+        # IMPORTANT: The .gitignore file is also read when building the site and important files are ignored. So delete it here.
+        # Its safe deleting it here, since this is a temporary build folder; the .gitignore is still pushed to the repo.
+      - name: Remove .gitignore inside CI build folder
+        run: rm .gitignore
+      
+
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
         with:
@@ -37,7 +43,7 @@ jobs:
           node-version: '22'
           cache: 'pnpm'
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build & export site
         run: pnpm run build

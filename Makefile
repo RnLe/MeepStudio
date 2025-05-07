@@ -10,6 +10,7 @@
 CLEAN_DIRS := \
   node_modules \
   .turbo \
+  out \
   **/**/node_modules \
   **/**/.next \
   **/**/out \
@@ -18,7 +19,6 @@ CLEAN_DIRS := \
 
 # Files to blow away
 CLEAN_FILES := \
-  pnpm-lock.yaml \
   **/**/*.tsbuildinfo \
 
 .PHONY: clean
@@ -76,5 +76,10 @@ build:
 serve:
 	pnpm --filter meepstudio-website run serve:out
 
-# 4) One-step: build + serve
-dev: build serve
+# Completely clean the repo, install dependencies, build, and serve (reproducing the gh actions workflow)
+dev: clean
+	pnpm i && pnpm run build && pnpm --filter meepstudio-website run serve:out
+
+prod: clean down
+	docker compose up meepstudio_website_prod --build && \
+	npx serve out -l 3001

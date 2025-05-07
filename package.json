@@ -5,24 +5,27 @@
   "description": "Meep Studio",
   "author": "Rene-Marcel Lehner",
   "license": "MIT",
-  
   "scripts": {
-    "dev":   "turbo run dev --parallel",
+    "dev": "turbo run dev --parallel",
     "build": "turbo run build",
     "build:packages": "turbo run build --filter=./packages/*",
-    "deploy":"turbo run deploy",
-    "lint":  "turbo run lint",
-    "test":  "turbo run test"
+    "deploy": "turbo run deploy",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
   },
-
   "packageManager": "pnpm@10.10.0",
-
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "dependencies": {
     "next": "^15.0.0",
     "pino": "^9.0.0",
     "pino-pretty": "^13.0.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "serve": "^14.2.4",
+    "turbo": "^2.5.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -32,7 +35,6 @@
     "eslint-config-next": "15.1.4",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-prettier": "^5.2.6",
-    "turbo": "^2.5.2",
     "typescript": "^5.8.3"
   },
   "engines": {

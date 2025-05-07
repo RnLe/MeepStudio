@@ -1,3 +1,7 @@
+# VERY IMPORTANT:
+# .GITIGNORE IS ALSO READ BY TAILWIND
+# This means that if having this .gitignore file in the root of the project while building, the tailwind classes break for the local packages.
+# To avoid this, both docker and the gh actions remove or ignore this file.
 # Ignore sensitive files
 trace
 

@@ -1,109 +1,82 @@
 .
+├── .dockerignore
+├── .github
+│   └── workflows
+│       └── pages.yml
+├── .gitignore
+├── .npmrc
+├── LICENSE
 ├── Makefile
 ├── apps
-│   └── website
-│       ├── app
-│       │   ├── contribute
-│       │   │   └── page.tsx
-│       │   ├── download
-│       │   │   └── page.tsx
-│       │   ├── global.css
-│       │   ├── layout.tsx
-│       │   ├── meepstudio
-│       │   │   └── page.tsx
-│       │   ├── not-found.tsx
-│       │   └── page.tsx
-│       ├── empty-module.ts
-│       ├── next-env.d.ts
-│       ├── next.config.ts
-│       ├── package.json
-│       ├── postcss.config.mjs
-│       ├── public
-│       │   └── favicon.ico
-│       ├── src
-│       │   ├── components
-│       │   │   ├── ClientThemeProvider.tsx
-│       │   │   ├── DownloadPagePlaceholder.tsx
-│       │   │   ├── RepoBadge.tsx
-│       │   │   └── ThemeToggle.tsx
-│       │   └── ui
-│       │       └── topNavBar.tsx
-│       ├── tailwind.config.js
-│       └── tsconfig.json
+│   ├── backend
+│   │   ├── __pycache__
+│   │   │   └── api.cpython-311.pyc
+│   │   ├── api.py
+│   │   └── environment.yml
+│   ├── desktop
+│   │   ├── next-env.d.ts
+│   │   ├── next.config.ts
+│   │   ├── src
+│   │   │   ├── components
+│   │   │   ├── main.js
+│   │   │   └── preload.ts
+│   │   └── tsconfig.json
+│   └── website
+│       ├── .env.development
+│       ├── .env.production
+│       ├── app
+│       │   ├── contribute
+│       │   │   └── page.tsx
+│       │   ├── download
+│       │   │   └── page.tsx
+│       │   ├── global.css
+│       │   ├── layout.tsx
+│       │   ├── meepstudio
+│       │   │   └── page.tsx
+│       │   ├── not-found.tsx
+│       │   └── page.tsx
+│       ├── empty-module.ts
+│       ├── next-env.d.ts
+│       ├── next.config.ts
+│       ├── package.json
+│       ├── postcss.config.mjs
+│       ├── public
+│       │   └── favicon.ico
+│       ├── src
+│       │   ├── .eslintrc.json
+│       │   ├── components
+│       │   │   ├── ClientThemeProvider.tsx
+│       │   │   ├── DownloadPagePlaceholder.tsx
+│       │   │   ├── RepoBadge.tsx
+│       │   │   └── ThemeToggle.tsx
+│       │   └── ui
+│       │       └── topNavBar.tsx
+│       └── tsconfig.json
 ├── docker
-│   ├── backend.Dockerfile
-│   ├── desktop.Dockerfile
-│   └── website.Dockerfile
+│   ├── backend.Dockerfile
+│   ├── desktop.Dockerfile
+│   └── website.Dockerfile
 ├── docker-compose.yml
 ├── folder_tree.txt
+├── folder_tree_.txt
 ├── package.json
 ├── packages
-│   ├── api
-│   │   ├── package.json
-│   │   ├── src
-│   │   │   ├── index.ts
-│   │   │   └── meepProjectsIO.ts
-│   │   ├── tsconfig.json
-│   ├── helpers
-│   │   ├── package.json
-│   │   ├── src
-│   │   │   ├── index.ts
-│   │   │   └── timesToString.ts
-│   │   ├── tsconfig.json
-│   ├── hooks
-│   │   ├── package.json
-│   │   ├── src
-│   │   │   ├── ghPagesProjectsStore.ts
-│   │   │   ├── index.ts
-│   │   │   └── useMeepProjects.ts
-│   │   ├── tsconfig.json
-│   ├── providers
-│   │   ├── package.json
-│   │   ├── src
-│   │   │   ├── CanvasStore.tsx
-│   │   │   ├── index.ts
-│   │   │   └── providers.tsx
-│   │   ├── tsconfig.json
-│   ├── services
-│   │   ├── package.json
-│   │   ├── src
-│   │   │   ├── index.ts
-│   │   │   └── meepProjectService.ts
-│   │   ├── tsconfig.json
-│   ├── types
-│   │   ├── package.json
-│   │   ├── src
-│   │   │   ├── canvasElementTypes.ts
-│   │   │   ├── index.ts
-│   │   │   ├── materialTypes.ts
-│   │   │   └── meepProjectTypes.ts
-│   │   ├── tsconfig.json
-│   ├── ui
-│   │   ├── package.json
-│   │   ├── src
-│   │   │   ├── CanvasToolbar.tsx
-│   │   │   ├── LeftSidebar.tsx
-│   │   │   ├── ObjectList.tsx
-│   │   │   ├── ObjectPropertiesPanels.tsx
-│   │   │   ├── ProjectCanvas.tsx
-│   │   │   ├── ProjectExplorer.tsx
-│   │   │   ├── RightSidebar.tsx
-│   │   │   ├── SimulationConsole.tsx
-│   │   │   ├── StudioLayout.tsx
-│   │   │   ├── StudioTabsContext.tsx
-│   │   │   ├── TabWindowContainer.tsx
-│   │   │   ├── TopNavBar.tsx
-│   │   │   └── index.ts
-│   │   ├── tsconfig.json
-│   └── utils
-│       ├── package.json
-│       ├── src
-│       │   ├── fileUtils.ts
-│       │   ├── index.ts
-│       │   └── logger.ts
-│       ├── tsconfig.json
+│   ├── api
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── index.ts
+│   │   │   └── meepProjectsIO.ts
+│   │   └── tsconfig.json
+│   ├── helpers
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── index.ts
+│   │   │   └── timesToString.ts
+│   │   └── tsconfig.json
+... (some more packages)
 ├── pnpm-lock.yaml
 ├── pnpm-workspace.yaml
+├── tailwind.config.js
 ├── tsconfig.base.json
 ├── tsconfig.json
 └── turbo.json
