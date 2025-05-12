@@ -1,0 +1,156 @@
+import { Plus, Minus, Edit3, CheckCircle, Info } from 'lucide-react';
+
+<div className="flex justify-between items-baseline">
+  <h1>Major Update - a3.0.0</h1>
+  <div className="mx-8">Monday - May 12, 2025</div>
+</div>
+
+_Restructuring and reorganization of the website, with many more changes to come.
+Main changes include Markdown (`.md` and `.mdx`) support, pre-commit hooks and an "Updates" page.
+The website layout is still subject to major changes. The next updates will focus on the editor._
+
+## Editor
+
+_Minor updates to the editor._
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Added
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added zooming functionality.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Right-click dragging now pans the view.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added a left-click drag to select multiple objects. Selecting the objects doesn't work yet, but the groundwork is there.</span>
+      </div>
+</div>
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Removed
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Minus color="#c96e5a" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Removed the simulation view mockup.</span>
+      </div>
+</div>
+
+## Website
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Added
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added an 'Updates' page to the website. This will be used to track changes to the website and the editor.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added clickable and foldable table of contents to the 'Updates' page as a left sidebar. Clicks on the table of contents will scroll to the corresponding section.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added a heatmap calendar to the 'Updates' page. The heatmap calendar shows the update type and date of the last update.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added vintage color coding to the heatmap calendar and update types. Colors are theme-insensitive. (dark mode and light mode are the same.)</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added iconized bullet points to the 'Updates' page.</span>
+      </div>
+</div>
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Changed
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Edit3 color="#f3dbba" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Layout of the top navigation bar. (still subject to major changes)</span>
+      </div>
+</div>
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Removed
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Minus color="#c96e5a" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Removed the mockup download page.</span>
+      </div>
+</div>
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Other
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Info color="#f3dbba" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Planned feature: Tooltips and clickable entries of the heatmap calendar.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Info color="#f3dbba" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Planned feature: TOC entries indicate the number of changes in the update.</span>
+      </div>
+</div>
+
+## Developer
+
+_Added many new frameworks and tools to the developer pipeline. Not all will be listed here._
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Added
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added markdown (`.md` and `.mdx`) parsing support.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added prose tailwind support for the markdown files.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added script to convert `.yml` changelog files to `.mdx` files.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added pre-commit hooks for converting `.yml` changelog files to `.mdx` files. Intended workflow: `write .yml changelog file` -> `git commit` -> `pre-commit converts .yml to .mdx` -> `gh actions deployment`. Only write the `.yml` file. The `.mdx` file will be generated automatically with the pre-commit hook.</span>
+      </div>
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added build folder for the `.mdx` files to the `.gitignore`.</span>
+      </div>
+</div>

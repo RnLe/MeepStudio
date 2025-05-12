@@ -20,6 +20,3 @@ out/
 
 # Ignore vscode settings
 .vscode/
-
-# Ignore .mdx build file folder
-**/changelog/mdx/

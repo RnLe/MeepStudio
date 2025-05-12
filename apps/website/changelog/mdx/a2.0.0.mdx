@@ -1,0 +1,32 @@
+import { Plus, Minus, Edit3, CheckCircle, Info } from 'lucide-react';
+
+<div className="flex justify-between items-baseline">
+  <h1>Major Update - a2.0.0</h1>
+  <div className="mx-8">Wednesday - May 7, 2025</div>
+</div>
+
+_Major updates to the developer pipeline._
+
+## Developer
+
+_Many configuration tweaks and changes, as well as internal documentation updates._
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Added
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <Plus color="#7cae93" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Added many development-helping scripts. The Makefile can now be used to quickly navigate project development.</span>
+      </div>
+</div>
+
+<div className="pl-4 m-2 border-none rounded-2xl border-b-gray-600">
+### Fixed
+<div className="flex items-start gap-2 my-1">
+        <span className="shrink-0 self-start pt-[4]" style={{ width: 22, height: 22, display: 'inline-flex' }}>
+          <CheckCircle color="#f3dbba" size={20} />
+        </span>
+        <span className="whitespace-pre-line">Fixed GitHub Actions for CI/CD. The deployed static site had a broken UI for the editor. This was due to the tailwind component reading the `.gitignore` file. GH Actions now ignores the `.gitignore` file when building the static site.</span>
+      </div>
+</div>
