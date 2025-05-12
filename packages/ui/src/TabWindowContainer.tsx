@@ -5,22 +5,35 @@ import dynamic from "next/dynamic";
 import CanvasToolbar from "./CanvasToolbar";
 import { MeepProject } from "@meepstudio/types";
 
-// dynamically load the client-only ProjectCanvas with typed props (so it never touches the SSR compiler)
-const ProjectCanvas = dynamic<{ project: MeepProject }>(
-  () => import("./ProjectCanvas"),
-  { ssr: false }
-);
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 10;
+
+// pick your desired integer grid size here (or pull from activeProject)
+const GRID_W = 80;
+const GRID_H = 80;
+
+// dynamically load the client-only ProjectCanvas
+const ProjectCanvas = dynamic<{
+  project: MeepProject;
+  minZoom: number;
+  maxZoom: number;
+  gridWidth: number;
+  gridHeight: number;
+}>(() => import("./ProjectCanvas"), { ssr: false });
 
 const TabWindowContainer: React.FC<{ activeProject: MeepProject }> = ({
   activeProject,
 }) => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* toolbar can sit above the canvas */}
       <CanvasToolbar />
-
-      {/* this import only runs in the browser */}
-      <ProjectCanvas project={activeProject} />
+      <ProjectCanvas
+        project={activeProject}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
+        gridWidth={GRID_W}
+        gridHeight={GRID_H}
+      />
     </div>
   );
 };

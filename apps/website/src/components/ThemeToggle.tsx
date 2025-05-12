@@ -15,7 +15,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(current === 'dark' ? 'light' : 'dark')}
-      className="cursor-pointer"
+      className="cursor-pointer mx-8"
       aria-label="Toggle Dark Mode"
     >
       {current === 'dark'

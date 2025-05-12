@@ -1,0 +1,49 @@
+version: a1.0.0
+date:   2025-05-01
+notes: |
+  Initial release of the website. Addition and changes are focused on internal development and pipeline setup.
+  Main changes include the deployment to the static GitHub Pages site for public access.
+entries:
+  editor:
+    notes: Basic setup. Simple 2D editor with extremely limited features. Serves as proof of concept.
+    added:
+      - "Initial release of the editor."
+      - "VSCode-like interface to promote user familiarity. Tab windows for each project."
+      - "Basic 2D project creation."
+      - "Persistent storage of projects in local browser storage."
+      - "Simple grid snapping functionality."
+      - "Create circle and rectangle shapes."
+      - "Added mockup for simulation view. (will be removed)"
+    changed:
+    fixed:
+    removed:
+    other:
+  website:
+    notes: Introduced basic layout, which is subject to change. 
+    added:
+      - "Initial release of the website."
+      - "Basic layout with a header and main content area."
+      - "Added repository badge for GitHub in the header."
+      - "Added full theme switching functionality."
+      - "Added mockup download buttons."
+    changed:
+    fixed:
+    removed:
+    other:
+  desktop client:
+    notes:
+    added:
+    changed:
+    fixed:
+    removed:
+    other:
+  developer:
+    notes: Major changes to the developer pipeline. Not all will be listed here.
+    added:
+      - "Added GitHub Actions for CI/CD."
+      - "Added improved Dockerfile pipeline for local development."
+      - "Added GitHub Pages deployment for the website."
+    changed:
+    fixed:
+    removed:
+    other:

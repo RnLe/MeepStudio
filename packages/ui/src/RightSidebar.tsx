@@ -33,17 +33,7 @@ const RightSidebar: React.FC<Props> = ({ open, project }) => {
       <ObjectsList />
       <hr className="border-gray-700" />
       <ObjectPropertiesPanel />
-      <hr className="border-gray-700" />
 
-      <h3 className="text-lg font-semibold text-white">Simulation</h3>
-      <button className="w-full py-1 bg-blue-600 rounded">Run ▶︎</button>
-      <button className="w-full py-1 bg-red-600 rounded">Stop ■</button>
-      <div className="border border-gray-600 rounded h-40 overflow-hidden">
-        <SimulationConsole logs={project?.lastExecutionConsoleLogs || []} />
-      </div>
-      <div className="border border-gray-600 rounded h-40 flex items-center justify-center text-gray-500 text-sm">
-        Field plot
-      </div>
     </div>
   );
 };

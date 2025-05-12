@@ -1,0 +1,44 @@
+# Example format for a changelog file
+# Stick to the format below for the scripts to automatically build the corresponding .mdx files
+version: a0.1.0       # This is also the file name
+date:   2025-05-08
+notes: |
+  This is a sample changelog entry for the website. All entries are markdown formatted strings.
+
+  With the pipe symbol, you can add text that spans multiple lines and has paragraphs.
+entries:
+  editor:
+    notes: \"Editor\" changes regard the editor component of the website (Project Explorer, Tab Manager, Canvas, etc.)
+    added:
+      - This will appear as an array of strings when parsing
+      - Change 1
+      - A bold "**Change 2**"
+      - |
+        Change 3 - Multiline
+
+        No need for "escape characters" here
+    changed:
+    fixed:
+    removed:
+    other:
+  website:
+    notes: \"Website\" changes regard the website component of the website (Homepage, Documentation, etc.)
+    added:
+    changed:
+    fixed:
+    removed:
+    other:
+  desktop client:
+    notes:
+    added:
+    changed:
+    fixed:
+    removed:
+    other:
+  developer:
+    notes:
+    added:
+    changed:
+    fixed:
+    removed:
+    other:

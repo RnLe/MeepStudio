@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "description": "",
   "author": "Rene-Marcel Lehner",
+  "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:changelog": "node scripts/build-changelog.js",
     "deploy": "pnpm run build",
     "start": "next start",
     "serve:out": "serve out -l 3001"
@@ -13,42 +15,65 @@
   "build": {
     "productName": "MeepStudio",
     "appId": "com.rnle.meepstudio",
-    "files": [
-    ],
+    "files": [],
     "asar": true,
-    "linux": { "target": "AppImage" },
-    "win":   { "target": "nsis" },
-    "mac":   { "target": "dmg" }
+    "linux": {
+      "target": "AppImage"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    }
   },
   "dependencies": {
-    "@meepstudio/utils": "workspace:*",
+    "@mdx-js/loader": "^3.1.0",
+    "@mdx-js/react": "^3.1.0",
+    "@meepstudio/helpers": "workspace:*",
+    "@meepstudio/hooks": "workspace:*",
     "@meepstudio/providers": "workspace:*",
+    "@meepstudio/services": "workspace:*",
     "@meepstudio/types": "workspace:*",
     "@meepstudio/ui": "workspace:*",
-    "@meepstudio/hooks": "workspace:*",
-    "@meepstudio/services": "workspace:*",
-
+    "@meepstudio/utils": "workspace:*",
+    "@next/mdx": "^15.3.2",
     "@tailwindcss/forms": "^0.5.9",
-    "@tailwindcss/typography": "^0.5.9",
     "@tailwindcss/postcss": "^4.0.0",
+    "@tailwindcss/typography": "^0.5.9",
+    "@tanstack/react-query": "^5.0.0",
     "autoprefixer": "^10.4.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "gray-matter": "^4.0.3",
     "lucide-react": "^0.507.0",
+    "nanoid": "^5.0.0",
+    "next": "^15.3.2",
+    "next-mdx-remote": "^5.0.0",
     "next-themes": "^0.4.0",
+    "nextra": "^4.2.17",
+    "nextra-theme-docs": "^4.2.17",
     "pino": "^9.0.0",
     "pino-pretty": "^13.0.0",
     "postcss": "^8.4.0",
-    "swr":"^2.3.3",
+    "react": "^19.1.0",
+    "react-calendar-heatmap": "^1.10.0",
+    "react-dom": "^19.1.0",
+    "react-tooltip": "^5.28.1",
+    "semver": "^7.7.1",
+    "swr": "^2.3.3",
     "tailwindcss": "^4.0.0",
     "use-sync-external-store": "^1.2.0",
-    "zustand": "^5.0.0",
-    "nanoid": "^5.0.0",
-    "@tanstack/react-query": "^5.0.0"
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
-    "ts-node": "^10.9.2",
-    "wait-on": "^8.0.0",
+    "@types/mdx": "^2.0.13",
+    "@types/react-calendar-heatmap": "^1.9.0",
+    "@types/semver": "^7.7.0",
     "concurrently": "^9.0.0",
-    "serve": "^14.0.0"
+    "serve": "^14.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0",
+    "wait-on": "^8.0.0"
   }
 }

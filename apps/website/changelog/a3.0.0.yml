@@ -1,0 +1,53 @@
+version: a3.0.0
+date:   2025-05-12
+notes: |
+  Restructuring and reorganization of the website, with many more changes to come.
+  Main changes include Markdown (`.md` and `.mdx`) support, pre-commit hooks and an "Updates" page.
+  The website layout is still subject to major changes. The next updates will focus on the editor.
+entries:
+  editor:
+    notes: Minor updates to the editor.
+    added:
+      - "Added zooming functionality."
+      - "Right-click dragging now pans the view."
+      - "Added a left-click drag to select multiple objects. Selecting the objects doesn't work yet, but the groundwork is there."
+    changed:
+    fixed:
+    removed:
+      - "Removed the simulation view mockup."
+    other:
+  website:
+    notes: 
+    added:
+      - "Added an 'Updates' page to the website. This will be used to track changes to the website and the editor."
+      - "Added clickable and foldable table of contents to the 'Updates' page as a left sidebar. Clicks on the table of contents will scroll to the corresponding section."
+      - "Added a heatmap calendar to the 'Updates' page. The heatmap calendar shows the update type and date of the last update."
+      - "Added vintage color coding to the heatmap calendar and update types. Colors are theme-insensitive. (dark mode and light mode are the same.)"
+      - "Added iconized bullet points to the 'Updates' page."
+    changed:
+      - "Layout of the top navigation bar. (still subject to major changes)"
+    fixed:
+    removed:
+      - "Removed the mockup download page."
+    other:
+      - "Planned feature: Tooltips and clickable entries of the heatmap calendar."
+      - "Planned feature: TOC entries indicate the number of changes in the update."
+  desktop client:
+    notes:
+    added:
+    changed:
+    fixed:
+    removed:
+    other:
+  developer:
+    notes: Added many new frameworks and tools to the developer pipeline. Not all will be listed here.
+    added:
+      - "Added markdown (`.md` and `.mdx`) parsing support."
+      - "Added prose tailwind support for the markdown files."
+      - "Added script to convert `.yml` changelog files to `.mdx` files."
+      - "Added pre-commit hooks for converting `.yml` changelog files to `.mdx` files. Intended workflow: `write .yml changelog file` -> `git commit` -> `pre-commit converts .yml to .mdx` -> `gh actions deployment`. Only write the `.yml` file. The `.mdx` file will be generated automatically with the pre-commit hook."
+      - "Added build folder for the `.mdx` files to the `.gitignore`."
+    changed:
+    fixed:
+    removed:
+    other:

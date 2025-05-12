@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: docker/website.Dockerfile
       target: developer
+    command: ["pnpm", "run", "dev"]
     ports:
       - "3000:3000"
     volumes:

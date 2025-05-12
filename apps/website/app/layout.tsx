@@ -24,13 +24,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head />
       <body className="flex flex-col h-screen w-screen">
         <ClientThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Providers>
-            <TopNavBar />
-            {/* fill remaining space and allow inner scrolling */}
-            <div className="flex-1 overflow-auto dark:bg-neutral-800">
-              {children}
-            </div>
-          </Providers>
+          {/* flex wrapper that fills the screen under body */}
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <Providers>
+              <TopNavBar />
+              {/* now this pane grows */}
+              <main className="
+                flex-1
+                overflow-auto
+                dark:bg-neutral-800 
+                prose-headings:mt-8 prose-headings:font-semibold prose-headings:text-black 
+                prose-h1:text-5xl prose-h2:text-4xl prose-h3:text-3xl 
+                prose-h4:text-2xl prose-h5:text-xl prose-h6:text-lg 
+                dark:prose-headings:text-white
+              ">
+                {children}
+              </main>
+            </Providers>
+          </div>
         </ClientThemeProvider>
       </body>
     </html>

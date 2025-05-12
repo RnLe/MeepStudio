@@ -3,14 +3,14 @@ FROM node:22-alpine AS developer
 WORKDIR /repo
 ENV NODE_ENV=development
 
-# only what pnpm needs to calculate the lock‑file graph
-COPY package.json pnpm-*.yaml turbo.json tsconfig*.json tailwind.config.js ./
-COPY packages packages/
-COPY apps/website apps/website/
-# COPY . .
-# RUN rm .gitignore
+# Copy the entire repo to the container and remove the .gitignore file
+# This mimics the behavior of gh pages and prevents setup mismatches between development and production
+COPY . .
+RUN rm .gitignore
 
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN corepack enable \
+    && pnpm install --frozen-lockfile
+RUN pnpm run build:packages
 
 EXPOSE 3000
 

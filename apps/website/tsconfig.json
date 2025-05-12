@@ -54,12 +54,19 @@
     {
       "path": "../../packages/services"
     }
+    ,
+    {
+      "path": "../../packages/helpers"
+    }
   ],
   "include": [
     "app",
     "next.config.ts",
     "src",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "public/**/*.json",       // Include all JSON files in the public directory
+    "changelog",             // Include the changelog directory
+    
   ],
   "exclude": [
     "node_modules"

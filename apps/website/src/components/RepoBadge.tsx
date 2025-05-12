@@ -54,7 +54,7 @@ export function RepoBadge({
   return (
     <div
       className="
-        inline-flex items-center gap-3 justify-center
+        inline-flex items-center gap-3 justify-center mx-8
         rounded-lg px-4 dark:bg-slate-600 bg-slate-500
         text-sm text-indigo-50 shadow-lg cursor-pointer
         min-w-[200px] dark:hover:bg-slate-500 hover:bg-slate-600 transition-colors duration-75

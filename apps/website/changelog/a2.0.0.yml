@@ -1,0 +1,35 @@
+version: a2.0.0
+date:   2025-05-07
+notes: |
+  Major updates to the developer pipeline.
+entries:
+  editor:
+    notes:
+    added:
+    changed:
+    fixed:
+    removed:
+    other:
+  website:
+    notes: 
+    added:
+    changed:
+    fixed:
+    removed:
+    other:
+  desktop client:
+    notes:
+    added:
+    changed:
+    fixed:
+    removed:
+    other:
+  developer:
+    notes: Many configuration tweaks and changes, as well as internal documentation updates.
+    added:
+      - "Added many development-helping scripts. The Makefile can now be used to quickly navigate project development."
+    changed:
+    fixed:
+      - "Fixed GitHub Actions for CI/CD. The deployed static site had a broken UI for the editor. This was due to the tailwind component reading the `.gitignore` file. GH Actions now ignores the `.gitignore` file when building the static site."
+    removed:
+    other:

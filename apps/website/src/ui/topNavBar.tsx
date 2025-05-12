@@ -1,7 +1,9 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import { ThemeToggle } from 'src/components/ThemeToggle'
 import { RepoBadge } from 'src/components/RepoBadge'
 
@@ -13,13 +15,12 @@ export function TopNavBar() {
   const hoverLink = 'hover:text-slate-800 dark:hover:text-slate-400'
   
   return (
-    <nav className="bg-[#476c85] text-white w-full dark:bg-[#284B63] transition-colors duration-75">
-      <div className="max-w-8xl mx-auto px-4 flex justify-evenly items-center h-16">
+    <nav className="bg-[#476c85] text-white w-full dark:bg-[#284B63] transition-colors duration-75 min-h-16">
+      <div className="max-w-8xl mx-auto px-4 flex justify-between items-center h-full">
         
         <RepoBadge owner="RnLe" repo="MeepStudio" />
-
         {/* Navigation Links */}
-        <div className="flex gap-8">
+        <div className="flex gap-16">
           <Link
             href="/"
             className={`
@@ -30,32 +31,28 @@ export function TopNavBar() {
             Home
           </Link>
           <Link
-            href="/download"
+            href="/documentation"
             className={`
               ${baseLink} 
-              ${pathname === '/download/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
+              ${pathname === '/documentation/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
             `}
           >
-            Download
+            Documentation
           </Link>
           <Link
-            href="/contribute"
+            href="/updates"
             className={`
               ${baseLink} 
-              ${pathname === '/contribute/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
+              ${pathname === '/updates/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
             `}
           >
-            Contribute
+            Updates
           </Link>
-        </div>
-
-        <div>
           <Link
             href="/meepstudio"
             className={`
               ${baseLink}
               ${hoverLink}
-              w-40 text-2xl
               ${pathname === '/meepstudio/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
             `}
           >
