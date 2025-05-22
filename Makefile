@@ -16,6 +16,8 @@ CLEAN_DIRS := \
   **/**/out \
   **/**/dist \
   **/**/.turbo \
+  **/**/pkg \
+  **/**/wasm/target
 
 # Files to blow away
 CLEAN_FILES := \

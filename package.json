@@ -10,6 +10,7 @@
     "build": "turbo run build",
     "build:changelog": "pnpm --filter ./apps/website run build:changelog",
     "build:packages": "turbo run build --filter=./packages/*",
+    "build:wasm": "pnpm --filter ./apps/website run build:wasm",
     "deploy": "turbo run deploy",
     "lint": "turbo run lint",
     "test": "turbo run test",

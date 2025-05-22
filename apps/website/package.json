@@ -5,12 +5,15 @@
   "author": "Rene-Marcel Lehner",
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack",
     "build": "next build",
     "build:changelog": "node scripts/build-changelog.js",
+    "build:wasm": "pnpm run clean:wasm-pkg && cd wasm && wasm-pack build --target bundler --out-dir ../pkg && rm -f ../pkg/.gitignore",
+    "build:wasm:watch": "cd wasm && wasm-pack build --target bundler --out-dir ../pkg --dev --watch",
+    "clean:wasm-pkg": "rm -rf pkg/*",
     "deploy": "pnpm run build",
-    "start": "next start",
-    "serve:out": "serve out -l 3001"
+    "dev": "next dev --turbopack",
+    "serve:out": "serve out -l 3001",
+    "start": "next start"
   },
   "build": {
     "productName": "MeepStudio",

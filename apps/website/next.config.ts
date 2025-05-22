@@ -48,7 +48,10 @@ const nextConfig: NextConfig = {
             ...(config.resolve.fallback ?? {}),
             canvas: false,
         };
-
+        config.experiments = {
+            asyncWebAssembly: true,
+            layers: true,            // optional but apparently recommended for module federation in rust
+        };
         return config;
     },
     images: {
