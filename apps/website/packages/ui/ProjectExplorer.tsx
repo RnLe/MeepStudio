@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { nanoid } from "nanoid";
 import { MeepProject } from "../types/meepProjectTypes";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Ban } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 
 interface Props {
@@ -20,6 +20,9 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDimension, setNewDimension] = useState<number>(2);
+  const [newRectWidth, setNewRectWidth] = useState(10);
+  const [newRectHeight, setNewRectHeight] = useState(10);
+  const [showAdditional, setShowAdditional] = useState(false);
   const [contextMenu, setContextMenu] = useState<
     | { x: number; y: number; project: MeepProject }
     | null
@@ -30,6 +33,8 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
     const title = newTitle.trim();
     if (!title) return;
     const dimension = newDimension;
+    const rectWidth = Math.max(1, Math.min(100, Math.floor(Number(newRectWidth))));
+    const rectHeight = Math.max(1, Math.min(100, Math.floor(Number(newRectHeight))));
     try {
       const project = await createProject({
         documentId: nanoid(),
@@ -37,12 +42,17 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
         updatedAt: new Date().toISOString(),
         title,
         dimension,
+        rectWidth,
+        rectHeight,
         description: newDescription.trim(),
-        geometries: [], // Ensure new projects have an empty geometries array
+        geometries: [],
       });
       setNewTitle("");
       setNewDescription("");
+      setNewRectWidth(10);
+      setNewRectHeight(10);
       setShowCreateForm(false);
+      setShowAdditional(false);
       openProject(project);
     } catch (error) {
       console.error("Failed to create project", error);
@@ -141,32 +151,87 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
               onChange={(e) => setNewTitle(e.target.value)}
               className="w-full mb-2 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm placeholder-gray-500 text-white"
             />
-            <textarea
-              placeholder="Description (optional)"
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              className="w-full mb-2 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm placeholder-gray-500 text-white"
-            />
-            <div className="flex space-x-2 mb-2">
-              {[1, 2, 3].map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setNewDimension(d)}
-                  className={`flex-1 px-2 py-1 rounded ${
-                    newDimension === d
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-                  }`}
-                >
-                  {d}D
-                </button>
-              ))}
+            {/* Dimensions label */}
+            <div className="flex flex-col items-center mb-1">
+              <span className="text-xs text-gray-400 mb-1 text-center">Dimensions</span>
+              <div className="flex space-x-2 w-full">
+                {[1, 2, 3].map((d) => {
+                  const isDisabled = d !== 2;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => !isDisabled && setNewDimension(d)}
+                      className={`flex-1 px-2 py-1 rounded relative flex items-center justify-center ${
+                        newDimension === d
+                          ? "bg-blue-500 text-white"
+                          : isDisabled
+                          ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                          : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                      }`}
+                      disabled={isDisabled}
+                      title={isDisabled ? `${d}D is not supported yet` : undefined}
+                    >
+                      {d}D
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+            {/* Rectangle size fields with X */}
+            <div className="flex items-center space-x-2 mb-2">
+              <input
+                type="number"
+                min={1}
+                max={100}
+                required
+                value={newRectWidth}
+                onChange={e => setNewRectWidth(Number(e.target.value))}
+                className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-sm text-white"
+                placeholder="Rectangle width (1-100)"
+                aria-label="Rectangle width"
+              />
+              <span className="text-gray-400 text-base font-semibold select-none" style={{lineHeight: '1'}}>×</span>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                required
+                value={newRectHeight}
+                onChange={e => setNewRectHeight(Number(e.target.value))}
+                className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-sm text-white"
+                placeholder="Rectangle height (1-100)"
+                aria-label="Rectangle height"
+              />
+            </div>
+            {/* Additional Properties button/card */}
+            <button
+              type="button"
+              className="w-full text-xs text-gray-400 hover:text-gray-200 mb-1 rounded bg-gray-700/80 hover:bg-gray-600/80 px-2 py-1 cursor-pointer transition-colors flex items-center justify-center"
+              style={{ border: "none", padding: 0 }}
+              onClick={() => setShowAdditional(v => !v)}
+            >
+              <span className="w-full text-center">{showAdditional ? "Hide Additional Properties" : "Additional Properties"}</span>
+            </button>
+            {showAdditional && (
+              <div className="space-y-2 pl-2 border-l border-gray-700 bg-gray-800/60 rounded p-2 flex flex-col items-center">
+                <ul className="space-y-2 w-full">
+                  <li>
+                    <textarea
+                      placeholder="Description (optional)"
+                      value={newDescription}
+                      onChange={(e) => setNewDescription(e.target.value)}
+                      className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm placeholder-gray-500 text-white"
+                    />
+                  </li>
+                  {/* Add more optional properties here as <li> elements */}
+                </ul>
+              </div>
+            )}
             <div className="flex space-x-2">
               <button
                 type="submit"
-                className="flex-1 px-2 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                className="flex-1 px-2 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded cursor-pointer transition-colors"
               >
                 Create
               </button>
@@ -176,8 +241,11 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
                   setShowCreateForm(false);
                   setNewTitle("");
                   setNewDescription("");
+                  setNewRectWidth(10);
+                  setNewRectHeight(10);
+                  setShowAdditional(false);
                 }}
-                className="flex-1 px-2 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded"
+                className="flex-1 px-2 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded cursor-pointer transition-colors"
               >
                 Cancel
               </button>

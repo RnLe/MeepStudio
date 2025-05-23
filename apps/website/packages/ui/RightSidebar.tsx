@@ -24,6 +24,8 @@ const RightSidebar: React.FC<Props> = ({ open, ghPages, project, onClose, delete
     }
   };
 
+  console.log("Project size:", project?.rectWidth, project?.rectHeight);
+
   return (
     <div
       className={`flex-shrink-0 w-80 bg-neutral-800 border-l border-gray-700 p-0 space-y-4
@@ -41,6 +43,12 @@ const RightSidebar: React.FC<Props> = ({ open, ghPages, project, onClose, delete
         {project ? (
           <div className="space-y-3">
             <h2 className="not-prose text-xl font-semibold text-white text-center">{project.title}</h2>
+            {/* Grid size display */}
+            <div className="flex justify-center items-center text-xs text-gray-400 mt-1">
+              <span className="inline-block px-2 py-0.5 rounded bg-gray-700/60 border border-gray-600 font-mono tracking-tight">
+                {project.rectWidth} <span className="mx-0.5 text-gray-500">×</span> {project.rectHeight}
+              </span>
+            </div>
             {project.description && (
               <p className="text-sm text-gray-400 text-center">{project.description}</p>
             )}

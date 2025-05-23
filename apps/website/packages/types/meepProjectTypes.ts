@@ -20,6 +20,8 @@ export interface MeepProject extends MeepStudioCustomData {
   /* Domain-specific fields */
   title: string;
   dimension: number;
+  rectWidth: number;
+  rectHeight: number;
   description?: string;
 
   /**

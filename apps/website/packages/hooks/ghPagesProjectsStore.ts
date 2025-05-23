@@ -22,6 +22,8 @@ function buildProject(p: CreatableFields): MeepProject {
     updatedAt: timestamp,
     title: p.title ?? "",
     dimension: p.dimension ?? 0,
+    rectWidth: p.rectWidth ?? 10,
+    rectHeight: p.rectHeight ?? 10,
     description: p.description ?? "",
     lastExecution: p.lastExecution,
     lastExecutionConsoleLogs: p.lastExecutionConsoleLogs,

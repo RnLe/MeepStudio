@@ -35,7 +35,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, entries, onClose }) => 
       {entries.map((entry, i) => (
         <button
           key={i}
-          className={`w-full text-left px-2 py-1 text-xs hover:bg-gray-700 focus:bg-gray-700 transition-colors text-gray-200`}
+          className={`w-full text-left px-2 py-1 text-sm hover:bg-gray-700 focus:bg-gray-700 transition-colors text-gray-200`}
           style={{ margin: 0, borderRadius: 0 }}
           onClick={() => {
             entry.onClick();

@@ -26,7 +26,6 @@ interface Props {
 const ProjectCanvas: React.FC<Props> = (props) => {
   const { project, ghPages, maxZoom, gridWidth, gridHeight } = props;
   const projectId = project.documentId;
-  // FIX: Always use ghPages=true so local storage is used
   const { updateProject } = useMeepProjects({ ghPages });
   const { selectedId, selectElement, snapToGrid, geometries, setGeometries, addGeometry, updateGeometry, removeGeometry } = useCanvasStore(
     (s) => ({

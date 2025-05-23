@@ -9,10 +9,6 @@ import { useCanvasStore } from "../providers/CanvasStore";
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 10;
 
-// pick your desired integer grid size here (or pull from activeProject)
-const GRID_W = 80;
-const GRID_H = 80;
-
 // dynamically load the client-only ProjectCanvas
 const ProjectCanvas = dynamic<{
   project: MeepProject;
@@ -44,8 +40,8 @@ const TabWindowProject: React.FC<Props> = ({ project, ghPages }) => {
         ghPages={ghPages}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
-        gridWidth={GRID_W}
-        gridHeight={GRID_H}
+        gridWidth={project.rectWidth}
+        gridHeight={project.rectHeight}
       />
     </div>
   );
