@@ -29,12 +29,7 @@ const nextConfig: NextConfig = {
     
     // FUNCTIONALITY RELATED CONFIG
     // GitHub Pages requires static export and serves from /MeepStudio, so we need Next to emit all HTML/CSS/JS under that path.
-    transpilePackages: [
-            "@meepstudio/utils",
-            "@meepstudio/ui",
-            "@meepstudio/types",
-            "@meepstudio/providers"
-    ],
+    transpilePackages: [],
     serverExternalPackages: ['pino'],
     turbopack: {
         resolveAlias: {

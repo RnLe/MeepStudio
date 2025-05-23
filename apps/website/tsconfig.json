@@ -14,11 +14,7 @@
     "outDir": "dist",
     "composite": true, // for project references
     "baseUrl": ".", // needed for path aliases below
-    "paths": {
-      "@meepstudio/*": [
-        "../../packages/*/src"
-      ]
-    },
+    "paths": {},
     "lib": [
       "dom",
       "dom.iterable",
@@ -35,30 +31,7 @@
       }
     ]
   },
-  "references": [
-    {
-      "path": "../../packages/utils"
-    },
-    {
-      "path": "../../packages/providers"
-    },
-    {
-      "path": "../../packages/types"
-    },
-    {
-      "path": "../../packages/ui"
-    },
-    {
-      "path": "../../packages/hooks"
-    },
-    {
-      "path": "../../packages/services"
-    }
-    ,
-    {
-      "path": "../../packages/helpers"
-    }
-  ],
+  "references": [],
   "include": [
     "app",
     "next.config.ts",
@@ -66,7 +39,7 @@
     ".next/types/**/*.ts",
     "public/**/*.json",       // Include all JSON files in the public directory
     "changelog",             // Include the changelog directory
-    
+    "packages",             // Include the packages directory
   ],
   "exclude": [
     "node_modules"

@@ -15,8 +15,6 @@
     "rootDir": "src",
     "composite": true,              // for project references
     "baseUrl": ".",                 // needed for path aliases below
-    "paths": {
-      "@meepstudio/*": ["packages/*/src"]
-    }
+    "paths": {}
   }
 }

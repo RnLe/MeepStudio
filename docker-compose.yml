@@ -9,7 +9,7 @@ services:
       - "3000:3000"
     volumes:
       # Mount the packages components (note: this copies EVERYTHING in the packages directory, including node_modules and dist)
-      - ./packages:/repo/packages
+      # - ./packages:/repo/packages     PACKAGES MOVED TO WEBSITE
       # Mount the website app
       - ./apps/website/:/repo/apps/website/
       # Mask the node_modules folders (the less node_modules are copied over, the better/faster)

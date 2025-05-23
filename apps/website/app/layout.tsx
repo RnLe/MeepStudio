@@ -1,8 +1,8 @@
 // root layout
 import React from "react"
 
-import { logger } from "@meepstudio/utils";
-import { Providers } from "@meepstudio/providers"
+import { logger } from "../packages/utils/logger";
+import { Providers } from "../packages/providers/providers";
 import { ClientThemeProvider } from "src/components/ClientThemeProvider";
 import { TopNavBar } from "src/ui/topNavBar";
 import './global.css'

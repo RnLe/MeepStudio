@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
-import { agoTimeToString } from '@meepstudio/helpers';
+import { agoTimeToString } from '../../packages/helpers/timesToString';
 
 export type ChangeKind = 'major' | 'minor' | 'patch';
 const kindColors: Record<ChangeKind, string> = {

@@ -6,12 +6,6 @@ module.exports = {
   content: [
     // the website itself
     './apps/website/**/*.{js,ts,jsx,tsx,mdx}',
-
-    // all workspace packages when present as source
-    './packages/**/*.{js,ts,jsx,tsx,mdx}',
-
-    // same packages when they are installed into node_modules
-    '/.node_modules/@meepstudio/**/*.{js,ts,jsx,tsx}',
   ],
   theme: { extend: {} },
   plugins: [

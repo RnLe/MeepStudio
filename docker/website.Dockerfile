@@ -1,6 +1,9 @@
 # 1) Dev stage
 FROM node:22-alpine AS developer
 
+# NOTE: Rust is installed into the dev stage to allow for builds
+# Effectively, a separate slim rust image could be used as service that runs parallel, which minimizes the size and complexity of the dev image
+# But this needs careful wiring. For now, this is the simplest solution
 # Prepare rust installation
 RUN apk add --no-cache \
       build-base \
@@ -29,8 +32,8 @@ COPY . .
 RUN rm .gitignore
 
 RUN corepack enable \
-    && pnpm install --frozen-lockfile
-RUN pnpm run build:packages
+    && pnpm install
+    # && pnpm install --frozen-lockfile         (add this back when modules are stable)
 
 # build the WASM bundle into apps/website/pkg
 WORKDIR /repo/apps/website/wasm
