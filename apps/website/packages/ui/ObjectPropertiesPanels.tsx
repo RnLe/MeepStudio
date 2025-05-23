@@ -1,60 +1,55 @@
 "use client";
 import React from "react";
-import { shallow } from "zustand/shallow";
 import { useCanvasStore } from "../providers/CanvasStore";
+import { useMeepProjects } from "../hooks/useMeepProjects";
+import { MeepProject } from "../types/meepProjectTypes";
 import {
   Cylinder,
   Rectangle as RectType,
   ContinuousSource,
   GaussianSource,
   PmlBoundary,
+  Triangle,
 } from "../types/canvasElementTypes";
+import { Vector2d } from "konva/lib/types";
 
-const ObjectPropertiesPanel: React.FC = () => {
-  const {
-    cylinders,
-    rectangles,
-    continuousSources,
-    gaussianSources,
-    pmlBoundaries,
-    selectedId,
-    updateCylinder,
-    updateRectangle,
-    updateContinuousSource,
-    updateGaussianSource,
-    updatePmlBoundary,
-  } = useCanvasStore(
-    (s) => ({
-      cylinders: s.cylinders,
-      rectangles: s.rectangles,
-      continuousSources: s.continuousSources,
-      gaussianSources: s.gaussianSources,
-      pmlBoundaries: s.pmlBoundaries,
-      selectedId: s.selectedId,
-      updateCylinder: s.updateCylinder,
-      updateRectangle: s.updateRectangle,
-      updateContinuousSource: s.updateContinuousSource,
-      updateGaussianSource: s.updateGaussianSource,
-      updatePmlBoundary: s.updatePmlBoundary,
-    }),
-    shallow
-  );
+interface ObjectPropertiesPanelProps {
+  project: MeepProject;
+  ghPages: boolean;
+}
 
-  const el =
-    cylinders.find((e) => e.id === selectedId) ??
-    rectangles.find((e) => e.id === selectedId) ??
-    continuousSources.find((e) => e.id === selectedId) ??
-    gaussianSources.find((e) => e.id === selectedId) ??
-    pmlBoundaries.find((e) => e.id === selectedId);
+const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, ghPages }) => {
+  const { selectedId } = useCanvasStore((s) => ({ selectedId: s.selectedId }));
+  const { updateProject } = useMeepProjects({ ghPages });
+  const geometries = project.geometries || [];
+  const cylinders = geometries.filter((g) => g.kind === "cylinder") as Cylinder[];
+  const rectangles = geometries.filter((g) => g.kind === "rectangle") as RectType[];
+  const triangles = geometries.filter((g) => g.kind === "triangle") as Triangle[];
+  const continuousSources = geometries.filter((g) => g.kind === "continuousSource") as ContinuousSource[];
+  const gaussianSources = geometries.filter((g) => g.kind === "gaussianSource") as GaussianSource[];
+  const pmlBoundaries = geometries.filter((g) => g.kind === "pmlBoundary") as PmlBoundary[];
 
-  if (!el) return null;
+  // Example: update geometry by id
+  const updateGeometry = (id: string, partial: Partial<any>) => {
+    updateProject({
+      documentId: project.documentId,
+      project: {
+        geometries: geometries.map((g) => (g.id === id ? { ...g, ...partial } : g)),
+      },
+    });
+  };
+
+  // Find the selected element
+  const selected = geometries.find((g) => g.id === selectedId);
+
+  if (!selected) return <div>No element selected</div>;
 
   return (
     <div className="space-y-4">
       <h4 className="text-sm font-semibold text-white">Properties</h4>
 
-      {el.kind === "cylinder" && (() => {
-        const cyl = el as Cylinder;
+      {selected.kind === "cylinder" && (() => {
+        const cyl = selected as Cylinder;
         return (
           <>
             <label className="block text-xs text-gray-400">Radius</label>
@@ -62,7 +57,7 @@ const ObjectPropertiesPanel: React.FC = () => {
               type="number"
               value={cyl.radius}
               onChange={(e) =>
-                updateCylinder(cyl.id, { radius: Number(e.target.value) })
+                updateGeometry(cyl.id, { radius: Number(e.target.value) })
               }
               className="w-full bg-gray-800 text-sm"
             />
@@ -70,8 +65,8 @@ const ObjectPropertiesPanel: React.FC = () => {
         );
       })()}
 
-      {el.kind === "rectangle" && (() => {
-        const rect = el as RectType;
+      {selected.kind === "rectangle" && (() => {
+        const rect = selected as RectType;
         return (
           <>
             <label className="block text-xs text-gray-400">Width</label>
@@ -79,7 +74,7 @@ const ObjectPropertiesPanel: React.FC = () => {
               type="number"
               value={rect.width}
               onChange={(e) =>
-                updateRectangle(rect.id, { width: Number(e.target.value) })
+                updateGeometry(rect.id, { width: Number(e.target.value) })
               }
               className="w-full bg-gray-800 text-sm"
             />
@@ -89,7 +84,7 @@ const ObjectPropertiesPanel: React.FC = () => {
               type="number"
               value={rect.height}
               onChange={(e) =>
-                updateRectangle(rect.id, { height: Number(e.target.value) })
+                updateGeometry(rect.id, { height: Number(e.target.value) })
               }
               className="w-full bg-gray-800 text-sm"
             />
@@ -97,8 +92,42 @@ const ObjectPropertiesPanel: React.FC = () => {
         );
       })()}
 
-      {el.kind === "continuousSource" && (() => {
-        const src = el as ContinuousSource;
+      {selected.kind === "triangle" && (() => {
+        const tri = selected as Triangle;
+        return (
+          <>
+            <label className="block text-xs text-gray-400">Vertices</label>
+            {tri.vertices.map((v, i) => (
+              <div key={i} className="flex space-x-2 mb-1">
+                <span className="text-gray-400">{String.fromCharCode(65 + i)}:</span>
+                <input
+                  type="number"
+                  value={v.x}
+                  onChange={e => {
+                    const newVerts = [...tri.vertices] as [Vector2d, Vector2d, Vector2d];
+                    newVerts[i] = { ...newVerts[i], x: Number(e.target.value) };
+                    updateGeometry(tri.id, { vertices: newVerts });
+                  }}
+                  className="w-16 bg-gray-800 text-sm"
+                />
+                <input
+                  type="number"
+                  value={v.y}
+                  onChange={e => {
+                    const newVerts = [...tri.vertices] as [Vector2d, Vector2d, Vector2d];
+                    newVerts[i] = { ...newVerts[i], y: Number(e.target.value) };
+                    updateGeometry(tri.id, { vertices: newVerts });
+                  }}
+                  className="w-16 bg-gray-800 text-sm"
+                />
+              </div>
+            ))}
+          </>
+        );
+      })()}
+
+      {selected.kind === "continuousSource" && (() => {
+        const src = selected as ContinuousSource;
         return (
           <>
             <label className="block text-xs text-gray-400">Wavelength</label>
@@ -106,7 +135,7 @@ const ObjectPropertiesPanel: React.FC = () => {
               type="number"
               value={src.wavelength}
               onChange={(e) =>
-                updateContinuousSource(src.id, { wavelength: Number(e.target.value) })
+                updateGeometry(src.id, { wavelength: Number(e.target.value) })
               }
               className="w-full bg-gray-800 text-sm"
             />
@@ -116,7 +145,7 @@ const ObjectPropertiesPanel: React.FC = () => {
               type="number"
               value={src.amplitude}
               onChange={(e) =>
-                updateContinuousSource(src.id, { amplitude: Number(e.target.value) })
+                updateGeometry(src.id, { amplitude: Number(e.target.value) })
               }
               className="w-full bg-gray-800 text-sm"
             />
@@ -124,8 +153,8 @@ const ObjectPropertiesPanel: React.FC = () => {
         );
       })()}
 
-      {el.kind === "gaussianSource" && (() => {
-        const src = el as GaussianSource;
+      {selected.kind === "gaussianSource" && (() => {
+        const src = selected as GaussianSource;
         return (
           <>
             <label className="block text-xs text-gray-400">Centre Frequency</label>
@@ -133,7 +162,7 @@ const ObjectPropertiesPanel: React.FC = () => {
               type="number"
               value={src.centreFreq}
               onChange={(e) =>
-                updateGaussianSource(src.id, { centreFreq: Number(e.target.value) })
+                updateGeometry(src.id, { centreFreq: Number(e.target.value) })
               }
               className="w-full bg-gray-800 text-sm"
             />
@@ -143,7 +172,7 @@ const ObjectPropertiesPanel: React.FC = () => {
               type="number"
               value={src.fwhm}
               onChange={(e) =>
-                updateGaussianSource(src.id, { fwhm: Number(e.target.value) })
+                updateGeometry(src.id, { fwhm: Number(e.target.value) })
               }
               className="w-full bg-gray-800 text-sm"
             />
@@ -151,8 +180,8 @@ const ObjectPropertiesPanel: React.FC = () => {
         );
       })()}
 
-      {el.kind === "pmlBoundary" && (() => {
-        const pml = el as PmlBoundary;
+      {selected.kind === "pmlBoundary" && (() => {
+        const pml = selected as PmlBoundary;
         return (
           <>
             <label className="block text-xs text-gray-400">Thickness</label>
@@ -160,7 +189,7 @@ const ObjectPropertiesPanel: React.FC = () => {
               type="number"
               value={pml.thickness}
               onChange={(e) =>
-                updatePmlBoundary(pml.id, { thickness: Number(e.target.value) })
+                updateGeometry(pml.id, { thickness: Number(e.target.value) })
               }
               className="w-full bg-gray-800 text-sm"
             />

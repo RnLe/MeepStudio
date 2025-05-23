@@ -21,6 +21,17 @@ export interface MeepProject extends MeepStudioCustomData {
   title: string;
   dimension: number;
   description?: string;
+
+  /**
+   * All geometry objects for this project (2D only for now).
+   * Each geometry has at least: id, kind, and geometry-specific fields.
+   */
+  geometries: Array<{
+    id: string;
+    kind: string;
+    // ...geometry-specific fields (e.g., for cylinder, rectangle, etc.)
+    [key: string]: any;
+  }>;
 }
 
 /* ---------- (De)serialisers are now trivial ---------- */
@@ -32,3 +43,6 @@ export function serializeMeepProject(p: MeepProject): string {
 export function deserializeMeepProject(raw: string): MeepProject {
   return JSON.parse(raw) as MeepProject;
 }
+
+// When serializing/deserializing, geometries are now included as part of the MeepProject object.
+// No changes needed here since JSON.stringify/parse will handle the new field.

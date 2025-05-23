@@ -3,9 +3,12 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { shallow } from "zustand/shallow";
 import { useCanvasStore } from "../providers/CanvasStore";
-import { Cylinder, Rectangle as RectEl } from "../types/canvasElementTypes";
+import { Cylinder, Rectangle as RectEl, Triangle } from "../types/canvasElementTypes";
+import { Vector2d } from "konva/lib/types";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Stage, Layer, Line, Circle, Rect } from "react-konva";
+import { Stage, Layer, Line, Circle, Rect, RegularPolygon } from "react-konva";
+import { nanoid } from "nanoid";
+import { useMeepProjects } from "../hooks/useMeepProjects";
 
 /* fixed size for each cell */
 const GRID_PX = 40;
@@ -13,6 +16,7 @@ const snap = (v: number) => Math.round(v / GRID_PX) * GRID_PX;
 
 interface Props {
   project: MeepProject;
+  ghPages: boolean;
   minZoom: number;
   maxZoom: number;
   gridWidth: number;
@@ -20,27 +24,64 @@ interface Props {
 }
 
 const ProjectCanvas: React.FC<Props> = (props) => {
-  const { maxZoom, gridWidth, gridHeight } = props;
-  const {
-    cylinders,
-    rectangles,
-    selectedId,
-    selectElement,
-    updateCylinder,
-    updateRectangle,
-    snapToGrid,
-  } = useCanvasStore(
+  const { project, ghPages, maxZoom, gridWidth, gridHeight } = props;
+  const projectId = project.documentId;
+  // FIX: Always use ghPages=true so local storage is used
+  const { updateProject } = useMeepProjects({ ghPages });
+  const { selectedId, selectElement, snapToGrid, geometries, setGeometries, addGeometry, updateGeometry, removeGeometry } = useCanvasStore(
     (s) => ({
-      cylinders:      s.cylinders,
-      rectangles:     s.rectangles,
-      selectedId:     s.selectedId,
-      selectElement:  s.selectElement,
-      updateCylinder: s.updateCylinder,
-      updateRectangle:s.updateRectangle,
-      snapToGrid:     s.snapToGrid,
+      selectedId: s.selectedId,
+      selectElement: s.selectElement,
+      snapToGrid: s.snapToGrid,
+      geometries: s.geometries,
+      setGeometries: s.setGeometries,
+      addGeometry: s.addGeometry,
+      updateGeometry: s.updateGeometry,
+      removeGeometry: s.removeGeometry,
     }),
     shallow
   );
+
+  // Sync project.geometries to store on mount and when project changes
+  useEffect(() => {
+    setGeometries(project.geometries || []);
+  }, [project.geometries, setGeometries]);
+
+  // Geometry helpers (now from store)
+  const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
+  const rectangles = useMemo(() => geometries.filter(g => g.kind === "rectangle"), [geometries]);
+  const triangles = useMemo(() => geometries.filter(g => g.kind === "triangle"), [geometries]);
+
+  // Geometry actions (update both store and project)
+  const handleAddGeometry = useCallback((geom: any) => {
+    const newGeom = { ...geom, id: nanoid() };
+    addGeometry(newGeom);
+    updateProject({
+      documentId: projectId,
+      project: { geometries: [...geometries, newGeom] },
+    });
+  }, [addGeometry, updateProject, projectId, geometries]);
+
+  const handleUpdateGeometry = useCallback((id: string, partial: Partial<any>) => {
+    updateGeometry(id, partial);
+    updateProject({
+      documentId: projectId,
+      project: {
+        geometries: geometries.map(g => g.id === id ? { ...g, ...partial } : g),
+      },
+    });
+  }, [updateGeometry, updateProject, projectId, geometries]);
+
+  const handleRemoveGeometry = useCallback((id: string) => {
+    removeGeometry(id);
+    updateProject({
+      documentId: projectId,
+      project: {
+        geometries: geometries.filter(g => g.id !== id),
+      },
+    });
+    if (selectedId === id) selectElement(null);
+  }, [removeGeometry, updateProject, projectId, geometries, selectedId, selectElement]);
 
   // dynamic pixel dims (now based on container size)
   const containerRef = useRef<HTMLDivElement>(null);
@@ -190,11 +231,6 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return lines;
   }, [gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
 
-  const elements: (Cylinder | RectEl)[] = [
-    ...cylinders,
-    ...rectangles,
-  ];
-
   // Selection box state (restore)
   const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
   const [selBox, setSelBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -307,7 +343,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         </Layer>
 
         <Layer>
-          {elements.map((el) => {
+          {cylinders.map((el) => {
             const isSel = el.id === selectedId;
 
             if (el.kind === "cylinder") {
@@ -332,12 +368,17 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   onDragEnd={(evt) => {
                     const x = evt.target.x() / GRID_PX;
                     const y = evt.target.y() / GRID_PX;
-                    updateCylinder(c.id, { pos: { x, y } });
+                    handleUpdateGeometry(c.id, { pos: { x, y } });
                   }}
                   onClick={() => selectElement(c.id)}
                 />
               );
             }
+
+            return null;
+          })}
+          {rectangles.map((el) => {
+            const isSel = el.id === selectedId;
 
             if (el.kind === "rectangle") {
               const r = el as RectEl;
@@ -362,9 +403,59 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   onDragEnd={(evt) => {
                     const centerX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
                     const centerY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
-                    updateRectangle(r.id, { pos: { x: centerX, y: centerY } });
+                    handleUpdateGeometry(r.id, { pos: { x: centerX, y: centerY } });
                   }}
                   onClick={() => selectElement(r.id)}
+                />
+              );
+            }
+
+            return null;
+          })}
+          {triangles.map((el) => {
+            const isSel = el.id === selectedId;
+
+            if (el.kind === "triangle") {
+              const t = el as Triangle;
+              // Compute the absolute position of the first vertex
+              const anchorX = t.vertices[0].x * GRID_PX;
+              const anchorY = t.vertices[0].y * GRID_PX;
+              // Points relative to anchor
+              const relPoints = t.vertices.flatMap(v => [
+                (v.x - t.vertices[0].x) * GRID_PX,
+                (v.y - t.vertices[0].y) * GRID_PX
+              ]);
+              return (
+                <Line
+                  key={t.id}
+                  x={anchorX}
+                  y={anchorY}
+                  points={relPoints}
+                  closed
+                  fill="rgba(236,72,153,0.25)" // Tailwind pink-500
+                  stroke="#ec4899"
+                  strokeWidth={1}
+                  shadowBlur={isSel ? 8 : 0}
+                  draggable
+                  {...(snapToGrid
+                    ? {
+                        dragBoundFunc: (pos) => ({ x: snap(pos.x), y: snap(pos.y) }),
+                      }
+                    : {}
+                  )}
+                  onDragEnd={(evt) => {
+                    // New anchor position in grid units
+                    const newAnchorX = evt.target.x() / GRID_PX;
+                    const newAnchorY = evt.target.y() / GRID_PX;
+                    const dx = newAnchorX - t.vertices[0].x;
+                    const dy = newAnchorY - t.vertices[0].y;
+                    const newVerts = t.vertices.map(v => ({ x: v.x + dx, y: v.y + dy })) as [Vector2d, Vector2d, Vector2d];
+                    handleUpdateGeometry(t.id, { vertices: newVerts });
+                    // Reset shape position so next drag starts from new anchor
+                    evt.target.x(0);
+                    evt.target.y(0);
+                  }}
+                  onClick={() => selectElement(t.id)}
                 />
               );
             }

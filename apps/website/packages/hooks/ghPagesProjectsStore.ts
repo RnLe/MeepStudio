@@ -26,6 +26,7 @@ function buildProject(p: CreatableFields): MeepProject {
     lastExecution: p.lastExecution,
     lastExecutionConsoleLogs: p.lastExecutionConsoleLogs,
     pythonCode: p.pythonCode ?? "",
+    geometries: p.geometries ?? [], // <-- Fix: always provide geometries
   };
 }
 

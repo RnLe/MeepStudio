@@ -24,16 +24,19 @@ export function RepoBadge({
   owner = 'RnLe',
   repo = 'MeepStudio',
 }: Props) {
-  // fetch repo data
+  // Control whether to show stats
+  const show = false
+
+  // fetch repo data only if show is true
   const { data: repoData, error: repoError } = useSWR(
-    `https://api.github.com/repos/${owner}/${repo}`,
+    show ? `https://api.github.com/repos/${owner}/${repo}` : null,
     fetcher,
     { refreshInterval: 60_000 }
   )
 
-  // fetch latest release
+  // fetch latest release only if show is true and repoData is available
   const { data: relData } = useSWR(
-    repoData ? `https://api.github.com/repos/${owner}/${repo}/releases/latest` : null,
+    show && repoData ? `https://api.github.com/repos/${owner}/${repo}/releases/latest` : null,
     fetcher
   )
 
@@ -53,12 +56,12 @@ export function RepoBadge({
 
   return (
     <div
-      className="
+      className={`
         inline-flex items-center gap-3 justify-center mx-8
         rounded-lg px-4 dark:bg-slate-600 bg-slate-500
         text-sm text-indigo-50 shadow-lg cursor-pointer
         min-w-[200px] dark:hover:bg-slate-500 hover:bg-slate-600 transition-colors duration-75
-      "
+      `}
       role="button"
       tabIndex={0}
       onClick={handleClick}
@@ -66,19 +69,21 @@ export function RepoBadge({
       {/* Left column: GitHub icon */}
       <Github size={24} strokeWidth={2} className="shrink-0" />
 
-      {/* Right column: two rows */}
-      <div className="flex flex-col justify-between">
+      {/* Right column: two rows or centered name */}
+      <div className={`flex flex-col justify-between ${!show ? 'justify-center h-[40px]' : ''}`}>
         {/* Top row: owner/repo */}
         <span className="font-semibold">
           {owner}/{repo}
         </span>
 
         {/* Bottom row: stats */}
-        <div className="mt-1 flex items-center gap-4">
-          <Stat icon={Tag}    label={tagName} loading={loading} />
-          <Stat icon={Star}   label={stars}   loading={loading} />
-          <Stat icon={GitFork} label={forks}  loading={loading} />
-        </div>
+        {show && (
+          <div className="mt-1 flex items-center gap-4">
+            <Stat icon={Tag}    label={tagName} loading={loading} />
+            <Stat icon={Star}   label={stars}   loading={loading} />
+            <Stat icon={GitFork} label={forks}  loading={loading} />
+          </div>
+        )}
       </div>
     </div>
   )

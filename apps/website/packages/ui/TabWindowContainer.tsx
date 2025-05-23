@@ -7,6 +7,7 @@ import { MeepProject } from "../types/meepProjectTypes";
 
 interface Props {
   tabs: MeepProject[];
+  ghPages: boolean;
   activeId: string | null;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
@@ -15,6 +16,7 @@ interface Props {
 
 const TabWindowContainer: React.FC<Props> = ({
   tabs,
+  ghPages,
   activeId,
   onSelect,
   onClose,
@@ -28,7 +30,7 @@ const TabWindowContainer: React.FC<Props> = ({
       {activeProject ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* The actual project window */}
-          <TabWindowProject project={activeProject} />
+          <TabWindowProject project={activeProject} ghPages={ghPages} />
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-500">

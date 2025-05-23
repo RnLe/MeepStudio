@@ -9,12 +9,13 @@ import ObjectPropertiesPanel from "./ObjectPropertiesPanels";
 
 interface Props {
   open: boolean;
+  ghPages: boolean;
   project?: MeepProject;
   onClose?: () => void;
   deleteProject?: (id: string) => Promise<void>;
 }
 
-const RightSidebar: React.FC<Props> = ({ open, project, onClose, deleteProject }) => {
+const RightSidebar: React.FC<Props> = ({ open, ghPages, project, onClose, deleteProject }) => {
   const handleDelete = async () => {
     if (project && deleteProject) {
       if (window.confirm(`Are you sure you want to delete the project "${project.title}"? This cannot be undone.`)) {
@@ -49,9 +50,9 @@ const RightSidebar: React.FC<Props> = ({ open, project, onClose, deleteProject }
         )}
 
         <hr className="border-gray-700 my-4" />
-        <ObjectsList />
+        {project && <ObjectsList project={project} />}
         <hr className="border-gray-700" />
-        <ObjectPropertiesPanel />
+        {project && <ObjectPropertiesPanel project={project} ghPages={ghPages} />}
       </div>
     </div>
   );

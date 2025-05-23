@@ -37,7 +37,8 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
         updatedAt: new Date().toISOString(),
         title,
         dimension,
-        description: newDescription.trim()
+        description: newDescription.trim(),
+        geometries: [], // Ensure new projects have an empty geometries array
       });
       setNewTitle("");
       setNewDescription("");

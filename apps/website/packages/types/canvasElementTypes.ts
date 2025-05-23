@@ -1,7 +1,13 @@
 import { Vector2d } from "konva/lib/types";
 
 /** Discriminated union tag */
-export type ElementType = "cylinder" | "rectangle" | "continuousSource" | "gaussianSource" | "pmlBoundary";
+export type ElementType =
+  | "cylinder"
+  | "rectangle"
+  | "triangle"
+  | "continuousSource"
+  | "gaussianSource"
+  | "pmlBoundary";
 
 // Geometry types
 // Sphere, Cylinder, Wedge, Cone, Block, Ellipsoid, Prism
@@ -23,13 +29,18 @@ interface BaseElement {
 export interface Cylinder extends BaseElement {
   kind: "cylinder";
   radius: number;
-  
 }
 
 export interface Rectangle extends BaseElement {
   kind: "rectangle";
   width: number;
   height: number;
+}
+
+export interface Triangle extends BaseElement {
+  kind: "triangle";
+  /** 3 vertices, each in lattice units (a = 1) */
+  vertices: [Vector2d, Vector2d, Vector2d];
 }
 
 /* ---------- sources ---------- */
@@ -54,6 +65,7 @@ export interface PmlBoundary extends BaseElement {
 export type CanvasElement =
   | Cylinder
   | Rectangle
+  | Triangle
   | ContinuousSource
   | GaussianSource
   | PmlBoundary;

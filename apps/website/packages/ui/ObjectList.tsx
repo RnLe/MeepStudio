@@ -1,69 +1,41 @@
 "use client";
 import React from "react";
-import { shallow } from "zustand/shallow";
 import { useCanvasStore } from "../providers/CanvasStore";
+import { MeepProject } from "../types/meepProjectTypes";
+import {
+  Cylinder,
+  Rectangle,
+  Triangle,
+  ContinuousSource,
+  GaussianSource,
+  PmlBoundary,
+} from "../types/canvasElementTypes";
 
-const ObjectsList: React.FC = () => {
-  const {
-    cylinders,
-    rectangles,
-    continuousSources,
-    gaussianSources,
-    pmlBoundaries,
-    selectedId,
-    selectElement,
-    removeCylinder,
-    removeRectangle,
-    removeContinuousSource,
-    removeGaussianSource,
-    removePmlBoundary,
-  } = useCanvasStore(
-    (s) => ({
-      cylinders: s.cylinders,
-      rectangles: s.rectangles,
-      continuousSources: s.continuousSources,
-      gaussianSources: s.gaussianSources,
-      pmlBoundaries: s.pmlBoundaries,
-      selectedId: s.selectedId,
-      selectElement: s.selectElement,
-      removeCylinder: s.removeCylinder,
-      removeRectangle: s.removeRectangle,
-      removeContinuousSource: s.removeContinuousSource,
-      removeGaussianSource: s.removeGaussianSource,
-      removePmlBoundary: s.removePmlBoundary,
-    }),
-    shallow
-  );
+interface ObjectsListProps {
+  project: MeepProject;
+}
+
+const ObjectsList: React.FC<ObjectsListProps> = ({ project }) => {
+  const { selectedId, selectElement } = useCanvasStore((s) => ({
+    selectedId: s.selectedId,
+    selectElement: s.selectElement,
+  }));
+  const geometries = project.geometries || [];
+  const cylinders = geometries.filter((g) => g.kind === "cylinder") as Cylinder[];
+  const rectangles = geometries.filter((g) => g.kind === "rectangle") as Rectangle[];
+  const triangles = geometries.filter((g) => g.kind === "triangle") as Triangle[];
+  const continuousSources = geometries.filter((g) => g.kind === "continuousSource") as ContinuousSource[];
+  const gaussianSources = geometries.filter((g) => g.kind === "gaussianSource") as GaussianSource[];
+  const pmlBoundaries = geometries.filter((g) => g.kind === "pmlBoundary") as PmlBoundary[];
 
   const elements = [
     ...cylinders,
     ...rectangles,
+    ...triangles,
     ...continuousSources,
     ...gaussianSources,
     ...pmlBoundaries,
   ];
-
-  const handleRemove = (id: string, kind: string) => {
-    switch (kind) {
-      case "cylinder":
-        removeCylinder(id);
-        break;
-      case "rectangle":
-        removeRectangle(id);
-        break;
-      case "continuousSource":
-        removeContinuousSource(id);
-        break;
-      case "gaussianSource":
-        removeGaussianSource(id);
-        break;
-      case "pmlBoundary":
-        removePmlBoundary(id);
-        break;
-      default:
-        break;
-    }
-  };
 
   return (
     <div className="space-y-1">
@@ -79,15 +51,6 @@ const ObjectsList: React.FC = () => {
           <span className="truncate text-gray-200 text-xs">
             {el.kind} – {el.id.slice(0, 5)}
           </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRemove(el.id, el.kind);
-            }}
-            className="text-red-400 hover:text-red-300"
-          >
-            ✕
-          </button>
         </div>
       ))}
       {elements.length === 0 && (

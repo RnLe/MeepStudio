@@ -8,6 +8,7 @@ import TopNavBar from "./TopNavBar";
 import TabWindowContainer from "./TabWindowContainer";
 import { StudioTabsProvider, useStudioTabs } from "./StudioTabsContext";
 import { useMeepProjects } from "../hooks/useMeepProjects";
+import { useCanvasStore } from "../providers/CanvasStore";
 
 interface Props {
   ghPages: boolean;     // Whether to use GitHub Pages; controls the availability of some features
@@ -17,10 +18,12 @@ const InnerLayout: React.FC<Props> = ({ghPages}) => {
   const { projects, isLoading, createProject, deleteProject } = useMeepProjects({ ghPages });
   const [rightOpen, setRightOpen] = useState(true);
   const { tabs, activeId, openTab, closeTab, selectTab } = useStudioTabs();
-
-  if (isLoading) return <div className="p-4">Loading …</div>;
+  const setActiveProject = useCanvasStore((s) => s.setActiveProject);
 
   const activeProject = tabs.find(tab => tab.documentId === activeId);
+  React.useEffect(() => {
+    setActiveProject(activeProject?.documentId || null);
+  }, [activeProject?.documentId, setActiveProject]);
 
   // Handler to open right sidebar when a project or tab is selected
   const handleOpenTab = (project: any) => {
@@ -31,6 +34,8 @@ const InnerLayout: React.FC<Props> = ({ghPages}) => {
     setRightOpen(true);
     selectTab(id);
   };
+
+  if (isLoading) return <div className="p-4">Loading …</div>;
 
   return (
     <div className="flex flex-col h-full w-full bg-neutral-900 text-white overflow-hidden relative">
@@ -46,6 +51,7 @@ const InnerLayout: React.FC<Props> = ({ghPages}) => {
         <div className="flex-1 flex flex-col overflow-hidden">
           <TabWindowContainer 
             tabs={tabs}
+            ghPages={ghPages}
             activeId={activeId}
             onSelect={handleSelectTab}
             onClose={closeTab}
@@ -53,7 +59,7 @@ const InnerLayout: React.FC<Props> = ({ghPages}) => {
           />
         </div>
         {rightOpen && (
-          <RightSidebar open={rightOpen} project={activeProject} onClose={() => setRightOpen(false)} deleteProject={deleteProject} />
+          <RightSidebar open={rightOpen} ghPages={ghPages} project={activeProject} onClose={() => setRightOpen(false)} deleteProject={deleteProject} />
         )}
       </div>
     </div>
