@@ -28,9 +28,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const { project, ghPages, maxZoom, gridWidth, gridHeight } = props;
   const projectId = project.documentId;
   const { updateProject } = useMeepProjects({ ghPages });
-  const { selectedId, selectElement, snapToGrid, geometries, setGeometries, addGeometry, updateGeometry, removeGeometry } = useCanvasStore(
+  const { selectedId, selectedIds, selectElement, snapToGrid, geometries, setGeometries, addGeometry, updateGeometry, removeGeometry } = useCanvasStore(
     (s) => ({
       selectedId: s.selectedId,
+      selectedIds: s.selectedIds,
       selectElement: s.selectElement,
       snapToGrid: s.snapToGrid,
       geometries: s.geometries,
@@ -334,7 +335,123 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             setLastPointer(null);
           }
           if (selBox && evt.button === 0) {
-            // TODO: compute which elements intersect selBox and call selectElement(...)
+            // Compute which elements intersect selBox and select them
+            // selBox is in logical coordinates: { x, y, width, height }
+            const box = {
+              x: selBox.x,
+              y: selBox.y,
+              width: selBox.width,
+              height: selBox.height,
+            };
+            // Helper: rectangle intersection
+            function rectsIntersect(a: {x:number,y:number,width:number,height:number}, b: {x:number,y:number,width:number,height:number}) {
+              return (
+                a.x < b.x + b.width &&
+                a.x + a.width > b.x &&
+                a.y < b.y + b.height &&
+                a.y + a.height > b.y
+              );
+            }
+            // Helper: circle-rectangle intersection
+            function circleRectIntersect(cx: number, cy: number, r: number, rect: {x:number,y:number,width:number,height:number}) {
+              // Find closest point to circle center within the rectangle
+              const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.width));
+              const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.height));
+              // Distance from circle center to closest point
+              const dx = cx - closestX;
+              const dy = cy - closestY;
+              return (dx * dx + dy * dy) <= r * r;
+            }
+            // Helper: point in rectangle
+            function pointInRect(px: number, py: number, rect: {x:number,y:number,width:number,height:number}) {
+              return px >= rect.x && px <= rect.x + rect.width && py >= rect.y && py <= rect.y + rect.height;
+            }
+            // Helper: line segment intersection
+            function linesIntersect(a1: {x:number,y:number}, a2: {x:number,y:number}, b1: {x:number,y:number}, b2: {x:number,y:number}) {
+              // Returns true if line segments (a1,a2) and (b1,b2) intersect
+              const det = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - b1.x);
+              if (det === 0) return false; // parallel
+              const lambda = ((b2.y - b1.y) * (b2.x - a1.x) + (b1.x - b2.x) * (b2.y - a1.y)) / det;
+              const gamma = ((a1.y - a2.y) * (b2.x - a1.x) + (a2.x - a1.x) * (b2.y - a1.y)) / det;
+              return (0 <= lambda && lambda <= 1) && (0 <= gamma && gamma <= 1);
+            }
+            // Helper: triangle-rectangle intersection (precise)
+            function triangleRectPrecise(pos: {x:number,y:number}, verts: {x:number,y:number}[], rect: {x:number,y:number,width:number,height:number}) {
+              // Absolute triangle vertices
+              const absVerts = verts.map(v => ({ x: pos.x + v.x, y: pos.y + v.y }));
+              // 1. Any vertex in rect?
+              if (absVerts.some(v => pointInRect(v.x, v.y, rect))) return true;
+              // 2. Any triangle edge cross any rect edge?
+              const triEdges = [
+                [absVerts[0], absVerts[1]],
+                [absVerts[1], absVerts[2]],
+                [absVerts[2], absVerts[0]],
+              ];
+              const rectVerts = [
+                { x: rect.x, y: rect.y },
+                { x: rect.x + rect.width, y: rect.y },
+                { x: rect.x + rect.width, y: rect.y + rect.height },
+                { x: rect.x, y: rect.y + rect.height },
+              ];
+              const rectEdges = [
+                [rectVerts[0], rectVerts[1]],
+                [rectVerts[1], rectVerts[2]],
+                [rectVerts[2], rectVerts[3]],
+                [rectVerts[3], rectVerts[0]],
+              ];
+              for (const [a1, a2] of triEdges) {
+                for (const [b1, b2] of rectEdges) {
+                  if (linesIntersect(a1, a2, b1, b2)) return true;
+                }
+              }
+              // 3. (Optional) Rectangle fully inside triangle (rare, omitted for now)
+              return false;
+            }
+            // --- FIX: selBox is in logical units, but geometries are in lattice units, so convert box to lattice units ---
+            // Each lattice unit = 1, but selBox is in px, so convert to lattice units
+            const pxToLattice = (v: number) => v / GRID_PX;
+            const latticeBox = {
+              x: pxToLattice(box.x),
+              y: pxToLattice(box.y),
+              width: pxToLattice(box.width),
+              height: pxToLattice(box.height),
+            };
+            // Find intersecting geometries
+            const selected = geometries.filter(g => {
+              if (g.kind === "rectangle") {
+                // Rectangle: center pos, width/height (in lattice units)
+                const rx = g.pos.x - g.width / 2;
+                const ry = g.pos.y - g.height / 2;
+                return rectsIntersect(
+                  { x: rx, y: ry, width: g.width, height: g.height },
+                  latticeBox
+                );
+              } else if (g.kind === "cylinder") {
+                // Cylinder: center pos, radius (in lattice units)
+                return circleRectIntersect(g.pos.x, g.pos.y, g.radius, latticeBox);
+              } else if (g.kind === "triangle") {
+                // Triangle: pos, vertices (relative, in lattice units)
+                return triangleRectPrecise(g.pos, g.vertices, latticeBox);
+              } else if (g.kind === "continuousSource" || g.kind === "gaussianSource") {
+                // Treat as point (in lattice units)
+                return (
+                  g.pos.x >= latticeBox.x &&
+                  g.pos.x <= latticeBox.x + latticeBox.width &&
+                  g.pos.y >= latticeBox.y &&
+                  g.pos.y <= latticeBox.y + latticeBox.height
+                );
+              } else if (g.kind === "pmlBoundary") {
+                // Assume has pos, thickness, treat as rectangle (in lattice units)
+                const rx = g.pos.x - (g.thickness || 0) / 2;
+                const ry = g.pos.y - (g.thickness || 0) / 2;
+                return rectsIntersect(
+                  { x: rx, y: ry, width: g.thickness || 1, height: g.thickness || 1 },
+                  latticeBox
+                );
+              }
+              return false;
+            }).map(g => g.id);
+            useCanvasStore.getState().setSelectedIds(selected);
             setSelOrigin(null);
             setSelBox(null);
           }
@@ -380,7 +497,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         {/* --- Geometry elements layer --- */}
         <Layer>
           {cylinders.map((el) => {
-            const isSel = el.id === selectedId;
+            const isSel = selectedIds.includes(el.id);
 
             if (el.kind === "cylinder") {
               const c = el as Cylinder;
@@ -407,14 +524,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                     const y = (evt.target.y()) / GRID_PX;
                     handleUpdateGeometry(c.id, { pos: { x, y } });
                   }}
-                  onClick={() => selectElement(c.id)}
+                  onClick={(evt) => selectElement(c.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
                 />
               );
             }
             return null;
           })}
           {rectangles.map((el) => {
-            const isSel = el.id === selectedId;
+            const isSel = selectedIds.includes(el.id);
 
             if (el.kind === "rectangle") {
               const r = el as RectEl;
@@ -442,14 +559,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                     const centerY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
                     handleUpdateGeometry(r.id, { pos: { x: centerX, y: centerY } });
                   }}
-                  onClick={() => selectElement(r.id)}
+                  onClick={(evt) => selectElement(r.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
                 />
               );
             }
             return null;
           })}
           {triangles.map((el) => {
-            const isSel = el.id === selectedId;
+            const isSel = selectedIds.includes(el.id);
 
             if (el.kind === "triangle") {
               const t = el as Triangle;
@@ -488,7 +605,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                     evt.target.x(anchorX); // keep visual position correct
                     evt.target.y(anchorY);
                   }}
-                  onClick={() => selectElement(t.id)}
+                  onClick={(evt) => selectElement(t.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
                 />
               );
             }
@@ -505,8 +622,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
               width={selBox.width}
               height={selBox.height}
               fill="rgba(0,123,255,0.2)"
-              stroke="#007bff"
-              // Removed dash={[4, 4]} for solid border
+              // stroke="#007bff" // removed border
               listening={false}
             />
           </Layer>

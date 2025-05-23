@@ -16,8 +16,9 @@ interface ObjectsListProps {
 }
 
 const ObjectsList: React.FC<ObjectsListProps> = ({ project }) => {
-  const { selectedId, selectElement, geometries } = useCanvasStore((s) => ({
-    selectedId: s.selectedId,
+  const { selectedIds, setSelectedIds, selectElement, geometries } = useCanvasStore((s) => ({
+    selectedIds: s.selectedIds,
+    setSelectedIds: s.setSelectedIds,
     selectElement: s.selectElement,
     geometries: s.geometries,
   }));
@@ -38,15 +39,24 @@ const ObjectsList: React.FC<ObjectsListProps> = ({ project }) => {
     ...pmlBoundaries,
   ];
 
+  // Multi-select: ctrl/cmd/shift+click toggles, click without modifier selects only that
+  const handleClick = (elId: string, e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey) {
+      selectElement(elId, { shift: true });
+    } else {
+      selectElement(elId);
+    }
+  };
+
   return (
     <div className="space-y-1">
       <h4 className="text-sm font-semibold text-white">Objects</h4>
       {elements.map((el) => (
         <div
           key={el.id}
-          onClick={() => selectElement(el.id)}
+          onClick={(e) => handleClick(el.id, e)}
           className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer ${
-            selectedId === el.id ? "bg-gray-700" : "hover:bg-gray-800"
+            selectedIds.includes(el.id) ? "bg-gray-700" : "hover:bg-gray-800"
           }`}
         >
           <span className="truncate text-gray-200 text-xs">

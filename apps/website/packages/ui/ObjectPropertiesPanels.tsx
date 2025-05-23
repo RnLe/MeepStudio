@@ -19,7 +19,8 @@ interface ObjectPropertiesPanelProps {
 }
 
 const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, ghPages }) => {
-  const { selectedId, geometries, updateGeometry: updateGeometryStore } = useCanvasStore((s) => ({
+  const { selectedIds, selectedId, geometries, updateGeometry: updateGeometryStore } = useCanvasStore((s) => ({
+    selectedIds: s.selectedIds,
     selectedId: s.selectedId,
     geometries: s.geometries,
     updateGeometry: s.updateGeometry,
@@ -43,6 +44,11 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, 
       },
     });
   };
+
+  // Multi-selection: if more than one selected, just show a message
+  if (selectedIds.length > 1) {
+    return <div>{selectedIds.length} objects selected</div>;
+  }
 
   // Find the selected element
   const selected = geometries.find((g) => g.id === selectedId);
