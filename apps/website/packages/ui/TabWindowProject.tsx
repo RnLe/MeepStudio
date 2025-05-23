@@ -33,16 +33,18 @@ const TabWindowProject: React.FC<Props> = ({ project, ghPages }) => {
     }
   }, [project?.documentId, setActiveProject]);
   return (
-    <div className="flex-1 flex flex-col w-full h-full overflow-hidden">
+    <div className="flex-1 flex flex-row w-full h-full overflow-hidden">
       <CanvasToolbar project={project} dimension={dimension} ghPages={ghPages} />
-      <ProjectCanvas
-        project={project}
-        ghPages={ghPages}
-        minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
-        gridWidth={project.rectWidth}
-        gridHeight={project.rectHeight}
-      />
+      <div className="flex-1 flex flex-col w-full h-full">
+        <ProjectCanvas
+          project={project}
+          ghPages={ghPages}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
+          gridWidth={project.rectWidth}
+          gridHeight={project.rectHeight}
+        />
+      </div>
     </div>
   );
 };

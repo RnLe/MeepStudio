@@ -19,9 +19,13 @@ interface ObjectPropertiesPanelProps {
 }
 
 const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, ghPages }) => {
-  const { selectedId } = useCanvasStore((s) => ({ selectedId: s.selectedId }));
+  const { selectedId, geometries, updateGeometry: updateGeometryStore } = useCanvasStore((s) => ({
+    selectedId: s.selectedId,
+    geometries: s.geometries,
+    updateGeometry: s.updateGeometry,
+  }));
   const { updateProject } = useMeepProjects({ ghPages });
-  const geometries = project.geometries || [];
+  // Use geometries from store, not from project
   const cylinders = geometries.filter((g) => g.kind === "cylinder") as Cylinder[];
   const rectangles = geometries.filter((g) => g.kind === "rectangle") as RectType[];
   const triangles = geometries.filter((g) => g.kind === "triangle") as Triangle[];
@@ -29,8 +33,9 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, 
   const gaussianSources = geometries.filter((g) => g.kind === "gaussianSource") as GaussianSource[];
   const pmlBoundaries = geometries.filter((g) => g.kind === "pmlBoundary") as PmlBoundary[];
 
-  // Example: update geometry by id
+  // Update both local store and project
   const updateGeometry = (id: string, partial: Partial<any>) => {
+    updateGeometryStore(id, partial); // update local store for instant UI
     updateProject({
       documentId: project.documentId,
       project: {

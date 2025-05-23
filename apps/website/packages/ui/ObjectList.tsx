@@ -16,11 +16,12 @@ interface ObjectsListProps {
 }
 
 const ObjectsList: React.FC<ObjectsListProps> = ({ project }) => {
-  const { selectedId, selectElement } = useCanvasStore((s) => ({
+  const { selectedId, selectElement, geometries } = useCanvasStore((s) => ({
     selectedId: s.selectedId,
     selectElement: s.selectElement,
+    geometries: s.geometries,
   }));
-  const geometries = project.geometries || [];
+  // Use geometries from store, not from project
   const cylinders = geometries.filter((g) => g.kind === "cylinder") as Cylinder[];
   const rectangles = geometries.filter((g) => g.kind === "rectangle") as Rectangle[];
   const triangles = geometries.filter((g) => g.kind === "triangle") as Triangle[];

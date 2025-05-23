@@ -24,6 +24,7 @@ interface Props {
 }
 
 const ProjectCanvas: React.FC<Props> = (props) => {
+  // --- Destructure props and setup stores ---
   const { project, ghPages, maxZoom, gridWidth, gridHeight } = props;
   const projectId = project.documentId;
   const { updateProject } = useMeepProjects({ ghPages });
@@ -41,17 +42,35 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     shallow
   );
 
-  // Sync project.geometries to store on mount and when project changes
+  // --- Sync project.geometries to store on mount and when project changes ---
   useEffect(() => {
-    setGeometries(project.geometries || []);
+    // --- MIGRATION: convert triangles with absolute vertices to relative, and set pos ---
+    const migratedGeoms = (project.geometries || []).map(g => {
+      if (g.kind === "triangle") {
+        const tri = g as any;
+        // If no pos, or vertices are not relative to pos, migrate
+        if (!tri.pos || (Array.isArray(tri.vertices) && tri.vertices.length === 3 && (
+          typeof tri.pos.x !== "number" || typeof tri.pos.y !== "number" ||
+          tri.vertices.some((v: any, i: number) => i === 0 ? (v.x !== 0 || v.y !== 0) : false)
+        ))) {
+          // Assume vertices are absolute
+          const absVerts = tri.vertices;
+          const anchor = absVerts[0];
+          const relVerts = absVerts.map((v: any) => ({ x: v.x - anchor.x, y: v.y - anchor.y }));
+          return { ...tri, pos: anchor, vertices: relVerts };
+        }
+      }
+      return g;
+    });
+    setGeometries(migratedGeoms);
   }, [project.geometries, setGeometries]);
 
-  // Geometry helpers (now from store)
+  // --- Geometry helpers (filter by kind) ---
   const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
   const rectangles = useMemo(() => geometries.filter(g => g.kind === "rectangle"), [geometries]);
   const triangles = useMemo(() => geometries.filter(g => g.kind === "triangle"), [geometries]);
 
-  // Geometry actions (update both store and project)
+  // --- Geometry actions (add, update, remove) ---
   const handleAddGeometry = useCallback((geom: any) => {
     const newGeom = { ...geom, id: nanoid() };
     addGeometry(newGeom);
@@ -82,7 +101,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     if (selectedId === id) selectElement(null);
   }, [removeGeometry, updateProject, projectId, geometries, selectedId, selectElement]);
 
-  // dynamic pixel dims (now based on container size)
+  // --- Container size and resize observer ---
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   useEffect(() => {
@@ -110,7 +129,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return () => ro.disconnect();
   }, []);
 
-  // Logical grid size
+  // --- Logical grid and canvas size ---
   const LOGICAL_W = gridWidth * GRID_PX;
   const LOGICAL_H = gridHeight * GRID_PX;
 
@@ -230,9 +249,24 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return lines;
   }, [gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
 
-  // Selection box state (restore)
+  // --- Selection box state ---
   const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
   const [selBox, setSelBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // --- Helper: snap a canvas position to the grid, accounting for scale and pan ---
+  const snapCanvasPosToGrid = useCallback((canvasPos: { x: number; y: number }) => {
+    // Convert canvas (absolute) position to logical grid coordinates
+    const logicalX = (canvasPos.x - pos.x) / scale;
+    const logicalY = (canvasPos.y - pos.y) / scale;
+    // Snap logical coordinates to grid
+    const snappedLogicalX = Math.round(logicalX / GRID_PX) * GRID_PX;
+    const snappedLogicalY = Math.round(logicalY / GRID_PX) * GRID_PX;
+    // Convert back to canvas coordinates
+    return {
+      x: snappedLogicalX * scale + pos.x,
+      y: snappedLogicalY * scale + pos.y,
+    };
+  }, [pos, scale]);
 
   return (
     <div
@@ -251,6 +285,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         x={pos.x}
         y={pos.y}
         ref={stageRef}
+        // --- Mouse handlers for pan and selection ---
         onMouseDown={(e) => {
           const evt = e.evt;
           const abs = stageRef.current!.getPointerPosition()!;
@@ -306,7 +341,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         }}
         onWheel={handleWheel}
       >
-        {/* --- Darker background outside the rectangle --- */}
+        {/* --- Background layers --- */}
         <Layer>
           {/* Fill the whole canvas with a slightly darker neutral gray */}
           <Rect
@@ -327,6 +362,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             listening={false}
           />
         </Layer>
+        {/* --- Grid and border layer --- */}
         <Layer>
           {gridLines}
           {/* Rectangle border */}
@@ -341,6 +377,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
           />
         </Layer>
 
+        {/* --- Geometry elements layer --- */}
         <Layer>
           {cylinders.map((el) => {
             const isSel = el.id === selectedId;
@@ -360,20 +397,20 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   draggable
                   {...(snapToGrid
                     ? {
-                        dragBoundFunc: (pos) => ({ x: snap(pos.x), y: snap(pos.y) }),
+                        dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
                       }
                     : {}
                   )}
                   onDragEnd={(evt) => {
-                    const x = evt.target.x() / GRID_PX;
-                    const y = evt.target.y() / GRID_PX;
+                    // --- Update geometry position in logical grid units ---
+                    const x = (evt.target.x()) / GRID_PX;
+                    const y = (evt.target.y()) / GRID_PX;
                     handleUpdateGeometry(c.id, { pos: { x, y } });
                   }}
                   onClick={() => selectElement(c.id)}
                 />
               );
             }
-
             return null;
           })}
           {rectangles.map((el) => {
@@ -395,11 +432,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   draggable
                   {...(snapToGrid
                     ? {
-                        dragBoundFunc: (pos) => ({ x: snap(pos.x), y: snap(pos.y) }),
+                        dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
                       }
                     : {}
                   )}
                   onDragEnd={(evt) => {
+                    // --- Update geometry position in logical grid units ---
                     const centerX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
                     const centerY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
                     handleUpdateGeometry(r.id, { pos: { x: centerX, y: centerY } });
@@ -408,7 +446,6 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                 />
               );
             }
-
             return null;
           })}
           {triangles.map((el) => {
@@ -416,13 +453,13 @@ const ProjectCanvas: React.FC<Props> = (props) => {
 
             if (el.kind === "triangle") {
               const t = el as Triangle;
-              // Compute the absolute position of the first vertex
-              const anchorX = t.vertices[0].x * GRID_PX;
-              const anchorY = t.vertices[0].y * GRID_PX;
+              // Use t.pos as anchor, vertices are relative to pos
+              const anchorX = t.pos.x * GRID_PX;
+              const anchorY = t.pos.y * GRID_PX;
               // Points relative to anchor
               const relPoints = t.vertices.flatMap(v => [
-                (v.x - t.vertices[0].x) * GRID_PX,
-                (v.y - t.vertices[0].y) * GRID_PX
+                v.x * GRID_PX,
+                v.y * GRID_PX
               ]);
               return (
                 <Line
@@ -438,32 +475,28 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   draggable
                   {...(snapToGrid
                     ? {
-                        dragBoundFunc: (pos) => ({ x: snap(pos.x), y: snap(pos.y) }),
+                        dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
                       }
                     : {}
                   )}
                   onDragEnd={(evt) => {
-                    // New anchor position in grid units
-                    const newAnchorX = evt.target.x() / GRID_PX;
-                    const newAnchorY = evt.target.y() / GRID_PX;
-                    const dx = newAnchorX - t.vertices[0].x;
-                    const dy = newAnchorY - t.vertices[0].y;
-                    const newVerts = t.vertices.map(v => ({ x: v.x + dx, y: v.y + dy })) as [Vector2d, Vector2d, Vector2d];
-                    handleUpdateGeometry(t.id, { vertices: newVerts });
+                    // --- Update geometry anchor position in logical grid units ---
+                    const newX = evt.target.x() / GRID_PX;
+                    const newY = evt.target.y() / GRID_PX;
+                    handleUpdateGeometry(t.id, { pos: { x: newX, y: newY } });
                     // Reset shape position so next drag starts from new anchor
-                    evt.target.x(0);
-                    evt.target.y(0);
+                    evt.target.x(anchorX); // keep visual position correct
+                    evt.target.y(anchorY);
                   }}
                   onClick={() => selectElement(t.id)}
                 />
               );
             }
-
             return null;
           })}
         </Layer>
 
-        {/* selection rectangle overlay */}
+        {/* --- Selection rectangle overlay --- */}
         {selBox && (
           <Layer>
             <Rect
@@ -473,7 +506,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
               height={selBox.height}
               fill="rgba(0,123,255,0.2)"
               stroke="#007bff"
-              dash={[4, 4]}
+              // Removed dash={[4, 4]} for solid border
               listening={false}
             />
           </Layer>
@@ -483,4 +516,5 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   );
 };
 
+// --- Export ---
 export default ProjectCanvas;
