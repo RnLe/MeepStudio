@@ -8,22 +8,24 @@ import { MeepProject } from "../types/meepProjectTypes";
 import { Circle, Square, Triangle as LucideTriangle, Grid } from "lucide-react";
 
 const GROUPS = [
-  { key: "layout", label: "Layout", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
+  { key: "snapping", label: "Snapping", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
   { key: "geometries", label: "Geometries", color: "#b6a6ca", border: "border-[#b6a6ca]", bg: "bg-[#b6a6ca]/20" },
   { key: "materials", label: "Materials", color: "#c7bca1", border: "border-[#c7bca1]", bg: "bg-[#c7bca1]/20" },
   { key: "sources", label: "Sources", color: "#b1cfc1", border: "border-[#b1cfc1]", bg: "bg-[#b1cfc1]/20" },
   { key: "boundaries", label: "Boundaries", color: "#c9b1bd", border: "border-[#c9b1bd]", bg: "bg-[#c9b1bd]/20" },
   { key: "regions", label: "Regions", color: "#b1b8c9", border: "border-[#b1b8c9]", bg: "bg-[#b1b8c9]/20" },
+  { key: "overlays", label: "Overlays", color: "#c9b1b1", border: "border-[#c9b1b1]", bg: "bg-[#c9b1b1]/20" },
 ];
 
 // Define group keys as a union type for type safety
 const GROUP_KEYS = [
-  "layout",
+  "snapping",
   "geometries",
   "materials",
   "sources",
   "boundaries",
   "regions",
+  "overlays"
 ] as const;
 type GroupKey = typeof GROUP_KEYS[number];
 
@@ -35,7 +37,7 @@ interface Tool {
   isActive?: (snapToGrid: boolean) => boolean;
 }
 
-const layoutTools = [
+const snappingTools = [
   {
     label: "Snap to Grid",
     icon: <Grid size={18} />,
@@ -66,12 +68,13 @@ const geometryTools = [
 ];
 
 const groupToolMap: Record<GroupKey, Tool[]> = {
-  layout: layoutTools,
+  snapping: snappingTools,
   geometries: geometryTools,
   materials: [],
   sources: [],
   boundaries: [],
   regions: [],
+  overlays: [],
 };
 
 interface CanvasToolbarProps {
@@ -148,6 +151,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newTriangle,
   };
 
+  // --- Virtual drag: onMouseDown starts drag, onMouseUp anywhere ends it ---
+  // (Canvas will listen for mouseup to finish the drag)
   return (
     <aside className="h-full w-20 flex flex-col items-center py-2 bg-neutral-700 border-l-white border-l-1 border-r-0">
       {GROUPS.map((group, idx) => (

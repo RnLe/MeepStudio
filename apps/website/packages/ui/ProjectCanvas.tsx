@@ -269,6 +269,20 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     };
   }, [pos, scale]);
 
+  // --- Multi-select drag state ---
+  const [multiDragAnchor, setMultiDragAnchor] = useState<{ id: string; anchor: { x: number; y: number }; initialPositions: Record<string, { x: number; y: number }> } | null>(null);
+
+  // --- Keyboard handler for Delete key ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length > 0) {
+        selectedIds.forEach(id => handleRemoveGeometry(id));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedIds, handleRemoveGeometry]);
+
   return (
     <div
       ref={containerRef}
@@ -518,11 +532,62 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                       }
                     : {}
                   )}
+                  onDragStart={(evt) => {
+                    if (isSel && selectedIds.length > 1) {
+                      // Record anchor and all initial positions
+                      setMultiDragAnchor({
+                        id: c.id,
+                        anchor: { x: c.pos.x, y: c.pos.y },
+                        initialPositions: Object.fromEntries(selectedIds.map(id => {
+                          const g = geometries.find(g => g.id === id);
+                          return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
+                        }).filter(Boolean) as [string, { x: number; y: number }][]),
+                      });
+                    }
+                  }}
+                  onDragMove={(evt) => {
+                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === c.id) {
+                      // Calculate delta in logical units
+                      const newX = evt.target.x() / GRID_PX;
+                      const newY = evt.target.y() / GRID_PX;
+                      const dx = newX - multiDragAnchor.anchor.x;
+                      const dy = newY - multiDragAnchor.anchor.y;
+                      // Update all selected geometries visually
+                      selectedIds.forEach(id => {
+                        if (id === c.id) return; // skip self, already being dragged
+                        const g = geometries.find(g => g.id === id);
+                        if (g) {
+                          const init = multiDragAnchor.initialPositions[id];
+                          if (init) {
+                            updateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
+                          }
+                        }
+                      });
+                    }
+                  }}
                   onDragEnd={(evt) => {
-                    // --- Update geometry position in logical grid units ---
-                    const x = (evt.target.x()) / GRID_PX;
-                    const y = (evt.target.y()) / GRID_PX;
-                    handleUpdateGeometry(c.id, { pos: { x, y } });
+                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === c.id) {
+                      // Finalize all selected geometries' positions
+                      const newX = evt.target.x() / GRID_PX;
+                      const newY = evt.target.y() / GRID_PX;
+                      const dx = newX - multiDragAnchor.anchor.x;
+                      const dy = newY - multiDragAnchor.anchor.y;
+                      selectedIds.forEach(id => {
+                        const g = geometries.find(g => g.id === id);
+                        if (g) {
+                          const init = multiDragAnchor.initialPositions[id];
+                          if (init) {
+                            handleUpdateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
+                          }
+                        }
+                      });
+                      setMultiDragAnchor(null);
+                    } else {
+                      // --- Update geometry position in logical grid units ---
+                      const x = (evt.target.x()) / GRID_PX;
+                      const y = (evt.target.y()) / GRID_PX;
+                      handleUpdateGeometry(c.id, { pos: { x, y } });
+                    }
                   }}
                   onClick={(evt) => selectElement(c.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
                 />
@@ -553,11 +618,57 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                       }
                     : {}
                   )}
+                  onDragStart={(evt) => {
+                    if (isSel && selectedIds.length > 1) {
+                      setMultiDragAnchor({
+                        id: r.id,
+                        anchor: { x: r.pos.x, y: r.pos.y },
+                        initialPositions: Object.fromEntries(selectedIds.map(id => {
+                          const g = geometries.find(g => g.id === id);
+                          return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
+                        }).filter(Boolean) as [string, { x: number; y: number }][]),
+                      });
+                    }
+                  }}
+                  onDragMove={(evt) => {
+                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === r.id) {
+                      const newX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
+                      const newY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
+                      const dx = newX - multiDragAnchor.anchor.x;
+                      const dy = newY - multiDragAnchor.anchor.y;
+                      selectedIds.forEach(id => {
+                        if (id === r.id) return;
+                        const g = geometries.find(g => g.id === id);
+                        if (g) {
+                          const init = multiDragAnchor.initialPositions[id];
+                          if (init) {
+                            updateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
+                          }
+                        }
+                      });
+                    }
+                  }}
                   onDragEnd={(evt) => {
-                    // --- Update geometry position in logical grid units ---
-                    const centerX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
-                    const centerY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
-                    handleUpdateGeometry(r.id, { pos: { x: centerX, y: centerY } });
+                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === r.id) {
+                      const newX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
+                      const newY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
+                      const dx = newX - multiDragAnchor.anchor.x;
+                      const dy = newY - multiDragAnchor.anchor.y;
+                      selectedIds.forEach(id => {
+                        const g = geometries.find(g => g.id === id);
+                        if (g) {
+                          const init = multiDragAnchor.initialPositions[id];
+                          if (init) {
+                            handleUpdateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
+                          }
+                        }
+                      });
+                      setMultiDragAnchor(null);
+                    } else {
+                      const centerX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
+                      const centerY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
+                      handleUpdateGeometry(r.id, { pos: { x: centerX, y: centerY } });
+                    }
                   }}
                   onClick={(evt) => selectElement(r.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
                 />
@@ -596,14 +707,57 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                       }
                     : {}
                   )}
+                  onDragStart={(evt) => {
+                    if (isSel && selectedIds.length > 1) {
+                      setMultiDragAnchor({
+                        id: t.id,
+                        anchor: { x: t.pos.x, y: t.pos.y },
+                        initialPositions: Object.fromEntries(selectedIds.map(id => {
+                          const g = geometries.find(g => g.id === id);
+                          return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
+                        }).filter(Boolean) as [string, { x: number; y: number }][]),
+                      });
+                    }
+                  }}
+                  onDragMove={(evt) => {
+                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === t.id) {
+                      const newX = evt.target.x() / GRID_PX;
+                      const newY = evt.target.y() / GRID_PX;
+                      const dx = newX - multiDragAnchor.anchor.x;
+                      const dy = newY - multiDragAnchor.anchor.y;
+                      selectedIds.forEach(id => {
+                        if (id === t.id) return;
+                        const g = geometries.find(g => g.id === id);
+                        if (g) {
+                          const init = multiDragAnchor.initialPositions[id];
+                          if (init) {
+                            updateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
+                          }
+                        }
+                      });
+                    }
+                  }}
                   onDragEnd={(evt) => {
-                    // --- Update geometry anchor position in logical grid units ---
-                    const newX = evt.target.x() / GRID_PX;
-                    const newY = evt.target.y() / GRID_PX;
-                    handleUpdateGeometry(t.id, { pos: { x: newX, y: newY } });
-                    // Reset shape position so next drag starts from new anchor
-                    evt.target.x(anchorX); // keep visual position correct
-                    evt.target.y(anchorY);
+                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === t.id) {
+                      const newX = evt.target.x() / GRID_PX;
+                      const newY = evt.target.y() / GRID_PX;
+                      const dx = newX - multiDragAnchor.anchor.x;
+                      const dy = newY - multiDragAnchor.anchor.y;
+                      selectedIds.forEach(id => {
+                        const g = geometries.find(g => g.id === id);
+                        if (g) {
+                          const init = multiDragAnchor.initialPositions[id];
+                          if (init) {
+                            handleUpdateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
+                          }
+                        }
+                      });
+                      setMultiDragAnchor(null);
+                    } else {
+                      const newX = evt.target.x() / GRID_PX;
+                      const newY = evt.target.y() / GRID_PX;
+                      handleUpdateGeometry(t.id, { pos: { x: newX, y: newY } });
+                    }
                   }}
                   onClick={(evt) => selectElement(t.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
                 />
