@@ -14,7 +14,7 @@ interface Props {
 }
 
 const InnerLayout: React.FC<Props> = ({ghPages}) => {
-  const { projects, isLoading, createProject } = useMeepProjects({ ghPages });
+  const { projects, isLoading, createProject, deleteProject } = useMeepProjects({ ghPages });
   const [rightOpen, setRightOpen] = useState(true);
   const { tabs, activeId, openTab, closeTab, selectTab } = useStudioTabs();
 
@@ -36,17 +36,24 @@ const InnerLayout: React.FC<Props> = ({ghPages}) => {
     <div className="flex flex-col h-full w-full bg-neutral-900 text-white overflow-hidden relative">
       <TopNavBar />
       <div className="flex flex-1 h-0 w-full overflow-hidden">
-        <LeftSidebar projects={projects} openProject={handleOpenTab} createProject={createProject} />
+        <LeftSidebar 
+          projects={projects}
+          openProject={handleOpenTab}
+          createProject={createProject}
+          deleteProject={deleteProject}
+          onCloseTab={closeTab} // Pass closeTab to ProjectExplorer
+        />
         <div className="flex-1 flex flex-col overflow-hidden">
           <TabWindowContainer 
             tabs={tabs}
             activeId={activeId}
             onSelect={handleSelectTab}
             onClose={closeTab}
+            onRemoveProject={deleteProject}
           />
         </div>
         {rightOpen && (
-          <RightSidebar open={rightOpen} project={activeProject} onClose={() => setRightOpen(false)} />
+          <RightSidebar open={rightOpen} project={activeProject} onClose={() => setRightOpen(false)} deleteProject={deleteProject} />
         )}
       </div>
     </div>

@@ -4,18 +4,26 @@
 import React, { useState } from "react";
 import { nanoid } from "nanoid";
 import { MeepProject } from "../types/meepProjectTypes";
+import { MoreHorizontal } from "lucide-react";
+import ContextMenu from "./ContextMenu";
 
 interface Props {
   projects: MeepProject[];
   openProject: (p: MeepProject) => void;
   createProject: (p: MeepProject) => Promise<MeepProject>;
+  deleteProject: (id: string) => Promise<void>;
+  onCloseTab?: (id: string) => void; // Added prop for closing tab
 }
 
-export default function ProjectExplorer({ projects, openProject, createProject }: Props) {
+export default function ProjectExplorer({ projects, openProject, createProject, deleteProject, onCloseTab }: Props) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDimension, setNewDimension] = useState<number>(2);
+  const [contextMenu, setContextMenu] = useState<
+    | { x: number; y: number; project: MeepProject }
+    | null
+  >(null);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -40,19 +48,80 @@ export default function ProjectExplorer({ projects, openProject, createProject }
     }
   };
 
+  const handleDelete = async (project: MeepProject) => {
+    if (window.confirm(`Are you sure you want to delete the project "${project.title}"? This cannot be undone.`)) {
+      await deleteProject(project.documentId);
+      onCloseTab?.(project.documentId); // Close tab after deletion
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-y-auto px-2 py-2">
       <div className="space-y-1">
         {projects.map((project) => (
           <div
             key={project.documentId}
-            className="px-3 py-1 text-sm text-gray-300 hover:text-white transition-colors cursor-pointer truncate"
+            className={`flex items-center px-3 py-1 text-sm text-gray-300 transition-colors cursor-pointer truncate group 
+              ${contextMenu && contextMenu.project.documentId === project.documentId ? "" : "hover:bg-neutral-600"}`}
+            style={{
+              borderRadius: 0,
+              marginLeft: '-0.5rem', // -2 for px-2 parent
+              marginRight: '-0.5rem',
+              width: 'calc(100% + 1rem)', // compensate for px-2 parent
+            }}
             onClick={() => openProject(project)}
+            // Remove hover when three-dots is hovered
+            onMouseEnter={e => {
+              const btn = e.currentTarget.querySelector('.project-menu-btn');
+              if (btn) btn.classList.remove('pointer-events-none');
+            }}
+            onMouseLeave={e => {
+              const btn = e.currentTarget.querySelector('.project-menu-btn');
+              if (btn) btn.classList.add('pointer-events-none');
+            }}
           >
-            {project.title}
+            <span className="truncate flex-1">{project.title}</span>
+            <button
+              className="ml-2 cursor-pointer project-menu-btn z-10 group/icon"
+              onClick={(e) => {
+              e.stopPropagation();
+              setContextMenu({
+                x: e.currentTarget.getBoundingClientRect().right + window.scrollX,
+                y: e.currentTarget.getBoundingClientRect().bottom + window.scrollY,
+                project,
+              });
+              }}
+              title="More"
+              tabIndex={-1}
+              style={{ opacity: 1, borderRadius: 0 }}
+              onMouseEnter={e => {
+              // Remove hover from parent
+              e.currentTarget.parentElement?.classList.remove('hover:bg-neutral-600');
+              }}
+              onMouseLeave={e => {
+              // Restore hover to parent
+              e.currentTarget.parentElement?.classList.add('hover:bg-neutral-600');
+              }}
+            >
+              <MoreHorizontal size={16} className="transition-all group-hover/icon:stroke-3" />
+            </button>
           </div>
         ))}
       </div>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          entries={[
+            {
+              label: "Remove Project",
+              danger: true,
+              onClick: () => handleDelete(contextMenu.project),
+            },
+          ]}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
       <div className="px-2 py-2 border-t border-gray-700">
         {!showCreateForm ? (
           <button

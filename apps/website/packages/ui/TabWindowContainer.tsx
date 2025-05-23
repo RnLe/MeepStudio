@@ -10,6 +10,7 @@ interface Props {
   activeId: string | null;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
+  onRemoveProject?: (id: string) => void;
 }
 
 const TabWindowContainer: React.FC<Props> = ({
@@ -17,12 +18,13 @@ const TabWindowContainer: React.FC<Props> = ({
   activeId,
   onSelect,
   onClose,
+  onRemoveProject,
 }) => {
   const activeProject = tabs.find(tab => tab.documentId === activeId);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} />
+      <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} onRemoveProject={onRemoveProject} />
       {activeProject ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* The actual project window */}

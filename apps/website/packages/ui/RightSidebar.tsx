@@ -1,8 +1,8 @@
 // src/components/layout/RightSidebar.tsx
 import React from "react";
 import { X } from "lucide-react";
-import { SimulationConsole } from "./SimulationConsole";
 import { MeepProject } from "../types/meepProjectTypes";
+import ContextMenu from "./ContextMenu";
 import ObjectsList from "./ObjectList";
 import ObjectPropertiesPanel from "./ObjectPropertiesPanels";
 
@@ -11,12 +11,21 @@ interface Props {
   open: boolean;
   project?: MeepProject;
   onClose?: () => void;
+  deleteProject?: (id: string) => Promise<void>;
 }
 
-const RightSidebar: React.FC<Props> = ({ open, project, onClose }) => {
+const RightSidebar: React.FC<Props> = ({ open, project, onClose, deleteProject }) => {
+  const handleDelete = async () => {
+    if (project && deleteProject) {
+      if (window.confirm(`Are you sure you want to delete the project "${project.title}"? This cannot be undone.`)) {
+        await deleteProject(project.documentId);
+      }
+    }
+  };
+
   return (
     <div
-      className={`flex-shrink-0 w-80 bg-gray-900 border-l border-gray-700 p-0 space-y-4
+      className={`flex-shrink-0 w-80 bg-neutral-800 border-l border-gray-700 p-0 space-y-4
         transform transition-transform duration-200
         ${open ? "translate-x-0" : "translate-x-full"}`}
     >
@@ -29,17 +38,17 @@ const RightSidebar: React.FC<Props> = ({ open, project, onClose }) => {
       </div>
       <div className="p-4">
         {project ? (
-          <div className="space-y-1">
-            <h2 className="text-xl font-semibold text-white">{project.title}</h2>
+          <div className="space-y-3">
+            <h2 className="not-prose text-xl font-semibold text-white text-center">{project.title}</h2>
             {project.description && (
-              <p className="text-sm text-gray-400">{project.description}</p>
+              <p className="text-sm text-gray-400 text-center">{project.description}</p>
             )}
           </div>
         ) : (
           <p className="text-gray-500">No project selected</p>
         )}
 
-        <hr className="border-gray-700" />
+        <hr className="border-gray-700 my-4" />
         <ObjectsList />
         <hr className="border-gray-700" />
         <ObjectPropertiesPanel />

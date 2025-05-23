@@ -12,9 +12,11 @@ interface Props {
   projects: MeepProject[];
   openProject: (p: MeepProject) => void;
   createProject: (p: MeepProject) => Promise<MeepProject>;
+  deleteProject: (id: string) => Promise<void>;
+  onCloseTab?: (id: string) => void;
 }
 
-export default function LeftSidebar({ projects, openProject, createProject }: Props) {
+export default function LeftSidebar({ projects, openProject, createProject, deleteProject, onCloseTab }: Props) {
   const [panel, setPanel] = useState<Panel>("explorer");
 
   const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
@@ -69,6 +71,8 @@ export default function LeftSidebar({ projects, openProject, createProject }: Pr
                 projects={projects}
                 openProject={openProject}
                 createProject={createProject}
+                deleteProject={deleteProject}
+                onCloseTab={onCloseTab}
               />
             )}
             {panel === "lattice" && <LatticeBuilder />}
