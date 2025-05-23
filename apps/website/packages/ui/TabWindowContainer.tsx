@@ -1,39 +1,38 @@
 // src/components/layout/TabWindowContainer.tsx
 "use client";
 import React from "react";
-import dynamic from "next/dynamic";
-import CanvasToolbar from "./CanvasToolbar";
+import TabWindowProject from "./TabWindowProject";
+import TabBar from "./TabBar";
 import { MeepProject } from "../types/meepProjectTypes";
 
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 10;
+interface Props {
+  tabs: MeepProject[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  onClose: (id: string) => void;
+}
 
-// pick your desired integer grid size here (or pull from activeProject)
-const GRID_W = 80;
-const GRID_H = 80;
-
-// dynamically load the client-only ProjectCanvas
-const ProjectCanvas = dynamic<{
-  project: MeepProject;
-  minZoom: number;
-  maxZoom: number;
-  gridWidth: number;
-  gridHeight: number;
-}>(() => import("./ProjectCanvas"), { ssr: false });
-
-const TabWindowContainer: React.FC<{ activeProject: MeepProject }> = ({
-  activeProject,
+const TabWindowContainer: React.FC<Props> = ({
+  tabs,
+  activeId,
+  onSelect,
+  onClose,
 }) => {
+  const activeProject = tabs.find(tab => tab.documentId === activeId);
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <CanvasToolbar />
-      <ProjectCanvas
-        project={activeProject}
-        minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
-        gridWidth={GRID_W}
-        gridHeight={GRID_H}
-      />
+      <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} />
+      {activeProject ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* The actual project window */}
+          <TabWindowProject project={activeProject} />
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          No project selected
+        </div>
+      )}
     </div>
   );
 };

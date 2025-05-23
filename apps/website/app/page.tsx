@@ -1,5 +1,5 @@
 // Import logger
-import { logger } from "@meepstudio/utils";
+import { logger } from "../packages/utils/logger";
  
 export default function HomePage() {
   // Logging

@@ -1,26 +1,16 @@
 import React from "react";
-import { X, Layout } from "lucide-react";
-import { MeepProject } from "@meepstudio/types";
+import { X } from "lucide-react";
+import { MeepProject } from "../types/meepProjectTypes";
 
 interface Props {
   tabs: MeepProject[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
-  rightOpen: boolean;
-  onToggleRight: () => void;
 }
 
-const TopNavBar: React.FC<Props> = ({
-  tabs,
-  activeId,
-  onSelect,
-  onClose,
-  rightOpen,
-  onToggleRight,
-}) => (
+const TabBar: React.FC<Props> = ({ tabs, activeId, onSelect, onClose }) => (
   <div className="flex items-center h-10 bg-gray-800 border-b border-gray-700 px-2">
-    {/* ─────────────── tabs ─────────────── */}
     <div className="flex space-x-1 overflow-x-auto">
       {tabs.map((t) => (
         <div
@@ -42,16 +32,7 @@ const TopNavBar: React.FC<Props> = ({
         </div>
       ))}
     </div>
-
-    {/* ─────────────── right-sidebar toggle ─────────────── */}
-    <button
-      onClick={onToggleRight}
-      className="ml-auto p-1 hover:bg-gray-700 rounded"
-      title="Toggle simulation sidebar"
-    >
-      <Layout size={18} className={rightOpen ? "text-white" : "text-gray-400"} />
-    </button>
   </div>
 );
 
-export default TopNavBar;
+export default TabBar;

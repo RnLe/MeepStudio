@@ -1,9 +1,9 @@
-// src/components/layout/TabWindowContainer.tsx
+// src/components/layout/TabWindowProject.tsx
 "use client";
 import React from "react";
 import dynamic from "next/dynamic";
 import CanvasToolbar from "./CanvasToolbar";
-import { MeepProject } from "@meepstudio/types";
+import { MeepProject } from "../types/meepProjectTypes";
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 10;
@@ -21,14 +21,16 @@ const ProjectCanvas = dynamic<{
   gridHeight: number;
 }>(() => import("./ProjectCanvas"), { ssr: false });
 
-const TabWindowContainer: React.FC<{ activeProject: MeepProject }> = ({
-  activeProject,
-}) => {
+interface Props {
+  project: MeepProject;
+}
+
+const TabWindowProject: React.FC<Props> = ({ project }) => {
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col w-full h-full overflow-hidden">
       <CanvasToolbar />
       <ProjectCanvas
-        project={activeProject}
+        project={project}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
         gridWidth={GRID_W}
@@ -38,4 +40,4 @@ const TabWindowContainer: React.FC<{ activeProject: MeepProject }> = ({
   );
 };
 
-export default TabWindowContainer;
+export default TabWindowProject;

@@ -17,38 +17,38 @@ const InnerLayout: React.FC<Props> = ({ghPages}) => {
   const { projects, isLoading, createProject } = useMeepProjects({ ghPages });
   const [rightOpen, setRightOpen] = useState(true);
   const { tabs, activeId, openTab, closeTab, selectTab } = useStudioTabs();
-  const active = tabs.find((t) => t.documentId === activeId) || null;
 
   if (isLoading) return <div className="p-4">Loading …</div>;
 
-  return (
-    <div className="flex h-full w-full bg-neutral-900 text-white overflow-hidden">
-      <LeftSidebar projects={projects} openProject={openTab} createProject={createProject} />
+  const activeProject = tabs.find(tab => tab.documentId === activeId);
 
+  // Handler to open right sidebar when a project or tab is selected
+  const handleOpenTab = (project: any) => {
+    setRightOpen(true);
+    openTab(project);
+  };
+  const handleSelectTab = (id: string) => {
+    setRightOpen(true);
+    selectTab(id);
+  };
+
+  return (
+    <div className="flex flex-col h-full w-full bg-neutral-900 text-white overflow-hidden relative">
+      <TopNavBar />
+      <div className="flex flex-1 h-0 w-full overflow-hidden">
+        <LeftSidebar projects={projects} openProject={handleOpenTab} createProject={createProject} />
         <div className="flex-1 flex flex-col overflow-hidden">
-        <TopNavBar
+          <TabWindowContainer 
             tabs={tabs}
             activeId={activeId}
-            onSelect={selectTab}
+            onSelect={handleSelectTab}
             onClose={closeTab}
-            rightOpen={rightOpen}
-            onToggleRight={() => setRightOpen((o) => !o)}
-        />
-
-        <div className="flex-1 flex overflow-hidden">
-            {active ? (
-            <TabWindowContainer activeProject={active} />
-            ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-                Open a project from the explorer
-            </div>
-            )}
-
-            {/* now underneath the top bar, as a sibling of the main pane */}
-            <RightSidebar open={rightOpen} project={active} />
+          />
         </div>
-        </div>
-
+        {rightOpen && (
+          <RightSidebar open={rightOpen} project={activeProject} onClose={() => setRightOpen(false)} />
+        )}
+      </div>
     </div>
   );
 };

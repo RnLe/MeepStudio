@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { Folder, Wrench } from "lucide-react";
+import { Folder, Hexagon } from "lucide-react";
 import { MeepProject } from "../types/meepProjectTypes";
 import ProjectExplorer from "./ProjectExplorer";
+import LatticeBuilder from "./LatticeBuilder";
 
-type Panel = "explorer" | "toolbar" | null;
+type Panel = "explorer" | "lattice" | null;
 
 interface Props {
   projects: MeepProject[];
@@ -19,8 +20,8 @@ export default function LeftSidebar({ projects, openProject, createProject }: Pr
   const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
   const icons = [
-    { key: "explorer", Icon: Folder, title: "Explorer" },
-    { key: "toolbar", Icon: Wrench, title: "Toolbar" },
+    { key: "explorer", Icon: Folder, title: "Project Explorer" },
+    { key: "lattice", Icon: Hexagon, title: "Lattice Builder" },
   ] as const;
 
   return (
@@ -56,20 +57,22 @@ export default function LeftSidebar({ projects, openProject, createProject }: Pr
         }`}
       >
         <div className="h-full flex flex-col">
-          {panel === "explorer" && (
-            <ProjectExplorer
-              projects={projects}
-              openProject={openProject}
-              createProject={createProject}
-            />
-          )}
-
-          {panel === "toolbar" && (
-            <div className="p-4 text-sm text-gray-400">
-              <p className="mb-2 font-semibold text-white">Toolbar (stub)</p>
-              <p>Add geometry primitives, sources, …</p>
-            </div>
-          )}
+          {/* Panel Top Navbar */}
+          <div className="h-8 w-full flex items-center px-4 text-xs tracking-widest uppercase text-gray-300 select-none" style={{ minHeight: 32 }}>
+            {panel === "explorer" && "Project Explorer"}
+            {panel === "lattice" && "Lattice Builder"}
+          </div>
+          {/* Panel Content */}
+          <div className="flex-1">
+            {panel === "explorer" && (
+              <ProjectExplorer
+                projects={projects}
+                openProject={openProject}
+                createProject={createProject}
+              />
+            )}
+            {panel === "lattice" && <LatticeBuilder />}
+          </div>
         </div>
       </div>
     </div>

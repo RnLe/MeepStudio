@@ -42,96 +42,180 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     shallow
   );
 
-  // dynamic pixel dims
-  const CANVAS_W = gridWidth * GRID_PX;
-  const CANVAS_H = gridHeight * GRID_PX;
-
-  // dynamic min‐zoom state
+  // dynamic pixel dims (now based on container size)
   const containerRef = useRef<HTMLDivElement>(null);
-  const [minZoomDynamic, setMinZoomDynamic] = useState(1);
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   useEffect(() => {
-    const ro = new ResizeObserver((entries) => {
-      entries.forEach((entry) => {
-        const { width, height } = entry.contentRect;
-        const zoomW = (width / 2) / CANVAS_W;
-        const zoomH = (height / 2) / CANVAS_H;
-        setMinZoomDynamic(Math.min(zoomW, zoomH, 1));
+    const handleResize = () => {
+      if (containerRef.current) {
+        setContainerSize({
+          width: containerRef.current.offsetWidth,
+          height: containerRef.current.offsetHeight,
+        });
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(() => {
+      setContainerSize({
+        width: containerRef.current!.offsetWidth,
+        height: containerRef.current!.offsetHeight,
       });
     });
-    if (containerRef.current) ro.observe(containerRef.current);
-    return () => { if (containerRef.current) ro.unobserve(containerRef.current); };
-  }, [CANVAS_W, CANVAS_H]);
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
 
-  // zoom & pan state
+  // Logical grid size
+  const LOGICAL_W = gridWidth * GRID_PX;
+  const LOGICAL_H = gridHeight * GRID_PX;
+
+  // Stage size is always container size
+  const CANVAS_W = containerSize.width;
+  const CANVAS_H = containerSize.height;
+
+  // --- Dynamic min zoom: fit rectangle to container, based on limiting dimension ---
+  const getMinZoomDynamic = useCallback(() => {
+    if (LOGICAL_W === 0 || LOGICAL_H === 0) return 1;
+    // Allow zooming out 5% beyond the fit
+    return Math.min(
+      CANVAS_W / LOGICAL_W,
+      CANVAS_H / LOGICAL_H
+    ) / 1.05;
+  }, [CANVAS_W, CANVAS_H, LOGICAL_W, LOGICAL_H]);
+  const minZoomDynamic = getMinZoomDynamic();
+
+  // --- Dynamic max zoom: allow zooming in up to 10x the min zoom ---
+  const maxZoomDynamic = minZoomDynamic * 10;
+
+  // --- Clamp pan so the rectangle is always visible and pannable ---
+  const clampPan = useCallback((x: number, y: number, scale: number) => {
+    const scaledW = LOGICAL_W * scale;
+    const scaledH = LOGICAL_H * scale;
+    // X axis
+    let newX;
+    if (scaledW < CANVAS_W) {
+      newX = (CANVAS_W - scaledW) / 2;
+    } else {
+      const minX = CANVAS_W - scaledW / 2;
+      const maxX = scaledW / 2;
+      newX = Math.max(Math.min(x, maxX), minX - scaledW);
+    }
+    // Y axis
+    let newY;
+    if (scaledH < CANVAS_H) {
+      newY = (CANVAS_H - scaledH) / 2;
+    } else {
+      const minY = CANVAS_H - scaledH / 2;
+      const maxY = scaledH / 2;
+      newY = Math.max(Math.min(y, maxY), minY - scaledH);
+    }
+    return { x: newX, y: newY };
+  }, [CANVAS_W, CANVAS_H, LOGICAL_W, LOGICAL_H]);
+
+  // --- Zoom & pan state ---
   const stageRef = useRef<any>(null);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(minZoomDynamic);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [lastPointer, setLastPointer] = useState<{ x: number; y: number } | null>(null);
 
-  // selection‐box state
-  const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
-  const [selBox, setSelBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  // --- Center the rectangle on mount and when container or zoom changes ---
+  useEffect(() => {
+    setScale(minZoomDynamic);
+    const scaledW = LOGICAL_W * minZoomDynamic;
+    const scaledH = LOGICAL_H * minZoomDynamic;
+    const x = scaledW < CANVAS_W ? (CANVAS_W - scaledW) / 2 : 0;
+    const y = scaledH < CANVAS_H ? (CANVAS_H - scaledH) / 2 : 0;
+    setPos({ x, y });
+  }, [minZoomDynamic, LOGICAL_W, LOGICAL_H, CANVAS_W, CANVAS_H]);
 
-  // wheel handler to zoom around pointer
+  // --- Wheel handler to zoom around pointer ---
   const handleWheel = useCallback(
     (e: any) => {
       e.evt.preventDefault();
       const stage = stageRef.current;
       if (!stage) return;
-      const oldScale = stage.scaleX();
+      const oldScale = scale;
       const pointer = stage.getPointerPosition()!;
       const mousePointTo = {
-        x: (pointer.x - stage.x()) / oldScale,
-        y: (pointer.y - stage.y()) / oldScale,
+        x: (pointer.x - pos.x) / oldScale,
+        y: (pointer.y - pos.y) / oldScale,
       };
       const direction = e.evt.deltaY > 0 ? -1 : 1;
       const factor = 0.1;
-      const newScale = Math.min(
-        maxZoom,
-        Math.max(minZoomDynamic, oldScale + direction * factor * oldScale)
-      );
-      setScale(newScale);
-      setPos({
+      let newScale = oldScale + direction * factor * oldScale;
+      newScale = Math.max(minZoomDynamic, Math.min(maxZoomDynamic, newScale));
+      const newPos = {
         x: pointer.x - mousePointTo.x * newScale,
         y: pointer.y - mousePointTo.y * newScale,
-      });
+      };
+      setScale(newScale);
+      setPos(clampPan(newPos.x, newPos.y, newScale));
     },
-    [maxZoom, minZoomDynamic]
+    [minZoomDynamic, maxZoomDynamic, scale, pos, clampPan]
   );
 
+  // --- Grid lines only inside the logical rectangle ---
   const gridLines = useMemo(() => {
     const lines: React.ReactNode[] = [];
     // rows (horizontal)
     for (let i = 0; i <= gridHeight; i++) {
       const y = i * GRID_PX;
-      lines.push(<Line key={`h${i}`} points={[0, y, CANVAS_W, y]} stroke="#bbb" strokeWidth={0.4} />);
+      lines.push(
+        <Line
+          key={`h${i}`}
+          points={[0, y, LOGICAL_W, y]}
+          stroke="#bbb"
+          strokeWidth={0.4}
+        />
+      );
     }
     // cols (vertical)
     for (let j = 0; j <= gridWidth; j++) {
       const x = j * GRID_PX;
-      lines.push(<Line key={`v${j}`} points={[x, 0, x, CANVAS_H]} stroke="#bbb" strokeWidth={0.4} />);
+      lines.push(
+        <Line
+          key={`v${j}`}
+          points={[x, 0, x, LOGICAL_H]}
+          stroke="#bbb"
+          strokeWidth={0.4}
+        />
+      );
     }
     return lines;
-  }, [gridWidth, gridHeight]);
+  }, [gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
 
   const elements: (Cylinder | RectEl)[] = [
     ...cylinders,
     ...rectangles,
   ];
 
+  // Selection box state (restore)
+  const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [selBox, setSelBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
   return (
-    // neutral grey outside
     <div
       ref={containerRef}
-      className="flex-1 flex items-center justify-center bg-neutral-300"
+      className="flex-1 flex items-center justify-center bg-neutral-300 w-full h-full overflow-hidden"
+      style={{ width: "100%", height: "100%" }}
       onContextMenu={(e) => e.preventDefault()}
     >
       <Stage
-        width={CANVAS_W}
-        height={CANVAS_H}
-        // apply cursor when panning
-        style={{ cursor: isPanning ? "move" : "default" }}
+        key={containerSize.width + 'x' + containerSize.height}
+        width={containerSize.width}
+        height={containerSize.height}
+        style={{ width: "100%", height: "100%", cursor: isPanning ? "move" : "default" }}
+        scaleX={scale}
+        scaleY={scale}
+        x={pos.x}
+        y={pos.y}
+        ref={stageRef}
         onMouseDown={(e) => {
           const evt = e.evt;
           const abs = stageRef.current!.getPointerPosition()!;
@@ -158,7 +242,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
           if (isPanning && lastPointer) {
             const dx = abs.x - lastPointer.x;
             const dy = abs.y - lastPointer.y;
-            setPos((p) => ({ x: p.x + dx, y: p.y + dy }));
+            const nextPos = { x: pos.x + dx, y: pos.y + dy };
+            setPos(clampPan(nextPos.x, nextPos.y, scale));
             setLastPointer(abs);
 
           } else if (selOrigin) {
@@ -185,19 +270,36 @@ const ProjectCanvas: React.FC<Props> = (props) => {
           }
         }}
         onWheel={handleWheel}
-        scaleX={scale}
-        scaleY={scale}
-        x={pos.x}
-        y={pos.y}
-        ref={stageRef}
       >
+        {/* --- Darker background outside the rectangle --- */}
         <Layer>
-          {gridLines}
+          {/* Fill the whole canvas with a slightly darker neutral gray */}
+          <Rect
+            x={-pos.x / scale}
+            y={-pos.y / scale}
+            width={CANVAS_W / scale}
+            height={CANVAS_H / scale}
+            fill="#a3a3a3" // Tailwind neutral-400
+            listening={false}
+          />
+          {/* Draw the main rectangle area with lighter bg to "cut out" the grid area */}
           <Rect
             x={0}
             y={0}
-            width={CANVAS_W}
-            height={CANVAS_H}
+            width={LOGICAL_W}
+            height={LOGICAL_H}
+            fill="#d4d4d4" // Tailwind neutral-300
+            listening={false}
+          />
+        </Layer>
+        <Layer>
+          {gridLines}
+          {/* Rectangle border */}
+          <Rect
+            x={0}
+            y={0}
+            width={LOGICAL_W}
+            height={LOGICAL_H}
             stroke="black"
             strokeWidth={2}
             listening={false}
