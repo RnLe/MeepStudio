@@ -226,7 +226,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
 
   // --- Grid lines only inside the logical rectangle ---
   const gridLines = useMemo(() => {
-    if (!showGrid) return null;
+    // Thicker/darker grid if both overlays are on
+    const bothActive = showGrid && showResolutionOverlay;
+    const onlyResolution = !showGrid && showResolutionOverlay;
+    if (!showGrid && !onlyResolution) return null;
     const lines: React.ReactNode[] = [];
     // rows (horizontal)
     for (let i = 0; i <= gridHeight; i++) {
@@ -235,8 +238,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         <Line
           key={`h${i}`}
           points={[0, y, LOGICAL_W, y]}
-          stroke="#bbb"
-          strokeWidth={0.4}
+          stroke={bothActive ? "#284b63" : onlyResolution ? "#284b63" : "#aaa"}
+          strokeWidth={bothActive ? 1.1 : onlyResolution ? 0.5 : 0.5}
+          opacity={bothActive ? 0.5 : onlyResolution ? 0.32 : 1}
         />
       );
     }
@@ -247,23 +251,25 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         <Line
           key={`v${j}`}
           points={[x, 0, x, LOGICAL_H]}
-          stroke="#bbb"
-          strokeWidth={0.4}
+          stroke={bothActive ? "#284b63" : onlyResolution ? "#284b63" : "#aaa"}
+          strokeWidth={bothActive ? 1.1 : onlyResolution ? 0.5 : 0.5}
+          opacity={bothActive ? 0.5 : onlyResolution ? 0.32 : 1}
         />
       );
     }
     return lines;
-  }, [showGrid, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
+  }, [showGrid, showResolutionOverlay, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
 
   // --- Resolution overlay grid ---
   const resolutionLines = useMemo(() => {
     if (!showResolutionOverlay || !project.resolution || project.resolution < 2) return null;
     const lines: React.ReactNode[] = [];
     const res = project.resolution;
+    // If normal grid is off, draw all lines (including main grid lines) in blue
+    const drawAll = !showGrid;
     // Draw subgrid for each cell
     for (let i = 0; i < gridHeight; i++) {
       for (let j = 0; j < gridWidth; j++) {
-        // For each cell, draw (res-1) lines between the main grid lines
         for (let sub = 1; sub < res; sub++) {
           // Horizontal sublines
           const y = (i + sub / res) * GRID_PX;
@@ -271,8 +277,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             <Line
               key={`res-h-${i}-${j}-${sub}`}
               points={[j * GRID_PX, y, (j + 1) * GRID_PX, y]}
-              stroke="#22c55e"
-              strokeWidth={0.2}
+              stroke="#284b63"
+              strokeWidth={0.5}
+              opacity={0.32}
             />
           );
           // Vertical sublines
@@ -281,34 +288,75 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             <Line
               key={`res-v-${i}-${j}-${sub}`}
               points={[x, i * GRID_PX, x, (i + 1) * GRID_PX]}
-              stroke="#22c55e"
-              strokeWidth={0.2}
+              stroke="#284b63"
+              strokeWidth={0.5}
+              opacity={0.32}
             />
           );
         }
       }
     }
+    // Draw the last main lines if normal grid is off
+    if (drawAll) {
+      const y = gridHeight * GRID_PX;
+      lines.push(
+        <Line
+          key={`res-h-main-last`}
+          points={[0, y, LOGICAL_W, y]}
+          stroke="#284b63"
+          strokeWidth={0.7}
+          opacity={0.32}
+        />
+      );
+      const x = gridWidth * GRID_PX;
+      lines.push(
+        <Line
+          key={`res-v-main-last`}
+          points={[x, 0, x, LOGICAL_H]}
+          stroke="#284b63"
+          strokeWidth={0.7}
+          opacity={0.32}
+        />
+      );
+    }
     return lines;
-  }, [showResolutionOverlay, project.resolution, gridWidth, gridHeight]);
+  }, [showResolutionOverlay, showGrid, project.resolution, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
 
   // --- Selection box state ---
   const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
   const [selBox, setSelBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // --- Helper: snap a canvas position to the grid, accounting for scale and pan ---
+  const snapToResolutionGrid = useCanvasStore((s) => s.snapToResolutionGrid);
+  // --- Helper: snap a canvas position to the grid, accounting for scale and pan ---
   const snapCanvasPosToGrid = useCallback((canvasPos: { x: number; y: number }) => {
     // Convert canvas (absolute) position to logical grid coordinates
     const logicalX = (canvasPos.x - pos.x) / scale;
     const logicalY = (canvasPos.y - pos.y) / scale;
-    // Snap logical coordinates to grid
-    const snappedLogicalX = Math.round(logicalX / GRID_PX) * GRID_PX;
-    const snappedLogicalY = Math.round(logicalY / GRID_PX) * GRID_PX;
-    // Convert back to canvas coordinates
-    return {
-      x: snappedLogicalX * scale + pos.x,
-      y: snappedLogicalY * scale + pos.y,
-    };
-  }, [pos, scale]);
+    if (snapToResolutionGrid && project.resolution && project.resolution > 1) {
+      // Snap to resolution subgrid
+      const res = project.resolution;
+      const cellW = GRID_PX / res;
+      const cellH = GRID_PX / res;
+      // Snap logical coordinates to resolution subgrid
+      const snappedLogicalX = Math.round(logicalX / cellW) * cellW;
+      const snappedLogicalY = Math.round(logicalY / cellH) * cellH;
+      // Convert back to canvas coordinates
+      return {
+        x: snappedLogicalX * scale + pos.x,
+        y: snappedLogicalY * scale + pos.y,
+      };
+    } else {
+      // Snap to normal grid
+      const snappedLogicalX = Math.round(logicalX / GRID_PX) * GRID_PX;
+      const snappedLogicalY = Math.round(logicalY / GRID_PX) * GRID_PX;
+      // Convert back to canvas coordinates
+      return {
+        x: snappedLogicalX * scale + pos.x,
+        y: snappedLogicalY * scale + pos.y,
+      };
+    }
+  }, [pos, scale, snapToResolutionGrid, project.resolution]);
 
   // --- Multi-select drag state ---
   const [multiDragAnchor, setMultiDragAnchor] = useState<{ id: string; anchor: { x: number; y: number }; initialPositions: Record<string, { x: number; y: number }> } | null>(null);

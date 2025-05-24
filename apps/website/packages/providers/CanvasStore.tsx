@@ -9,6 +9,8 @@ type CanvasState = {
   setActiveProject: (projectId: string | null) => void;
   snapToGrid: boolean;
   toggleSnap: () => void;
+  snapToResolutionGrid: boolean;
+  toggleSnapToResolutionGrid: () => void;
   // Multiple selection support
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
@@ -40,6 +42,8 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
     setActiveProject: (projectId) => set({ activeProjectId: projectId }),
     snapToGrid: true,
     toggleSnap: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
+    snapToResolutionGrid: false,
+    toggleSnapToResolutionGrid: () => set((s) => ({ snapToResolutionGrid: !s.snapToResolutionGrid })),
     // Multiple selection state and actions
     selectedIds: [],
     setSelectedIds: (ids) => set({ selectedIds: ids }),

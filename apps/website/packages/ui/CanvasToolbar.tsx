@@ -35,7 +35,7 @@ interface Tool {
   icon: React.ReactNode;
   onClick: (handler: any) => void;
   fnKey?: string;
-  isActive?: (state: { snapToGrid: boolean; showGrid: boolean; showResolutionOverlay: boolean }) => boolean;
+  isActive?: (state: { snapToGrid: boolean; showGrid: boolean; showResolutionOverlay: boolean; snapToResolutionGrid: boolean }) => boolean;
 }
 
 const snappingTools = [
@@ -45,7 +45,15 @@ const snappingTools = [
       <CustomLucideIcon src="/icons/grid-snapping.svg" size={18} />
     ),
     onClick: (toggleSnap: () => void) => toggleSnap(),
-    isActive: (state: { snapToGrid: boolean }) => state.snapToGrid,
+    isActive: (state: { snapToGrid: boolean; snapToResolutionGrid: boolean }) => state.snapToGrid && !state.snapToResolutionGrid,
+    fnKey: "toggleSnap",
+  },
+  {
+    label: "Snap to Resolution Grid",
+    icon: <Grid2X2 size={18} className="" />, // Reuse icon for now
+    onClick: (toggleSnapToResolutionGrid: () => void) => toggleSnapToResolutionGrid(),
+    isActive: (state: { snapToResolutionGrid: boolean }) => state.snapToResolutionGrid,
+    fnKey: "toggleSnapToResolutionGrid",
   },
 ];
 
@@ -106,6 +114,8 @@ interface CanvasToolbarProps {
 const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPages }) => {
   const snapToGrid = useCanvasStore((s) => s.snapToGrid);
   const toggleSnap = useCanvasStore((s) => s.toggleSnap);
+  const snapToResolutionGrid = useCanvasStore((s) => s.snapToResolutionGrid);
+  const toggleSnapToResolutionGrid = useCanvasStore((s) => s.toggleSnapToResolutionGrid);
   const addGeometry = useCanvasStore((s) => s.addGeometry);
   const showGrid = useCanvasStore((s) => s.showGrid);
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
@@ -175,6 +185,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newTriangle,
     toggleShowGrid,
     toggleShowResolutionOverlay,
+    toggleSnap,
+    toggleSnapToResolutionGrid,
   };
 
   // --- Virtual drag: onMouseDown starts drag, onMouseUp anywhere ends it ---
@@ -196,7 +208,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                   key={tool.label}
                   title={tool.label}
                   className={`flex items-center justify-center w-8 h-8 rounded transition-all
-                    ${tool.isActive && tool.isActive({ snapToGrid, showGrid, showResolutionOverlay })
+                    ${tool.isActive && tool.isActive({ snapToGrid, showGrid, showResolutionOverlay, snapToResolutionGrid })
                       ? "bg-yellow-600/60 hover:bg-yellow-500/80"
                       : "hover:bg-neutral-600 active:bg-neutral-600"}
                   `}
