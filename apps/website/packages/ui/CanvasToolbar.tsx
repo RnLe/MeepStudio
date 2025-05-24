@@ -5,7 +5,8 @@ import { Cylinder, Rectangle, Triangle } from "../types/canvasElementTypes";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Circle, Square, Triangle as LucideTriangle, Grid } from "lucide-react";
+import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid } from "lucide-react";
+import CustomLucideIcon from "./CustomLucideIcon";
 
 const GROUPS = [
   { key: "snapping", label: "Snapping", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
@@ -34,15 +35,17 @@ interface Tool {
   icon: React.ReactNode;
   onClick: (handler: any) => void;
   fnKey?: string;
-  isActive?: (snapToGrid: boolean) => boolean;
+  isActive?: (state: { snapToGrid: boolean; showGrid: boolean; showResolutionOverlay: boolean }) => boolean;
 }
 
 const snappingTools = [
   {
     label: "Snap to Grid",
-    icon: <Grid size={18} />,
+    icon: (
+      <CustomLucideIcon src="/icons/grid-snapping.svg" size={18} />
+    ),
     onClick: (toggleSnap: () => void) => toggleSnap(),
-    isActive: (snapToGrid: boolean) => snapToGrid,
+    isActive: (state: { snapToGrid: boolean }) => state.snapToGrid,
   },
 ];
 
@@ -67,6 +70,23 @@ const geometryTools = [
   },
 ];
 
+const overlayTools = [
+  {
+    label: "Show Grid",
+    icon: <Grid2X2 size={18} className="" />,
+    onClick: (toggleShowGrid: () => void) => toggleShowGrid(),
+    isActive: (state: { showGrid: boolean }) => state.showGrid,
+    fnKey: "toggleShowGrid",
+  },
+  {
+    label: "Show Resolution",
+    icon: <Grid size={18} className="" />,
+    onClick: (toggleShowResolutionOverlay: () => void) => toggleShowResolutionOverlay(),
+    isActive: (state: { showResolutionOverlay: boolean }) => state.showResolutionOverlay,
+    fnKey: "toggleShowResolutionOverlay",
+  },
+];
+
 const groupToolMap: Record<GroupKey, Tool[]> = {
   snapping: snappingTools,
   geometries: geometryTools,
@@ -74,7 +94,7 @@ const groupToolMap: Record<GroupKey, Tool[]> = {
   sources: [],
   boundaries: [],
   regions: [],
-  overlays: [],
+  overlays: overlayTools,
 };
 
 interface CanvasToolbarProps {
@@ -87,6 +107,10 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const snapToGrid = useCanvasStore((s) => s.snapToGrid);
   const toggleSnap = useCanvasStore((s) => s.toggleSnap);
   const addGeometry = useCanvasStore((s) => s.addGeometry);
+  const showGrid = useCanvasStore((s) => s.showGrid);
+  const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
+  const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
+  const toggleShowResolutionOverlay = useCanvasStore((s) => s.toggleShowResolutionOverlay);
   const { updateProject } = useMeepProjects({ ghPages });
   const projectId = project.documentId;
   const geometries = project.geometries || [];
@@ -95,7 +119,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     const newGeom = {
       kind: "cylinder",
       id: nanoid(),
-      pos: { x: 5, y: 5 },
+      pos: { x: 1, y: 1 },
       radius: 1,
     } as Cylinder;
     addGeometry(newGeom);
@@ -111,9 +135,9 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     const newGeom = {
       kind: "rectangle",
       id: nanoid(),
-      pos: { x: 10, y: 8 },
+      pos: { x: 1, y: 1 },
       width: 2,
-      height: 3,
+      height: 2,
     } as Rectangle;
     addGeometry(newGeom);
     updateProject({
@@ -128,11 +152,11 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     const newGeom = {
       kind: "triangle",
       id: nanoid(),
-      pos: { x: 8, y: 8 },
+      pos: { x: 0, y: 0 },
       vertices: [
-        { x: 7, y: 7 },
-        { x: 9, y: 7 },
-        { x: 8, y: 10 },
+        { x: 0, y: 0 }, // anchor
+        { x: 1, y: 0 }, // right
+        { x: 0, y: 1 }, // up
       ],
     } as Triangle;
     addGeometry(newGeom);
@@ -149,6 +173,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newCylinder,
     newRect,
     newTriangle,
+    toggleShowGrid,
+    toggleShowResolutionOverlay,
   };
 
   // --- Virtual drag: onMouseDown starts drag, onMouseUp anywhere ends it ---
@@ -169,9 +195,11 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                 <button
                   key={tool.label}
                   title={tool.label}
-                  className={`flex items-center justify-center w-8 h-8 hover:bg-neutral-700 active:bg-neutral-600 rounded transition-all ${
-                    tool.isActive && tool.isActive(snapToGrid) ? "bg-yellow-600/80" : ""
-                  }`}
+                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
+                    ${tool.isActive && tool.isActive({ snapToGrid, showGrid, showResolutionOverlay })
+                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
+                      : "hover:bg-neutral-600 active:bg-neutral-600"}
+                  `}
                   onClick={() => {
                     if (tool.onClick && tool.fnKey) {
                       tool.onClick(toolHandlers[tool.fnKey as keyof typeof toolHandlers]);

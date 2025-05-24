@@ -220,8 +220,13 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     [minZoomDynamic, maxZoomDynamic, scale, pos, clampPan]
   );
 
+  // --- Overlay toggles ---
+  const showGrid = useCanvasStore((s) => s.showGrid);
+  const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
+
   // --- Grid lines only inside the logical rectangle ---
   const gridLines = useMemo(() => {
+    if (!showGrid) return null;
     const lines: React.ReactNode[] = [];
     // rows (horizontal)
     for (let i = 0; i <= gridHeight; i++) {
@@ -248,7 +253,43 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       );
     }
     return lines;
-  }, [gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
+  }, [showGrid, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
+
+  // --- Resolution overlay grid ---
+  const resolutionLines = useMemo(() => {
+    if (!showResolutionOverlay || !project.resolution || project.resolution < 2) return null;
+    const lines: React.ReactNode[] = [];
+    const res = project.resolution;
+    // Draw subgrid for each cell
+    for (let i = 0; i < gridHeight; i++) {
+      for (let j = 0; j < gridWidth; j++) {
+        // For each cell, draw (res-1) lines between the main grid lines
+        for (let sub = 1; sub < res; sub++) {
+          // Horizontal sublines
+          const y = (i + sub / res) * GRID_PX;
+          lines.push(
+            <Line
+              key={`res-h-${i}-${j}-${sub}`}
+              points={[j * GRID_PX, y, (j + 1) * GRID_PX, y]}
+              stroke="#22c55e"
+              strokeWidth={0.2}
+            />
+          );
+          // Vertical sublines
+          const x = (j + sub / res) * GRID_PX;
+          lines.push(
+            <Line
+              key={`res-v-${i}-${j}-${sub}`}
+              points={[x, i * GRID_PX, x, (i + 1) * GRID_PX]}
+              stroke="#22c55e"
+              strokeWidth={0.2}
+            />
+          );
+        }
+      }
+    }
+    return lines;
+  }, [showResolutionOverlay, project.resolution, gridWidth, gridHeight]);
 
   // --- Selection box state ---
   const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -383,7 +424,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             // Helper: line segment intersection
             function linesIntersect(a1: {x:number,y:number}, a2: {x:number,y:number}, b1: {x:number,y:number}, b2: {x:number,y:number}) {
               // Returns true if line segments (a1,a2) and (b1,b2) intersect
-              const det = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - b1.x);
+              const det = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - a1.x);
               if (det === 0) return false; // parallel
               const lambda = ((b2.y - b1.y) * (b2.x - a1.x) + (b1.x - b2.x) * (b2.y - a1.y)) / det;
               const gamma = ((a1.y - a2.y) * (b2.x - a1.x) + (a2.x - a1.x) * (b2.y - a1.y)) / det;
@@ -496,6 +537,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         {/* --- Grid and border layer --- */}
         <Layer>
           {gridLines}
+          {resolutionLines}
           {/* Rectangle border */}
           <Rect
             x={0}

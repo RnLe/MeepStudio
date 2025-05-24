@@ -43,11 +43,19 @@ const RightSidebar: React.FC<Props> = ({ open, ghPages, project, onClose, delete
         {project ? (
           <div className="space-y-3">
             <h2 className="not-prose text-xl font-semibold text-white text-center">{project.title}</h2>
-            {/* Grid size display */}
-            <div className="flex justify-center items-center text-xs text-gray-400 mt-1">
-              <span className="inline-block px-2 py-0.5 rounded bg-gray-700/60 border border-gray-600 font-mono tracking-tight">
-                {project.rectWidth} <span className="mx-0.5 text-gray-500">×</span> {project.rectHeight}
-              </span>
+            {/* Table-like project properties */}
+            <div className="flex flex-col gap-1 mt-2">
+              <div className="flex flex-row w-full">
+                <span className="w-28 text-xs text-gray-400 font-medium text-left">Grid Size</span>
+                <span className="flex-1 text-xs text-gray-300 text-right">
+                  {project.rectWidth} <span className="mx-0.5 text-gray-500">×</span> {project.rectHeight}
+                </span>
+              </div>
+              <div className="flex flex-row w-full">
+                <span className="w-28 text-xs text-gray-400 font-medium text-left">Resolution</span>
+                <span className="flex-1 text-xs text-gray-300 text-right">{project.resolution}</span>
+              </div>
+              {/* More properties can be added here in the same style */}
             </div>
             {project.description && (
               <p className="text-sm text-gray-400 text-center">{project.description}</p>

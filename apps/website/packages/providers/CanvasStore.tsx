@@ -27,6 +27,11 @@ type CanvasState = {
   addGeometry: (geom: any) => void;
   updateGeometry: (id: string, partial: Partial<any>) => void;
   removeGeometry: (id: string) => void;
+  // Overlay toggles
+  showGrid: boolean;
+  toggleShowGrid: () => void;
+  showResolutionOverlay: boolean;
+  toggleShowResolutionOverlay: () => void;
 };
 
 export const useCanvasStore = createWithEqualityFn<CanvasState>(
@@ -76,6 +81,11 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
       selectedIds: s.selectedIds.filter(selId => selId !== id),
       selectedId: s.selectedId === id ? null : s.selectedId,
     })),
+    // Overlay toggles
+    showGrid: true,
+    toggleShowGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+    showResolutionOverlay: false,
+    toggleShowResolutionOverlay: () => set((s) => ({ showResolutionOverlay: !s.showResolutionOverlay })),
   }),
   shallow
 );

@@ -24,6 +24,7 @@ function buildProject(p: CreatableFields): MeepProject {
     dimension: p.dimension ?? 0,
     rectWidth: p.rectWidth ?? 10,
     rectHeight: p.rectHeight ?? 10,
+    resolution: p.resolution ?? 4, // <-- Add default resolution
     description: p.description ?? "",
     lastExecution: p.lastExecution,
     lastExecutionConsoleLogs: p.lastExecutionConsoleLogs,

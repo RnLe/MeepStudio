@@ -22,11 +22,14 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
   const [newDimension, setNewDimension] = useState<number>(2);
   const [newRectWidth, setNewRectWidth] = useState(10);
   const [newRectHeight, setNewRectHeight] = useState(10);
+  const [newResolution, setNewResolution] = useState(4);
   const [showAdditional, setShowAdditional] = useState(false);
   const [contextMenu, setContextMenu] = useState<
     | { x: number; y: number; project: MeepProject }
     | null
   >(null);
+  const predefinedResolutions = [4, 8, 16, 32, 64]; // 128 removed
+  const [resolutionMode, setResolutionMode] = useState<'predefined' | 'custom'>('predefined');
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,6 +38,12 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
     const dimension = newDimension;
     const rectWidth = Math.max(1, Math.min(100, Math.floor(Number(newRectWidth))));
     const rectHeight = Math.max(1, Math.min(100, Math.floor(Number(newRectHeight))));
+    let resolution = 4;
+    if (resolutionMode === 'predefined') {
+      resolution = newResolution;
+    } else {
+      resolution = Math.max(1, Math.min(1024, Math.floor(Number(newResolution))));
+    }
     try {
       const project = await createProject({
         documentId: nanoid(),
@@ -44,6 +53,7 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
         dimension,
         rectWidth,
         rectHeight,
+        resolution,
         description: newDescription.trim(),
         geometries: [],
       });
@@ -51,6 +61,8 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
       setNewDescription("");
       setNewRectWidth(10);
       setNewRectHeight(10);
+      setNewResolution(4);
+      setResolutionMode('predefined');
       setShowCreateForm(false);
       setShowAdditional(false);
       openProject(project);
@@ -224,6 +236,59 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
                       className="w-full px-2 py-1 bg-gray-800 border border-gray-600 rounded text-sm placeholder-gray-500 text-white"
                     />
                   </li>
+                  <li>
+                    <label className="block text-xs text-gray-400 mb-1">Resolution</label>
+                    <div className="flex flex-row justify-evenly gap-2 mb-2">
+                      {predefinedResolutions.map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          className={`px-2 py-1 rounded text-sm font-mono border border-gray-600 transition-colors cursor-pointer select-none ${
+                            resolutionMode === 'predefined' && newResolution === val
+                              ? 'bg-blue-600 text-white border-blue-400'
+                              : 'bg-gray-800 text-gray-200 hover:bg-blue-500 hover:text-white'
+                          }`}
+                          onClick={() => {
+                            setNewResolution(val);
+                            setResolutionMode('predefined');
+                          }}
+                        >
+                          {val}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="w-full flex">
+                      <input
+                        type="number"
+                        min={1}
+                        max={1024}
+                        step={1}
+                        value={resolutionMode === 'custom' ? newResolution : ''}
+                        onChange={e => {
+                          setNewResolution(Math.max(1, Math.min(1024, Math.floor(Number(e.target.value)))));
+                        }}
+                        onFocus={() => {
+                          if (resolutionMode !== 'custom') {
+                            setResolutionMode('custom');
+                            setNewResolution(newResolution || 4);
+                          }
+                        }}
+                        placeholder="Custom"
+                        className={`w-full px-2 py-1 rounded text-sm font-mono border border-gray-600 bg-gray-800 text-white transition-colors text-center ${
+                          resolutionMode === 'custom' ? 'ring-2 ring-blue-400' : 'opacity-60 cursor-pointer'
+                        }`}
+                        disabled={false}
+                        tabIndex={0}
+                        style={{ marginLeft: 0 }}
+                        onClick={() => {
+                          if (resolutionMode !== 'custom') {
+                            setResolutionMode('custom');
+                            setNewResolution(newResolution || 4);
+                          }
+                        }}
+                      />
+                    </div>
+                  </li>
                   {/* Add more optional properties here as <li> elements */}
                 </ul>
               </div>
@@ -243,6 +308,7 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
                   setNewDescription("");
                   setNewRectWidth(10);
                   setNewRectHeight(10);
+                  setNewResolution(4);
                   setShowAdditional(false);
                 }}
                 className="flex-1 px-2 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded cursor-pointer transition-colors"

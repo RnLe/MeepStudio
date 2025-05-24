@@ -34,6 +34,12 @@ export interface MeepProject extends MeepStudioCustomData {
     // ...geometry-specific fields (e.g., for cylinder, rectangle, etc.)
     [key: string]: any;
   }>;
+
+  /**
+   * Resolution of the project (e.g. grid or simulation resolution).
+   * Must be an integer. Default: 4
+   */
+  resolution: number;
 }
 
 /* ---------- (De)serialisers are now trivial ---------- */
