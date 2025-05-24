@@ -11,7 +11,7 @@ export function TopNavBar() {
   const pathname = usePathname()
 
   const baseLink =
-    'rounded text-center w-32 text-2xl transition-colors'
+    'rounded text-center text-2xl transition-colors'
   const hoverLink = 'hover:text-slate-800 dark:hover:text-slate-400'
   
   return (
@@ -20,7 +20,7 @@ export function TopNavBar() {
         
         <RepoBadge owner="RnLe" repo="MeepStudio" />
         {/* Navigation Links */}
-        <div className="flex gap-16">
+        <div className="flex items-center space-x-16">
           <Link
             href="/"
             className={`
@@ -51,12 +51,15 @@ export function TopNavBar() {
           <Link
             href="/meepstudio"
             className={`
-              ${baseLink}
-              ${hoverLink}
-              ${pathname === '/meepstudio/' ? 'dark:text-slate-400 text-slate-800' : hoverLink}
+              group relative flex flex-col items-center justify-center px-3 py-1 rounded-lg bg-gray-500 text-white shadow-md transition-all duration-200
+              hover:bg-gray-600 hover:shadow-lg
+              dark:bg-gray-700 dark:hover:bg-gray-600
+              ${pathname === '/meepstudio/' ? 'ring-2 ring-blue-400' : ''}
             `}
+            style={{ minWidth: '5.5rem' }}
           >
-            MeepStudio
+            <span className="text-base font-semibold leading-tight">MeepStudio</span>
+            <span className="text-xs text-white opacity-80 group-hover:opacity-100 transition-opacity">Interactive Web Editor</span>
           </Link>
         </div>
 
