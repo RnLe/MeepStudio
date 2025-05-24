@@ -3,12 +3,10 @@
 import React, { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { shallow } from "zustand/shallow";
 import { useCanvasStore } from "../providers/CanvasStore";
-import { Cylinder, Rectangle as RectEl, Triangle } from "../types/canvasElementTypes";
-import { Vector2d } from "konva/lib/types";
-import { MeepProject } from "../types/meepProjectTypes";
-import { Stage, Layer, Line, Circle, Rect, RegularPolygon } from "react-konva";
-import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
+import { MeepProject } from "../types/meepProjectTypes";
+import { Stage, Layer, Line, Rect } from "react-konva";
+import { nanoid } from "nanoid";
 import { GeometryLayer } from "./canvasGeometry";
 import { GridOverlayLayer } from "./canvasGridOverlay";
 import { SelectionBoxLayer } from "./selectionBoxLayer";
@@ -28,8 +26,19 @@ interface Props {
 
 const ProjectCanvas: React.FC<Props> = (props) => {
   // --- Props and Store Setup ---
-  const { project, ghPages, maxZoom, gridWidth, gridHeight } = props;
+  const { project: propProject, ghPages, maxZoom, gridWidth, gridHeight } = props;
+  // Use zustand to get active projectId
+  const activeProjectId = useCanvasStore((s) => s.activeProjectId);
+  const { projects } = useMeepProjects({ ghPages });
+  // Find the active project from the list, fallback to prop
+  const project = React.useMemo(() => {
+    if (!activeProjectId) return propProject;
+    const found = projects.find((p) => p.documentId === activeProjectId);
+    return found || propProject;
+  }, [activeProjectId, projects, propProject]);
+  if (!project) return null;
   const projectId = project.documentId;
+
   const { updateProject } = useMeepProjects({ ghPages });
   const {
     selectedId, selectedIds, selectElement, snapToGrid, geometries, setGeometries,
@@ -225,90 +234,127 @@ const ProjectCanvas: React.FC<Props> = (props) => {
 
   // --- Grid Lines (Main and Resolution) ---
   const gridLines = useMemo(() => {
-    // Thicker/darker grid if both overlays are on
+    const gridColor = "#7e909c";
     const bothActive = showGrid && showResolutionOverlay;
     const onlyResolution = !showGrid && showResolutionOverlay;
-    if (!showGrid && !onlyResolution) return null;
+    if (!showGrid) return null;
     const lines: React.ReactNode[] = [];
-    for (let i = 0; i <= gridHeight; i++) {
+    const useSubgridStyle = onlyResolution;
+    // --- Fix: dynamicThickness is fixed for res <= 16 ---
+    let res = project.resolution && project.resolution > 1 ? project.resolution : undefined;
+    let dynamicThickness: number | undefined = undefined;
+    if (res) {
+      if (res <= 16) {
+        dynamicThickness = GRID_PX / 16 / 3;
+      } else {
+        dynamicThickness = GRID_PX / res / 3;
+      }
+    }
+    let color = gridColor;
+    let strokeWidth = useSubgridStyle
+      ? (dynamicThickness ?? 0.5)
+      : (dynamicThickness ?? (bothActive ? 0.7 : 0.5));
+    if (bothActive) {
+      color = "#284b63";
+    } else if (!useSubgridStyle) {
+      color = "#aaa";
+    }
+    const opacity = 1;
+    // --- Fix: when onlyResolution, all grid lines use the same thickness as subgrid ---
+    for (let i = 1; i < gridHeight; i++) {
       const y = i * GRID_PX;
       lines.push(
         <Line
           key={`h${i}`}
           points={[0, y, LOGICAL_W, y]}
-          stroke={bothActive ? "#284b63" : onlyResolution ? "#284b63" : "#aaa"}
-          strokeWidth={bothActive ? 1.1 : onlyResolution ? 0.5 : 0.5}
-          opacity={bothActive ? 0.5 : onlyResolution ? 0.32 : 1}
+          stroke={color}
+          strokeWidth={onlyResolution ? (dynamicThickness ?? 0.5) : strokeWidth}
+          opacity={opacity}
         />
       );
     }
-    for (let j = 0; j <= gridWidth; j++) {
+    for (let j = 1; j < gridWidth; j++) {
       const x = j * GRID_PX;
       lines.push(
         <Line
           key={`v${j}`}
           points={[x, 0, x, LOGICAL_H]}
-          stroke={bothActive ? "#284b63" : onlyResolution ? "#284b63" : "#aaa"}
-          strokeWidth={bothActive ? 1.1 : onlyResolution ? 0.5 : 0.5}
-          opacity={bothActive ? 0.5 : onlyResolution ? 0.32 : 1}
+          stroke={color}
+          strokeWidth={onlyResolution ? (dynamicThickness ?? 0.5) : strokeWidth}
+          opacity={opacity}
         />
       );
     }
     return lines;
-  }, [showGrid, showResolutionOverlay, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
+  }, [showGrid, showResolutionOverlay, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H, project.resolution]);
 
   const resolutionLines = useMemo(() => {
     if (!showResolutionOverlay || !project.resolution || project.resolution < 2) return null;
     const lines: React.ReactNode[] = [];
     const res = project.resolution;
-    const drawAll = !showGrid;
+    const subgridColor = "#7e909c";
+    const weightFactor = res > 16 ? 16 / res : 1;
+    const baseStroke = 0.5;
+    const weightedStroke = baseStroke * weightFactor;
+    // if only resolution overlay (no coarse grid), draw all lines at resolution granularity
+    if (!showGrid) {
+      // draw horizontal resolution lines spanning full grid
+      for (let i = 1; i < gridHeight * res; i++) {
+        const y = (i / res) * GRID_PX;
+        lines.push(
+          <Line
+            key={`resall-h-${i}`}
+            points={[0, y, LOGICAL_W, y]}
+            stroke={subgridColor}
+            strokeWidth={weightedStroke}
+            opacity={1}
+          />
+        );
+      }
+      // draw vertical resolution lines spanning full grid
+      for (let j = 1; j < gridWidth * res; j++) {
+        const x = (j / res) * GRID_PX;
+        lines.push(
+          <Line
+            key={`resall-v-${j}`}
+            points={[x, 0, x, LOGICAL_H]}
+            stroke={subgridColor}
+            strokeWidth={weightedStroke}
+            opacity={1}
+          />
+        );
+      }
+      return lines;
+    }
+    // draw horizontal subgrid lines across full width
     for (let i = 0; i < gridHeight; i++) {
-      for (let j = 0; j < gridWidth; j++) {
-        for (let sub = 1; sub < res; sub++) {
-          const y = (i + sub / res) * GRID_PX;
-          lines.push(
-            <Line
-              key={`res-h-${i}-${j}-${sub}`}
-              points={[j * GRID_PX, y, (j + 1) * GRID_PX, y]}
-              stroke="#284b63"
-              strokeWidth={0.5}
-              opacity={0.32}
-            />
-          );
-          const x = (j + sub / res) * GRID_PX;
-          lines.push(
-            <Line
-              key={`res-v-${i}-${j}-${sub}`}
-              points={[x, i * GRID_PX, x, (i + 1) * GRID_PX]}
-              stroke="#284b63"
-              strokeWidth={0.5}
-              opacity={0.32}
-            />
-          );
-        }
+      for (let sub = 1; sub < res; sub++) {
+        const y = (i + sub / res) * GRID_PX;
+        lines.push(
+          <Line
+            key={`res-h-${i}-${sub}`}
+            points={[0, y, LOGICAL_W, y]}
+            stroke={subgridColor}
+            strokeWidth={weightedStroke}
+            opacity={1}
+          />
+        );
       }
     }
-    if (drawAll) {
-      const y = gridHeight * GRID_PX;
-      lines.push(
-        <Line
-          key={`res-h-main-last`}
-          points={[0, y, LOGICAL_W, y]}
-          stroke="#284b63"
-          strokeWidth={0.7}
-          opacity={0.32}
-        />
-      );
-      const x = gridWidth * GRID_PX;
-      lines.push(
-        <Line
-          key={`res-v-main-last`}
-          points={[x, 0, x, LOGICAL_H]}
-          stroke="#284b63"
-          strokeWidth={0.7}
-          opacity={0.32}
-        />
-      );
+    // draw vertical subgrid lines across full height
+    for (let j = 0; j < gridWidth; j++) {
+      for (let sub = 1; sub < res; sub++) {
+        const x = (j + sub / res) * GRID_PX;
+        lines.push(
+          <Line
+            key={`res-v-${j}-${sub}`}
+            points={[x, 0, x, LOGICAL_H]}
+            stroke={subgridColor}
+            strokeWidth={weightedStroke}
+            opacity={1}
+          />
+        );
+      }
     }
     return lines;
   }, [showResolutionOverlay, showGrid, project.resolution, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
@@ -561,10 +607,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         </Layer>
         {/* --- Grid and border layer --- */}
         <Layer>
-          {/* Draw grid lines and overlays first */}
+          {/* Draw subgrid (resolution) lines first, then main grid lines above */}
           <GridOverlayLayer
-            gridLines={gridLines}
             resolutionLines={resolutionLines}
+            gridLines={gridLines}
             LOGICAL_W={LOGICAL_W}
             LOGICAL_H={LOGICAL_H}
           />

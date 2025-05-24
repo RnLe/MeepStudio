@@ -1,5 +1,9 @@
 import React from "react";
-import { Line, Rect } from "react-konva";
+import { Rect } from "react-konva";
+
+// inset border so stroke doesn’t cover inner area
+const BORDER_WIDTH = 2;
+const INSET = BORDER_WIDTH / 2;
 
 /**
  * GridOverlayLayer renders the main grid, resolution overlay, and border rectangle.
@@ -13,17 +17,17 @@ export function GridOverlayLayer({ gridLines, resolutionLines, LOGICAL_W, LOGICA
 }) {
   return (
     <>
-      {/* Draw grid lines and overlays first */}
-      {gridLines}
+      {/* Draw resolution overlay first, then main grid on top */}
       {resolutionLines}
-      {/* Draw border rectangle last */}
+      {gridLines}
+      {/* Outset border rectangle so inner edge matches content area */}
       <Rect
-        x={0}
-        y={0}
-        width={LOGICAL_W}
-        height={LOGICAL_H}
+        x={-INSET}
+        y={-INSET}
+        width={LOGICAL_W + BORDER_WIDTH}
+        height={LOGICAL_H + BORDER_WIDTH}
         stroke="black"
-        strokeWidth={2}
+        strokeWidth={BORDER_WIDTH}
         listening={false}
       />
     </>

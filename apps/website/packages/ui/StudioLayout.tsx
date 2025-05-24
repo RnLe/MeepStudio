@@ -20,7 +20,12 @@ const InnerLayout: React.FC<Props> = ({ghPages}) => {
   const { tabs, activeId, openTab, closeTab, selectTab } = useStudioTabs();
   const setActiveProject = useCanvasStore((s) => s.setActiveProject);
 
-  const activeProject = tabs.find(tab => tab.documentId === activeId);
+  // Use the latest project from the projects array for the active tab
+  const activeProject = React.useMemo(
+    () => projects.find(p => p.documentId === activeId),
+    [projects, activeId]
+  );
+
   React.useEffect(() => {
     setActiveProject(activeProject?.documentId || null);
   }, [activeProject?.documentId, setActiveProject]);

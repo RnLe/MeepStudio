@@ -60,7 +60,7 @@ const snappingTools: Tool[] = [
   },
   {
     label: "Snap to Resolution Grid",
-    icon: <Grid2X2 size={18} className="" />, // Reuse icon for now
+    icon: <CustomLucideIcon src="/icons/resolutionGrid-snapping.svg" size={18} className="" />,
     onClick: (handlers: { toggleResolutionSnapping: () => void; setGridSnapping: (val: boolean) => void; resolutionSnapping: boolean }) => {
       if (!handlers.resolutionSnapping) handlers.setGridSnapping(false);
       handlers.toggleResolutionSnapping();

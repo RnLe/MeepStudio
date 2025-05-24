@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { MeepProject } from "../types/meepProjectTypes";
 import { MoreHorizontal, Ban } from "lucide-react";
 import ContextMenu from "./ContextMenu";
+import { projectSettings } from "../types/editorSettings";
 
 interface Props {
   projects: MeepProject[];
@@ -20,9 +21,9 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDimension, setNewDimension] = useState<number>(2);
-  const [newRectWidth, setNewRectWidth] = useState(10);
-  const [newRectHeight, setNewRectHeight] = useState(10);
-  const [newResolution, setNewResolution] = useState(4);
+  const [newRectWidth, setNewRectWidth] = useState(projectSettings.rectWidth.default);
+  const [newRectHeight, setNewRectHeight] = useState(projectSettings.rectHeight.default);
+  const [newResolution, setNewResolution] = useState(projectSettings.resolution.default);
   const [showAdditional, setShowAdditional] = useState(false);
   const [contextMenu, setContextMenu] = useState<
     | { x: number; y: number; project: MeepProject }
@@ -36,13 +37,13 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
     const title = newTitle.trim();
     if (!title) return;
     const dimension = newDimension;
-    const rectWidth = Math.max(1, Math.min(100, Math.floor(Number(newRectWidth))));
-    const rectHeight = Math.max(1, Math.min(100, Math.floor(Number(newRectHeight))));
-    let resolution = 4;
+    const rectWidth = Math.max(projectSettings.rectWidth.min, Math.min(projectSettings.rectWidth.max, Math.floor(Number(newRectWidth))));
+    const rectHeight = Math.max(projectSettings.rectHeight.min, Math.min(projectSettings.rectHeight.max, Math.floor(Number(newRectHeight))));
+    let resolution = projectSettings.resolution.default;
     if (resolutionMode === 'predefined') {
       resolution = newResolution;
     } else {
-      resolution = Math.max(1, Math.min(1024, Math.floor(Number(newResolution))));
+      resolution = Math.max(projectSettings.resolution.min, Math.min(projectSettings.resolution.max, Math.floor(Number(newResolution))));
     }
     try {
       const project = await createProject({
@@ -194,25 +195,25 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
             <div className="flex items-center space-x-2 mb-2">
               <input
                 type="number"
-                min={1}
-                max={100}
+                min={projectSettings.rectWidth.min}
+                max={projectSettings.rectWidth.max}
                 required
                 value={newRectWidth}
                 onChange={e => setNewRectWidth(Number(e.target.value))}
                 className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-sm text-white"
-                placeholder="Rectangle width (1-100)"
+                placeholder={`Rectangle width (${projectSettings.rectWidth.min}-${projectSettings.rectWidth.max})`}
                 aria-label="Rectangle width"
               />
               <span className="text-gray-400 text-base font-semibold select-none" style={{lineHeight: '1'}}>×</span>
               <input
                 type="number"
-                min={1}
-                max={100}
+                min={projectSettings.rectHeight.min}
+                max={projectSettings.rectHeight.max}
                 required
                 value={newRectHeight}
                 onChange={e => setNewRectHeight(Number(e.target.value))}
                 className="flex-1 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-sm text-white"
-                placeholder="Rectangle height (1-100)"
+                placeholder={`Rectangle height (${projectSettings.rectHeight.min}-${projectSettings.rectHeight.max})`}
                 aria-label="Rectangle height"
               />
             </div>
@@ -260,17 +261,17 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
                     <div className="w-full flex">
                       <input
                         type="number"
-                        min={1}
-                        max={1024}
-                        step={1}
+                        min={projectSettings.resolution.min}
+                        max={projectSettings.resolution.max}
+                        step={projectSettings.resolution.step}
                         value={resolutionMode === 'custom' ? newResolution : ''}
                         onChange={e => {
-                          setNewResolution(Math.max(1, Math.min(1024, Math.floor(Number(e.target.value)))));
+                          setNewResolution(Math.max(projectSettings.resolution.min, Math.min(projectSettings.resolution.max, Math.floor(Number(e.target.value)))));
                         }}
                         onFocus={() => {
                           if (resolutionMode !== 'custom') {
                             setResolutionMode('custom');
-                            setNewResolution(newResolution || 4);
+                            setNewResolution(newResolution || projectSettings.resolution.default);
                           }
                         }}
                         placeholder="Custom"
@@ -283,7 +284,7 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
                         onClick={() => {
                           if (resolutionMode !== 'custom') {
                             setResolutionMode('custom');
-                            setNewResolution(newResolution || 4);
+                            setNewResolution(newResolution || projectSettings.resolution.default);
                           }
                         }}
                       />

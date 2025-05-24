@@ -4,6 +4,7 @@ import React from "react";
 import TabWindowProject from "./TabWindowProject";
 import TabBar from "./TabBar";
 import { MeepProject } from "../types/meepProjectTypes";
+import { useMeepProjects } from '../hooks/useMeepProjects';
 
 interface Props {
   tabs: MeepProject[];
@@ -22,11 +23,25 @@ const TabWindowContainer: React.FC<Props> = ({
   onClose,
   onRemoveProject,
 }) => {
-  const activeProject = tabs.find(tab => tab.documentId === activeId);
+  // Get the up-to-date projects list
+  const { projects } = useMeepProjects({ ghPages });
+  // Remap open tabs to the latest project objects
+  const displayedTabs = React.useMemo(
+    () => tabs.map(tab => projects.find(p => p.documentId === tab.documentId) || tab),
+    [tabs, projects]
+  );
+  // Use displayedTabs for both TabBar and finding the active project
+  const activeProject = displayedTabs.find(tab => tab.documentId === activeId);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <TabBar tabs={tabs} activeId={activeId} onSelect={onSelect} onClose={onClose} onRemoveProject={onRemoveProject} />
+      <TabBar
+        tabs={displayedTabs}
+        activeId={activeId}
+        onSelect={onSelect}
+        onClose={onClose}
+        onRemoveProject={onRemoveProject}
+      />
       {activeProject ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* The actual project window */}
