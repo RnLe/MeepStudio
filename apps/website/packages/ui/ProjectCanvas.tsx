@@ -9,11 +9,14 @@ import { MeepProject } from "../types/meepProjectTypes";
 import { Stage, Layer, Line, Circle, Rect, RegularPolygon } from "react-konva";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
+import { GeometryLayer } from "./canvasGeometry";
+import { GridOverlayLayer } from "./canvasGridOverlay";
+import { SelectionBoxLayer } from "./selectionBoxLayer";
 
-/* fixed size for each cell */
-const GRID_PX = 40;
-const snap = (v: number) => Math.round(v / GRID_PX) * GRID_PX;
+// --- Constants ---
+const GRID_PX = 40; // Fixed size for each cell in px
 
+// --- Types ---
 interface Props {
   project: MeepProject;
   ghPages: boolean;
@@ -24,11 +27,14 @@ interface Props {
 }
 
 const ProjectCanvas: React.FC<Props> = (props) => {
-  // --- Destructure props and setup stores ---
+  // --- Props and Store Setup ---
   const { project, ghPages, maxZoom, gridWidth, gridHeight } = props;
   const projectId = project.documentId;
   const { updateProject } = useMeepProjects({ ghPages });
-  const { selectedId, selectedIds, selectElement, snapToGrid, geometries, setGeometries, addGeometry, updateGeometry, removeGeometry } = useCanvasStore(
+  const {
+    selectedId, selectedIds, selectElement, snapToGrid, geometries, setGeometries,
+    addGeometry, updateGeometry, removeGeometry
+  } = useCanvasStore(
     (s) => ({
       selectedId: s.selectedId,
       selectedIds: s.selectedIds,
@@ -43,13 +49,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     shallow
   );
 
-  // --- Sync project.geometries to store on mount and when project changes ---
+  // --- Geometry Migration Effect ---
   useEffect(() => {
-    // --- MIGRATION: convert triangles with absolute vertices to relative, and set pos ---
+    // Migrate triangles with absolute vertices to relative, and set pos
     const migratedGeoms = (project.geometries || []).map(g => {
       if (g.kind === "triangle") {
         const tri = g as any;
-        // If no pos, or vertices are not relative to pos, migrate
         if (!tri.pos || (Array.isArray(tri.vertices) && tri.vertices.length === 3 && (
           typeof tri.pos.x !== "number" || typeof tri.pos.y !== "number" ||
           tri.vertices.some((v: any, i: number) => i === 0 ? (v.x !== 0 || v.y !== 0) : false)
@@ -66,12 +71,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     setGeometries(migratedGeoms);
   }, [project.geometries, setGeometries]);
 
-  // --- Geometry helpers (filter by kind) ---
+  // --- Geometry Selectors ---
   const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
   const rectangles = useMemo(() => geometries.filter(g => g.kind === "rectangle"), [geometries]);
   const triangles = useMemo(() => geometries.filter(g => g.kind === "triangle"), [geometries]);
 
-  // --- Geometry actions (add, update, remove) ---
+  // --- Geometry Actions ---
   const handleAddGeometry = useCallback((geom: any) => {
     const newGeom = { ...geom, id: nanoid() };
     addGeometry(newGeom);
@@ -102,7 +107,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     if (selectedId === id) selectElement(null);
   }, [removeGeometry, updateProject, projectId, geometries, selectedId, selectElement]);
 
-  // --- Container size and resize observer ---
+  // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   useEffect(() => {
@@ -130,15 +135,13 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return () => ro.disconnect();
   }, []);
 
-  // --- Logical grid and canvas size ---
+  // --- Logical and Canvas Size ---
   const LOGICAL_W = gridWidth * GRID_PX;
   const LOGICAL_H = gridHeight * GRID_PX;
-
-  // Stage size is always container size
   const CANVAS_W = containerSize.width;
   const CANVAS_H = containerSize.height;
 
-  // --- Dynamic min zoom: fit rectangle to container, based on limiting dimension ---
+  // --- Zoom and Pan Calculations ---
   const getMinZoomDynamic = useCallback(() => {
     if (LOGICAL_W === 0 || LOGICAL_H === 0) return 1;
     // Allow zooming out 5% beyond the fit
@@ -148,15 +151,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     ) / 1.05;
   }, [CANVAS_W, CANVAS_H, LOGICAL_W, LOGICAL_H]);
   const minZoomDynamic = getMinZoomDynamic();
-
-  // --- Dynamic max zoom: allow zooming in up to 10x the min zoom ---
   const maxZoomDynamic = minZoomDynamic * 10;
 
-  // --- Clamp pan so the rectangle is always visible and pannable ---
+  // Clamp pan so the rectangle is always visible and pannable
   const clampPan = useCallback((x: number, y: number, scale: number) => {
     const scaledW = LOGICAL_W * scale;
     const scaledH = LOGICAL_H * scale;
-    // X axis
     let newX;
     if (scaledW < CANVAS_W) {
       newX = (CANVAS_W - scaledW) / 2;
@@ -165,7 +165,6 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       const maxX = scaledW / 2;
       newX = Math.max(Math.min(x, maxX), minX - scaledW);
     }
-    // Y axis
     let newY;
     if (scaledH < CANVAS_H) {
       newY = (CANVAS_H - scaledH) / 2;
@@ -177,14 +176,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return { x: newX, y: newY };
   }, [CANVAS_W, CANVAS_H, LOGICAL_W, LOGICAL_H]);
 
-  // --- Zoom & pan state ---
+  // --- Zoom & Pan State ---
   const stageRef = useRef<any>(null);
   const [scale, setScale] = useState(minZoomDynamic);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [lastPointer, setLastPointer] = useState<{ x: number; y: number } | null>(null);
 
-  // --- Center the rectangle on mount and when container or zoom changes ---
+  // Center the rectangle on mount and when container or zoom changes
   useEffect(() => {
     setScale(minZoomDynamic);
     const scaledW = LOGICAL_W * minZoomDynamic;
@@ -194,7 +193,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     setPos({ x, y });
   }, [minZoomDynamic, LOGICAL_W, LOGICAL_H, CANVAS_W, CANVAS_H]);
 
-  // --- Wheel handler to zoom around pointer ---
+  // --- Wheel Handler for Zooming ---
   const handleWheel = useCallback(
     (e: any) => {
       e.evt.preventDefault();
@@ -220,18 +219,17 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     [minZoomDynamic, maxZoomDynamic, scale, pos, clampPan]
   );
 
-  // --- Overlay toggles ---
+  // --- Overlay Toggles ---
   const showGrid = useCanvasStore((s) => s.showGrid);
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
 
-  // --- Grid lines only inside the logical rectangle ---
+  // --- Grid Lines (Main and Resolution) ---
   const gridLines = useMemo(() => {
     // Thicker/darker grid if both overlays are on
     const bothActive = showGrid && showResolutionOverlay;
     const onlyResolution = !showGrid && showResolutionOverlay;
     if (!showGrid && !onlyResolution) return null;
     const lines: React.ReactNode[] = [];
-    // rows (horizontal)
     for (let i = 0; i <= gridHeight; i++) {
       const y = i * GRID_PX;
       lines.push(
@@ -244,7 +242,6 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         />
       );
     }
-    // cols (vertical)
     for (let j = 0; j <= gridWidth; j++) {
       const x = j * GRID_PX;
       lines.push(
@@ -260,18 +257,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return lines;
   }, [showGrid, showResolutionOverlay, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
 
-  // --- Resolution overlay grid ---
   const resolutionLines = useMemo(() => {
     if (!showResolutionOverlay || !project.resolution || project.resolution < 2) return null;
     const lines: React.ReactNode[] = [];
     const res = project.resolution;
-    // If normal grid is off, draw all lines (including main grid lines) in blue
     const drawAll = !showGrid;
-    // Draw subgrid for each cell
     for (let i = 0; i < gridHeight; i++) {
       for (let j = 0; j < gridWidth; j++) {
         for (let sub = 1; sub < res; sub++) {
-          // Horizontal sublines
           const y = (i + sub / res) * GRID_PX;
           lines.push(
             <Line
@@ -282,7 +275,6 @@ const ProjectCanvas: React.FC<Props> = (props) => {
               opacity={0.32}
             />
           );
-          // Vertical sublines
           const x = (j + sub / res) * GRID_PX;
           lines.push(
             <Line
@@ -296,7 +288,6 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         }
       }
     }
-    // Draw the last main lines if normal grid is off
     if (drawAll) {
       const y = gridHeight * GRID_PX;
       lines.push(
@@ -322,49 +313,47 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return lines;
   }, [showResolutionOverlay, showGrid, project.resolution, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
 
-  // --- Selection box state ---
+  // --- Selection Box State ---
   const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
   const [selBox, setSelBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
+  // --- Snapping Helpers ---
   const gridSnapping = useCanvasStore((s) => s.gridSnapping);
   const resolutionSnapping = useCanvasStore((s) => s.resolutionSnapping);
-  // --- Helper: snap a canvas position to the grid, accounting for scale and pan ---
   const snapCanvasPosToGrid = useCallback((canvasPos: { x: number; y: number }) => {
     // Convert canvas (absolute) position to logical grid coordinates
     const logicalX = (canvasPos.x - pos.x) / scale;
     const logicalY = (canvasPos.y - pos.y) / scale;
     if (resolutionSnapping && project.resolution && project.resolution > 1) {
-      // Snap to resolution subgrid
       const res = project.resolution;
       const cellW = GRID_PX / res;
       const cellH = GRID_PX / res;
-      // Snap logical coordinates to resolution subgrid
       const snappedLogicalX = Math.round(logicalX / cellW) * cellW;
       const snappedLogicalY = Math.round(logicalY / cellH) * cellH;
-      // Convert back to canvas coordinates
       return {
         x: snappedLogicalX * scale + pos.x,
         y: snappedLogicalY * scale + pos.y,
       };
     } else if (gridSnapping) {
-      // Snap to normal grid
       const snappedLogicalX = Math.round(logicalX / GRID_PX) * GRID_PX;
       const snappedLogicalY = Math.round(logicalY / GRID_PX) * GRID_PX;
-      // Convert back to canvas coordinates
       return {
         x: snappedLogicalX * scale + pos.x,
         y: snappedLogicalY * scale + pos.y,
       };
     } else {
-      // No snapping
       return canvasPos;
     }
   }, [pos, scale, resolutionSnapping, gridSnapping, project.resolution]);
 
-  // --- Multi-select drag state ---
-  const [multiDragAnchor, setMultiDragAnchor] = useState<{ id: string; anchor: { x: number; y: number }; initialPositions: Record<string, { x: number; y: number }> } | null>(null);
+  // --- Multi-Select Drag State ---
+  const [multiDragAnchor, setMultiDragAnchor] = useState<{
+    id: string;
+    anchor: { x: number; y: number };
+    initialPositions: Record<string, { x: number; y: number }>;
+  } | null>(null);
 
-  // --- Keyboard handler for Delete key ---
+  // --- Keyboard Shortcuts ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length > 0) {
@@ -375,6 +364,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedIds, handleRemoveGeometry]);
 
+  // --- Render ---
   return (
     <div
       ref={containerRef}
@@ -449,7 +439,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
               width: selBox.width,
               height: selBox.height,
             };
-            // Helper: rectangle intersection
+            // --- Geometry intersection helpers ---
             function rectsIntersect(a: {x:number,y:number,width:number,height:number}, b: {x:number,y:number,width:number,height:number}) {
               return (
                 a.x < b.x + b.width &&
@@ -458,36 +448,26 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                 a.y + a.height > b.y
               );
             }
-            // Helper: circle-rectangle intersection
             function circleRectIntersect(cx: number, cy: number, r: number, rect: {x:number,y:number,width:number,height:number}) {
-              // Find closest point to circle center within the rectangle
               const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.width));
               const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.height));
-              // Distance from circle center to closest point
               const dx = cx - closestX;
               const dy = cy - closestY;
               return (dx * dx + dy * dy) <= r * r;
             }
-            // Helper: point in rectangle
             function pointInRect(px: number, py: number, rect: {x:number,y:number,width:number,height:number}) {
               return px >= rect.x && px <= rect.x + rect.width && py >= rect.y && py <= rect.y + rect.height;
             }
-            // Helper: line segment intersection
             function linesIntersect(a1: {x:number,y:number}, a2: {x:number,y:number}, b1: {x:number,y:number}, b2: {x:number,y:number}) {
-              // Returns true if line segments (a1,a2) and (b1,b2) intersect
               const det = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - a1.x);
-              if (det === 0) return false; // parallel
+              if (det === 0) return false;
               const lambda = ((b2.y - b1.y) * (b2.x - a1.x) + (b1.x - b2.x) * (b2.y - a1.y)) / det;
               const gamma = ((a1.y - a2.y) * (b2.x - a1.x) + (a2.x - a1.x) * (b2.y - a1.y)) / det;
               return (0 <= lambda && lambda <= 1) && (0 <= gamma && gamma <= 1);
             }
-            // Helper: triangle-rectangle intersection (precise)
             function triangleRectPrecise(pos: {x:number,y:number}, verts: {x:number,y:number}[], rect: {x:number,y:number,width:number,height:number}) {
-              // Absolute triangle vertices
               const absVerts = verts.map(v => ({ x: pos.x + v.x, y: pos.y + v.y }));
-              // 1. Any vertex in rect?
               if (absVerts.some(v => pointInRect(v.x, v.y, rect))) return true;
-              // 2. Any triangle edge cross any rect edge?
               const triEdges = [
                 [absVerts[0], absVerts[1]],
                 [absVerts[1], absVerts[2]],
@@ -510,11 +490,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   if (linesIntersect(a1, a2, b1, b2)) return true;
                 }
               }
-              // 3. (Optional) Rectangle fully inside triangle (rare, omitted for now)
               return false;
             }
-            // --- FIX: selBox is in logical units, but geometries are in lattice units, so convert box to lattice units ---
-            // Each lattice unit = 1, but selBox is in px, so convert to lattice units
+            // --- Convert selBox to lattice units ---
             const pxToLattice = (v: number) => v / GRID_PX;
             const latticeBox = {
               x: pxToLattice(box.x),
@@ -522,10 +500,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
               width: pxToLattice(box.width),
               height: pxToLattice(box.height),
             };
-            // Find intersecting geometries
+            // --- Find intersecting geometries ---
             const selected = geometries.filter(g => {
               if (g.kind === "rectangle") {
-                // Rectangle: center pos, width/height (in lattice units)
                 const rx = g.pos.x - g.width / 2;
                 const ry = g.pos.y - g.height / 2;
                 return rectsIntersect(
@@ -533,13 +510,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   latticeBox
                 );
               } else if (g.kind === "cylinder") {
-                // Cylinder: center pos, radius (in lattice units)
                 return circleRectIntersect(g.pos.x, g.pos.y, g.radius, latticeBox);
               } else if (g.kind === "triangle") {
-                // Triangle: pos, vertices (relative, in lattice units)
                 return triangleRectPrecise(g.pos, g.vertices, latticeBox);
               } else if (g.kind === "continuousSource" || g.kind === "gaussianSource") {
-                // Treat as point (in lattice units)
                 return (
                   g.pos.x >= latticeBox.x &&
                   g.pos.x <= latticeBox.x + latticeBox.width &&
@@ -572,7 +546,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             y={-pos.y / scale}
             width={CANVAS_W / scale}
             height={CANVAS_H / scale}
-            fill="#a3a3a3" // Tailwind neutral-400
+            fill="#a3a3a3"
             listening={false}
           />
           {/* Draw the main rectangle area with lighter bg to "cut out" the grid area */}
@@ -581,299 +555,42 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             y={0}
             width={LOGICAL_W}
             height={LOGICAL_H}
-            fill="#d4d4d4" // Tailwind neutral-300
+            fill="#d4d4d4"
             listening={false}
           />
         </Layer>
         {/* --- Grid and border layer --- */}
         <Layer>
-          {gridLines}
-          {resolutionLines}
-          {/* Rectangle border */}
-          <Rect
-            x={0}
-            y={0}
-            width={LOGICAL_W}
-            height={LOGICAL_H}
-            stroke="black"
-            strokeWidth={2}
-            listening={false}
+          {/* Draw grid lines and overlays first */}
+          <GridOverlayLayer
+            gridLines={gridLines}
+            resolutionLines={resolutionLines}
+            LOGICAL_W={LOGICAL_W}
+            LOGICAL_H={LOGICAL_H}
+          />
+        </Layer>
+        {/* --- Geometry elements layer --- */}
+        <Layer>
+          <GeometryLayer
+            cylinders={cylinders}
+            rectangles={rectangles}
+            triangles={triangles}
+            selectedIds={selectedIds}
+            gridSnapping={gridSnapping}
+            resolutionSnapping={resolutionSnapping}
+            snapCanvasPosToGrid={snapCanvasPosToGrid}
+            multiDragAnchor={multiDragAnchor}
+            setMultiDragAnchor={setMultiDragAnchor}
+            geometries={geometries}
+            updateGeometry={updateGeometry}
+            handleUpdateGeometry={handleUpdateGeometry}
+            selectElement={selectElement}
+            GRID_PX={GRID_PX}
           />
         </Layer>
 
-        {/* --- Geometry elements layer --- */}
-        <Layer>
-          {cylinders.map((el) => {
-            const isSel = selectedIds.includes(el.id);
-
-            if (el.kind === "cylinder") {
-              const c = el as Cylinder;
-              return (
-                <Circle
-                  key={c.id}
-                  x={c.pos.x * GRID_PX}
-                  y={c.pos.y * GRID_PX}
-                  radius={c.radius * GRID_PX}
-                  fill="rgba(59,130,246,0.25)"
-                  stroke="#3b82f6"
-                  strokeWidth={1}
-                  shadowBlur={isSel ? 8 : 0}
-                  draggable
-                  {...((gridSnapping || resolutionSnapping)
-                    ? {
-                        dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
-                      }
-                    : {}
-                  )}
-                  onDragStart={(evt) => {
-                    if (isSel && selectedIds.length > 1) {
-                      // Record anchor and all initial positions
-                      setMultiDragAnchor({
-                        id: c.id,
-                        anchor: { x: c.pos.x, y: c.pos.y },
-                        initialPositions: Object.fromEntries(selectedIds.map(id => {
-                          const g = geometries.find(g => g.id === id);
-                          return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
-                        }).filter(Boolean) as [string, { x: number; y: number }][]),
-                      });
-                    }
-                  }}
-                  onDragMove={(evt) => {
-                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === c.id) {
-                      // Calculate delta in logical units
-                      const newX = evt.target.x() / GRID_PX;
-                      const newY = evt.target.y() / GRID_PX;
-                      const dx = newX - multiDragAnchor.anchor.x;
-                      const dy = newY - multiDragAnchor.anchor.y;
-                      // Update all selected geometries visually
-                      selectedIds.forEach(id => {
-                        if (id === c.id) return; // skip self, already being dragged
-                        const g = geometries.find(g => g.id === id);
-                        if (g) {
-                          const init = multiDragAnchor.initialPositions[id];
-                          if (init) {
-                            updateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
-                          }
-                        }
-                      });
-                    }
-                  }}
-                  onDragEnd={(evt) => {
-                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === c.id) {
-                      // Finalize all selected geometries' positions
-                      const newX = evt.target.x() / GRID_PX;
-                      const newY = evt.target.y() / GRID_PX;
-                      const dx = newX - multiDragAnchor.anchor.x;
-                      const dy = newY - multiDragAnchor.anchor.y;
-                      selectedIds.forEach(id => {
-                        const g = geometries.find(g => g.id === id);
-                        if (g) {
-                          const init = multiDragAnchor.initialPositions[id];
-                          if (init) {
-                            handleUpdateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
-                          }
-                        }
-                      });
-                      setMultiDragAnchor(null);
-                    } else {
-                      // --- Update geometry position in logical grid units ---
-                      const x = (evt.target.x()) / GRID_PX;
-                      const y = (evt.target.y()) / GRID_PX;
-                      handleUpdateGeometry(c.id, { pos: { x, y } });
-                    }
-                  }}
-                  onClick={(evt) => selectElement(c.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
-                />
-              );
-            }
-            return null;
-          })}
-          {rectangles.map((el) => {
-            const isSel = selectedIds.includes(el.id);
-
-            if (el.kind === "rectangle") {
-              const r = el as RectEl;
-              return (
-                <Rect
-                  key={r.id}
-                  x={r.pos.x * GRID_PX - r.width * GRID_PX * 0.5}
-                  y={r.pos.y * GRID_PX - r.height * GRID_PX * 0.5}
-                  width={r.width * GRID_PX}
-                  height={r.height * GRID_PX}
-                  fill="rgba(16,185,129,0.25)"
-                  stroke="#10b981"
-                  strokeWidth={1}
-                  shadowBlur={isSel ? 8 : 0}
-                  draggable
-                  {...((gridSnapping || resolutionSnapping)
-                    ? {
-                        dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
-                      }
-                    : {}
-                  )}
-                  onDragStart={(evt) => {
-                    if (isSel && selectedIds.length > 1) {
-                      setMultiDragAnchor({
-                        id: r.id,
-                        anchor: { x: r.pos.x, y: r.pos.y },
-                        initialPositions: Object.fromEntries(selectedIds.map(id => {
-                          const g = geometries.find(g => g.id === id);
-                          return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
-                        }).filter(Boolean) as [string, { x: number; y: number }][]),
-                      });
-                    }
-                  }}
-                  onDragMove={(evt) => {
-                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === r.id) {
-                      const newX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
-                      const newY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
-                      const dx = newX - multiDragAnchor.anchor.x;
-                      const dy = newY - multiDragAnchor.anchor.y;
-                      selectedIds.forEach(id => {
-                        if (id === r.id) return;
-                        const g = geometries.find(g => g.id === id);
-                        if (g) {
-                          const init = multiDragAnchor.initialPositions[id];
-                          if (init) {
-                            updateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
-                          }
-                        }
-                      });
-                    }
-                  }}
-                  onDragEnd={(evt) => {
-                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === r.id) {
-                      const newX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
-                      const newY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
-                      const dx = newX - multiDragAnchor.anchor.x;
-                      const dy = newY - multiDragAnchor.anchor.y;
-                      selectedIds.forEach(id => {
-                        const g = geometries.find(g => g.id === id);
-                        if (g) {
-                          const init = multiDragAnchor.initialPositions[id];
-                          if (init) {
-                            handleUpdateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
-                          }
-                        }
-                      });
-                      setMultiDragAnchor(null);
-                    } else {
-                      const centerX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
-                      const centerY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
-                      handleUpdateGeometry(r.id, { pos: { x: centerX, y: centerY } });
-                    }
-                  }}
-                  onClick={(evt) => selectElement(r.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
-                />
-              );
-            }
-            return null;
-          })}
-          {triangles.map((el) => {
-            const isSel = selectedIds.includes(el.id);
-
-            if (el.kind === "triangle") {
-              const t = el as Triangle;
-              // Use t.pos as anchor, vertices are relative to pos
-              const anchorX = t.pos.x * GRID_PX;
-              const anchorY = t.pos.y * GRID_PX;
-              // Points relative to anchor
-              const relPoints = t.vertices.flatMap(v => [
-                v.x * GRID_PX,
-                v.y * GRID_PX
-              ]);
-              return (
-                <Line
-                  key={t.id}
-                  x={anchorX}
-                  y={anchorY}
-                  points={relPoints}
-                  closed
-                  fill="rgba(236,72,153,0.25)" // Tailwind pink-500
-                  stroke="#ec4899"
-                  strokeWidth={1}
-                  shadowBlur={isSel ? 8 : 0}
-                  draggable
-                  {...((gridSnapping || resolutionSnapping)
-                    ? {
-                        dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
-                      }
-                    : {}
-                  )}
-                  onDragStart={(evt) => {
-                    if (isSel && selectedIds.length > 1) {
-                      setMultiDragAnchor({
-                        id: t.id,
-                        anchor: { x: t.pos.x, y: t.pos.y },
-                        initialPositions: Object.fromEntries(selectedIds.map(id => {
-                          const g = geometries.find(g => g.id === id);
-                          return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
-                        }).filter(Boolean) as [string, { x: number; y: number }][]),
-                      });
-                    }
-                  }}
-                  onDragMove={(evt) => {
-                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === t.id) {
-                      const newX = evt.target.x() / GRID_PX;
-                      const newY = evt.target.y() / GRID_PX;
-                      const dx = newX - multiDragAnchor.anchor.x;
-                      const dy = newY - multiDragAnchor.anchor.y;
-                      selectedIds.forEach(id => {
-                        if (id === t.id) return;
-                        const g = geometries.find(g => g.id === id);
-                        if (g) {
-                          const init = multiDragAnchor.initialPositions[id];
-                          if (init) {
-                            updateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
-                          }
-                        }
-                      });
-                    }
-                  }}
-                  onDragEnd={(evt) => {
-                    if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === t.id) {
-                      const newX = evt.target.x() / GRID_PX;
-                      const newY = evt.target.y() / GRID_PX;
-                      const dx = newX - multiDragAnchor.anchor.x;
-                      const dy = newY - multiDragAnchor.anchor.y;
-                      selectedIds.forEach(id => {
-                        const g = geometries.find(g => g.id === id);
-                        if (g) {
-                          const init = multiDragAnchor.initialPositions[id];
-                          if (init) {
-                            handleUpdateGeometry(id, { pos: { x: init.x + dx, y: init.y + dy } });
-                          }
-                        }
-                      });
-                      setMultiDragAnchor(null);
-                    } else {
-                      const newX = evt.target.x() / GRID_PX;
-                      const newY = evt.target.y() / GRID_PX;
-                      handleUpdateGeometry(t.id, { pos: { x: newX, y: newY } });
-                    }
-                  }}
-                  onClick={(evt) => selectElement(t.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
-                />
-              );
-            }
-            return null;
-          })}
-        </Layer>
-
         {/* --- Selection rectangle overlay --- */}
-        {selBox && (
-          <Layer>
-            <Rect
-              x={selBox.x}
-              y={selBox.y}
-              width={selBox.width}
-              height={selBox.height}
-              fill="rgba(0,123,255,0.2)"
-              // stroke="#007bff" // removed border
-              listening={false}
-            />
-          </Layer>
-        )}
+        <SelectionBoxLayer selBox={selBox} />
       </Stage>
     </div>
   );
