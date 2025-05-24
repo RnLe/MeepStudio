@@ -30,30 +30,43 @@ const GROUP_KEYS = [
 ] as const;
 type GroupKey = typeof GROUP_KEYS[number];
 
+type ToolbarState = {
+  gridSnapping: boolean;
+  resolutionSnapping: boolean;
+  showGrid: boolean;
+  showResolutionOverlay: boolean;
+};
+
 interface Tool {
   label: string;
   icon: React.ReactNode;
   onClick: (handler: any) => void;
   fnKey?: string;
-  isActive?: (state: { snapToGrid: boolean; showGrid: boolean; showResolutionOverlay: boolean; snapToResolutionGrid: boolean }) => boolean;
+  isActive?: (state: ToolbarState) => boolean;
 }
 
-const snappingTools = [
+const snappingTools: Tool[] = [
   {
     label: "Snap to Grid",
     icon: (
       <CustomLucideIcon src="/icons/grid-snapping.svg" size={18} />
     ),
-    onClick: (toggleSnap: () => void) => toggleSnap(),
-    isActive: (state: { snapToGrid: boolean; snapToResolutionGrid: boolean }) => state.snapToGrid && !state.snapToResolutionGrid,
-    fnKey: "toggleSnap",
+    onClick: (handlers: { toggleGridSnapping: () => void; setResolutionSnapping: (val: boolean) => void; gridSnapping: boolean }) => {
+      if (!handlers.gridSnapping) handlers.setResolutionSnapping(false);
+      handlers.toggleGridSnapping();
+    },
+    isActive: (state) => state.gridSnapping,
+    fnKey: "toggleGridSnapping",
   },
   {
     label: "Snap to Resolution Grid",
     icon: <Grid2X2 size={18} className="" />, // Reuse icon for now
-    onClick: (toggleSnapToResolutionGrid: () => void) => toggleSnapToResolutionGrid(),
-    isActive: (state: { snapToResolutionGrid: boolean }) => state.snapToResolutionGrid,
-    fnKey: "toggleSnapToResolutionGrid",
+    onClick: (handlers: { toggleResolutionSnapping: () => void; setGridSnapping: (val: boolean) => void; resolutionSnapping: boolean }) => {
+      if (!handlers.resolutionSnapping) handlers.setGridSnapping(false);
+      handlers.toggleResolutionSnapping();
+    },
+    isActive: (state) => state.resolutionSnapping,
+    fnKey: "toggleResolutionSnapping",
   },
 ];
 
@@ -112,10 +125,12 @@ interface CanvasToolbarProps {
 }
 
 const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPages }) => {
-  const snapToGrid = useCanvasStore((s) => s.snapToGrid);
-  const toggleSnap = useCanvasStore((s) => s.toggleSnap);
-  const snapToResolutionGrid = useCanvasStore((s) => s.snapToResolutionGrid);
-  const toggleSnapToResolutionGrid = useCanvasStore((s) => s.toggleSnapToResolutionGrid);
+  const gridSnapping = useCanvasStore((s) => s.gridSnapping);
+  const toggleGridSnapping = useCanvasStore((s) => s.toggleGridSnapping);
+  const setGridSnapping = (val: boolean) => useCanvasStore.setState({ gridSnapping: val });
+  const resolutionSnapping = useCanvasStore((s) => s.resolutionSnapping);
+  const toggleResolutionSnapping = useCanvasStore((s) => s.toggleResolutionSnapping);
+  const setResolutionSnapping = (val: boolean) => useCanvasStore.setState({ resolutionSnapping: val });
   const addGeometry = useCanvasStore((s) => s.addGeometry);
   const showGrid = useCanvasStore((s) => s.showGrid);
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
@@ -185,8 +200,12 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newTriangle,
     toggleShowGrid,
     toggleShowResolutionOverlay,
-    toggleSnap,
-    toggleSnapToResolutionGrid,
+    toggleGridSnapping,
+    toggleResolutionSnapping,
+    setGridSnapping,
+    setResolutionSnapping,
+    gridSnapping,
+    resolutionSnapping,
   };
 
   // --- Virtual drag: onMouseDown starts drag, onMouseUp anywhere ends it ---
@@ -208,15 +227,19 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                   key={tool.label}
                   title={tool.label}
                   className={`flex items-center justify-center w-8 h-8 rounded transition-all
-                    ${tool.isActive && tool.isActive({ snapToGrid, showGrid, showResolutionOverlay, snapToResolutionGrid })
+                    ${tool.isActive && tool.isActive({ gridSnapping, resolutionSnapping, showGrid, showResolutionOverlay })
                       ? "bg-yellow-600/60 hover:bg-yellow-500/80"
                       : "hover:bg-neutral-600 active:bg-neutral-600"}
                   `}
                   onClick={() => {
-                    if (tool.onClick && tool.fnKey) {
+                    if (tool.fnKey === "toggleGridSnapping") {
+                      tool.onClick({ toggleGridSnapping, setResolutionSnapping, gridSnapping });
+                    } else if (tool.fnKey === "toggleResolutionSnapping") {
+                      tool.onClick({ toggleResolutionSnapping, setGridSnapping, resolutionSnapping });
+                    } else if (tool.onClick && tool.fnKey) {
                       tool.onClick(toolHandlers[tool.fnKey as keyof typeof toolHandlers]);
                     } else if (tool.onClick) {
-                      tool.onClick(toggleSnap);
+                      tool.onClick(toggleGridSnapping);
                     }
                   }}
                   aria-label={tool.label}

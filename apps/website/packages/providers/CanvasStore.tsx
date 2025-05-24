@@ -7,10 +7,10 @@ import { shallow } from "zustand/shallow";
 type CanvasState = {
   activeProjectId: string | null;
   setActiveProject: (projectId: string | null) => void;
-  snapToGrid: boolean;
-  toggleSnap: () => void;
-  snapToResolutionGrid: boolean;
-  toggleSnapToResolutionGrid: () => void;
+  gridSnapping: boolean;
+  toggleGridSnapping: () => void;
+  resolutionSnapping: boolean;
+  toggleResolutionSnapping: () => void;
   // Multiple selection support
   selectedIds: string[];
   setSelectedIds: (ids: string[]) => void;
@@ -40,10 +40,10 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
   (set, get) => ({
     activeProjectId: null,
     setActiveProject: (projectId) => set({ activeProjectId: projectId }),
-    snapToGrid: true,
-    toggleSnap: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
-    snapToResolutionGrid: false,
-    toggleSnapToResolutionGrid: () => set((s) => ({ snapToResolutionGrid: !s.snapToResolutionGrid })),
+    gridSnapping: true,
+    toggleGridSnapping: () => set((s) => ({ gridSnapping: !s.gridSnapping, resolutionSnapping: s.gridSnapping ? s.resolutionSnapping : false })),
+    resolutionSnapping: false,
+    toggleResolutionSnapping: () => set((s) => ({ resolutionSnapping: !s.resolutionSnapping, gridSnapping: s.resolutionSnapping ? s.gridSnapping : false })),
     // Multiple selection state and actions
     selectedIds: [],
     setSelectedIds: (ids) => set({ selectedIds: ids }),

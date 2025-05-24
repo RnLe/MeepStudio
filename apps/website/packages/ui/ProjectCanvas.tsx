@@ -33,7 +33,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       selectedId: s.selectedId,
       selectedIds: s.selectedIds,
       selectElement: s.selectElement,
-      snapToGrid: s.snapToGrid,
+      snapToGrid: s.gridSnapping,
       geometries: s.geometries,
       setGeometries: s.setGeometries,
       addGeometry: s.addGeometry,
@@ -326,14 +326,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
   const [selBox, setSelBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  // --- Helper: snap a canvas position to the grid, accounting for scale and pan ---
-  const snapToResolutionGrid = useCanvasStore((s) => s.snapToResolutionGrid);
+  const gridSnapping = useCanvasStore((s) => s.gridSnapping);
+  const resolutionSnapping = useCanvasStore((s) => s.resolutionSnapping);
   // --- Helper: snap a canvas position to the grid, accounting for scale and pan ---
   const snapCanvasPosToGrid = useCallback((canvasPos: { x: number; y: number }) => {
     // Convert canvas (absolute) position to logical grid coordinates
     const logicalX = (canvasPos.x - pos.x) / scale;
     const logicalY = (canvasPos.y - pos.y) / scale;
-    if (snapToResolutionGrid && project.resolution && project.resolution > 1) {
+    if (resolutionSnapping && project.resolution && project.resolution > 1) {
       // Snap to resolution subgrid
       const res = project.resolution;
       const cellW = GRID_PX / res;
@@ -346,7 +346,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         x: snappedLogicalX * scale + pos.x,
         y: snappedLogicalY * scale + pos.y,
       };
-    } else {
+    } else if (gridSnapping) {
       // Snap to normal grid
       const snappedLogicalX = Math.round(logicalX / GRID_PX) * GRID_PX;
       const snappedLogicalY = Math.round(logicalY / GRID_PX) * GRID_PX;
@@ -355,8 +355,11 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         x: snappedLogicalX * scale + pos.x,
         y: snappedLogicalY * scale + pos.y,
       };
+    } else {
+      // No snapping
+      return canvasPos;
     }
-  }, [pos, scale, snapToResolutionGrid, project.resolution]);
+  }, [pos, scale, resolutionSnapping, gridSnapping, project.resolution]);
 
   // --- Multi-select drag state ---
   const [multiDragAnchor, setMultiDragAnchor] = useState<{ id: string; anchor: { x: number; y: number }; initialPositions: Record<string, { x: number; y: number }> } | null>(null);
@@ -616,7 +619,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   strokeWidth={1}
                   shadowBlur={isSel ? 8 : 0}
                   draggable
-                  {...(snapToGrid
+                  {...((gridSnapping || resolutionSnapping)
                     ? {
                         dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
                       }
@@ -702,7 +705,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   strokeWidth={1}
                   shadowBlur={isSel ? 8 : 0}
                   draggable
-                  {...(snapToGrid
+                  {...((gridSnapping || resolutionSnapping)
                     ? {
                         dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
                       }
@@ -791,7 +794,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   strokeWidth={1}
                   shadowBlur={isSel ? 8 : 0}
                   draggable
-                  {...(snapToGrid
+                  {...((gridSnapping || resolutionSnapping)
                     ? {
                         dragBoundFunc: (canvasPos) => snapCanvasPosToGrid(canvasPos),
                       }
