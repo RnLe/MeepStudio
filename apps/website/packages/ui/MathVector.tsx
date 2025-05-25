@@ -11,27 +11,29 @@ export const MathVector: React.FC<MathVectorProps> = ({
   color = "text-gray-200",
   size = "md" 
 }) => {
+  const is2D = values.length === 2;
+  
   const sizes = {
     sm: { 
-      bracket: "text-3xl", 
+      bracket: is2D ? "text-2xl" : "text-3xl", 
       value: "text-xs", 
       gap: "gap-0.5",
-      height: "h-8",
-      scale: 1.5
+      height: is2D ? "h-6" : "h-8",
+      scale: is2D ? 1.2 : 1.5
     },
     md: { 
-      bracket: "text-4xl", 
+      bracket: is2D ? "text-3xl" : "text-4xl", 
       value: "text-sm", 
       gap: "gap-1",
-      height: "h-10",
-      scale: 1.8
+      height: is2D ? "h-8" : "h-10",
+      scale: is2D ? 1.4 : 1.8
     },
     lg: { 
-      bracket: "text-5xl", 
+      bracket: is2D ? "text-4xl" : "text-5xl", 
       value: "text-base", 
       gap: "gap-1.5",
-      height: "h-12",
-      scale: 2
+      height: is2D ? "h-10" : "h-12",
+      scale: is2D ? 1.6 : 2
     }
   };
   
@@ -41,8 +43,11 @@ export const MathVector: React.FC<MathVectorProps> = ({
     <div className={`inline-flex items-center ${color} ${gap}`}>
       {/* Left parenthesis */}
       <span 
-        className={`${bracket} font-extralight leading-none select-none -mr-1`} 
-        style={{ transform: `scaleY(${scale}) scaleX(0.7)` }}
+        className={`${bracket} font-extralight leading-none select-none -mr-1.5`} 
+        style={{ 
+          transform: `scaleY(${scale}) scaleX(0.7) translateY(-4px)`,
+          marginRight: '-2px'
+        }}
       >
         (
       </span>
@@ -58,11 +63,43 @@ export const MathVector: React.FC<MathVectorProps> = ({
       
       {/* Right parenthesis */}
       <span 
-        className={`${bracket} font-extralight leading-none select-none -ml-1`} 
-        style={{ transform: `scaleY(${scale}) scaleX(0.7)` }}
+        className={`${bracket} font-extralight leading-none select-none -ml-1.5`} 
+        style={{ 
+          transform: `scaleY(${scale}) scaleX(0.7) translateY(-4px)`,
+          marginLeft: '-2px'
+        }}
       >
         )
       </span>
+    </div>
+  );
+};
+
+// Vector with label component
+interface LabeledVectorProps {
+  label: string;
+  values: number[];
+  color?: string;
+  size?: "sm" | "md" | "lg";
+}
+
+export const LabeledVector: React.FC<LabeledVectorProps> = ({ 
+  label, 
+  values, 
+  color = "text-gray-200",
+  size = "md" 
+}) => {
+  const labelSizes = {
+    sm: "text-xs",
+    md: "text-sm",
+    lg: "text-base"
+  };
+  
+  return (
+    <div className="inline-flex items-center gap-1">
+      <span className={`${color} font-bold ${labelSizes[size]}`}>{label}</span>
+      <span className="text-white">:</span>
+      <MathVector values={values} color={color} size={size} />
     </div>
   );
 };

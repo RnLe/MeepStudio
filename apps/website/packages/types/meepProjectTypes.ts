@@ -61,6 +61,12 @@ export interface MeepLattice {
   reciprocal_basis1?: Vector3;
   reciprocal_basis2?: Vector3;
   reciprocal_basis3?: Vector3;
+  
+  /** Transformation matrices between real and reciprocal space */
+  transformationMatrices?: {
+    realToReciprocal: number[][];
+    reciprocalToReal: number[][];
+  };
 }
 
 /* ---------- Lattice Interface (standalone) ---------- */

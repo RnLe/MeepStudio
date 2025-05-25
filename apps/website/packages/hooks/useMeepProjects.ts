@@ -5,6 +5,7 @@ import { MeepProject, Lattice, serializeMeepProject, deserializeMeepProject } fr
 import { ghPagesSvc } from "./ghPagesProjectsStore";
 import { nanoid } from "nanoid";
 import { useEditorStateStore } from "../providers/EditorStateStore";
+import { reciprocalBasis, calculateTransformationMatrices } from "../utils/latticeCalculations";
 
 /* ---------- File System Helper ---------- */
 async function getRootDirectoryHandle(): Promise<FileSystemDirectoryHandle> {
@@ -156,6 +157,27 @@ export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
       } else {
         // Save to filesystem
         const now = new Date().toISOString();
+        const meepLattice = params.lattice.meepLattice || {
+          basis1: { x: 1, y: 0, z: 0 },
+          basis2: { x: 0, y: 1, z: 0 },
+          basis_size: { x: 1, y: 1, z: 1 }
+        };
+        
+        // Calculate reciprocal basis and transformation matrices
+        try {
+          const { b1, b2 } = reciprocalBasis(meepLattice.basis1, meepLattice.basis2);
+          meepLattice.reciprocal_basis1 = b1;
+          meepLattice.reciprocal_basis2 = b2;
+          
+          const transformationMatrices = calculateTransformationMatrices(
+            meepLattice.basis1,
+            meepLattice.basis2
+          );
+          meepLattice.transformationMatrices = transformationMatrices;
+        } catch (error) {
+          console.error("Failed to calculate reciprocal lattice:", error);
+        }
+        
         const newLattice: Lattice = {
           documentId: nanoid(),
           createdAt: now,
@@ -163,11 +185,7 @@ export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
           title: params.lattice.title || "Untitled Lattice",
           description: params.lattice.description,
           latticeType: params.lattice.latticeType || "square",
-          meepLattice: params.lattice.meepLattice || {
-            basis1: { x: 1, y: 0, z: 0 },
-            basis2: { x: 0, y: 1, z: 0 },
-            basis_size: { x: 1, y: 1, z: 1 }
-          },
+          meepLattice,
           parameters: params.lattice.parameters || { a: 1, b: 1, gamma: 90 },
           displaySettings: params.lattice.displaySettings || {
             showWignerSeitz: false,
@@ -216,6 +234,23 @@ export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
           ...params.lattice,
           updatedAt: new Date().toISOString(),
         };
+        
+        // Recalculate reciprocal vectors if basis vectors changed
+        if (params.lattice.meepLattice && (params.lattice.meepLattice.basis1 || params.lattice.meepLattice.basis2)) {
+          const basis1 = params.lattice.meepLattice.basis1 || existingLattice.meepLattice.basis1;
+          const basis2 = params.lattice.meepLattice.basis2 || existingLattice.meepLattice.basis2;
+          
+          try {
+            const { b1, b2 } = reciprocalBasis(basis1, basis2);
+            updatedLattice.meepLattice.reciprocal_basis1 = b1;
+            updatedLattice.meepLattice.reciprocal_basis2 = b2;
+            
+            const transformationMatrices = calculateTransformationMatrices(basis1, basis2);
+            updatedLattice.meepLattice.transformationMatrices = transformationMatrices;
+          } catch (error) {
+            console.error("Failed to calculate reciprocal lattice:", error);
+          }
+        }
 
         // Save to filesystem
         const rootHandle = await getRootDirectoryHandle();

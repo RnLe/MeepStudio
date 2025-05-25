@@ -3,6 +3,7 @@
 import React from "react";
 import TabBar from "./TabBar";
 import SubTabContent from "./SubTabContent";
+import TabWindowLattice from "./TabWindowLattice";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 
 const TabWindowContainer: React.FC = () => {
@@ -13,7 +14,8 @@ const TabWindowContainer: React.FC = () => {
     subTabs,
     ghPages,
     projects,
-    getActiveProject,
+    activeMainTabType,
+    getActiveLattice,
   } = useEditorStateStore();
   
   // Remap open projects to the latest project objects
@@ -27,12 +29,15 @@ const TabWindowContainer: React.FC = () => {
   // Find the active project and sub-tab
   const activeProject = displayedProjects.find(project => project.documentId === activeProjectId);
   const activeSubTab = subTabs.find(tab => tab.id === activeSubTabId);
+  const activeLattice = getActiveLattice();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <TabBar />
       
-      {activeProject && activeSubTab ? (
+      {activeMainTabType === "lattice" && activeLattice ? (
+        <TabWindowLattice lattice={activeLattice} ghPages={ghPages} />
+      ) : activeMainTabType === "project" && activeProject && activeSubTab ? (
         <div className="flex-1 flex flex-col overflow-hidden">
           <SubTabContent 
             subTab={activeSubTab}
@@ -40,13 +45,17 @@ const TabWindowContainer: React.FC = () => {
             ghPages={ghPages}
           />
         </div>
-      ) : activeProject ? (
+      ) : activeMainTabType === "project" && activeProject ? (
         <div className="flex-1 flex items-center justify-center text-gray-500">
           No sub-tab selected for project "{activeProject.title}"
         </div>
+      ) : activeMainTabType === "dashboard" ? (
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          Dashboard view (not implemented)
+        </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-500">
-          No project selected
+          No tab selected
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { nanoid } from "nanoid";
 import { MeepProject, ProjectScene, ProjectCode, ProjectLattice, Lattice } from "../types/meepProjectTypes";
+import { reciprocalBasis, calculateTransformationMatrices } from "../utils/latticeCalculations";
 
 /* ---------- Helpers ---------- */
 const nowISO = () => new Date().toISOString();
@@ -61,6 +62,27 @@ function buildProject(p: CreatableProjectFields): MeepProject {
 function buildLattice(l: CreatableLatticeFields): Lattice {
   const timestamp = nowISO();
   
+  const meepLattice = l.meepLattice ?? {
+    basis1: { x: 1, y: 0, z: 0 },
+    basis2: { x: 0, y: 1, z: 0 },
+    basis_size: { x: 1, y: 1, z: 1 }
+  };
+  
+  // Calculate reciprocal basis and transformation matrices
+  try {
+    const { b1, b2 } = reciprocalBasis(meepLattice.basis1, meepLattice.basis2);
+    meepLattice.reciprocal_basis1 = b1;
+    meepLattice.reciprocal_basis2 = b2;
+    
+    const transformationMatrices = calculateTransformationMatrices(
+      meepLattice.basis1,
+      meepLattice.basis2
+    );
+    meepLattice.transformationMatrices = transformationMatrices;
+  } catch (error) {
+    console.error("Failed to calculate reciprocal lattice:", error);
+  }
+  
   return {
     documentId: nanoid(),
     createdAt: timestamp,
@@ -68,11 +90,7 @@ function buildLattice(l: CreatableLatticeFields): Lattice {
     title: l.title ?? "Untitled Lattice",
     description: l.description,
     latticeType: l.latticeType ?? "square",
-    meepLattice: l.meepLattice ?? {
-      basis1: { x: 1, y: 0, z: 0 },
-      basis2: { x: 0, y: 1, z: 0 },
-      basis_size: { x: 1, y: 1, z: 1 }
-    },
+    meepLattice,
     parameters: l.parameters ?? { a: 1, b: 1, gamma: 90 },
     displaySettings: l.displaySettings ?? {
       showWignerSeitz: false,
@@ -146,16 +164,36 @@ export const useGhPagesProjectsStore = create<StoreState>()(
         updateLattice: ({ documentId, lattice }) => {
           let updated: Lattice | undefined;
           set((s) => ({
-            lattices: s.lattices.map((lat) =>
-              lat.documentId === documentId
-                ? ((updated = {
-                    ...lat,
-                    ...lattice,
-                    updatedAt: nowISO(),
-                  }),
-                  updated)
-                : lat,
-            ),
+            lattices: s.lattices.map((lat) => {
+              if (lat.documentId === documentId) {
+                const updatedLattice = {
+                  ...lat,
+                  ...lattice,
+                  updatedAt: nowISO(),
+                };
+                
+                // Recalculate reciprocal vectors if basis vectors changed
+                if (lattice.meepLattice && (lattice.meepLattice.basis1 || lattice.meepLattice.basis2)) {
+                  const basis1 = lattice.meepLattice.basis1 || lat.meepLattice.basis1;
+                  const basis2 = lattice.meepLattice.basis2 || lat.meepLattice.basis2;
+                  
+                  try {
+                    const { b1, b2 } = reciprocalBasis(basis1, basis2);
+                    updatedLattice.meepLattice.reciprocal_basis1 = b1;
+                    updatedLattice.meepLattice.reciprocal_basis2 = b2;
+                    
+                    const transformationMatrices = calculateTransformationMatrices(basis1, basis2);
+                    updatedLattice.meepLattice.transformationMatrices = transformationMatrices;
+                  } catch (error) {
+                    console.error("Failed to calculate reciprocal lattice:", error);
+                  }
+                }
+                
+                updated = updatedLattice;
+                return updated;
+              }
+              return lat;
+            }),
           }));
           return updated;
         },

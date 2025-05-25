@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { Square, RectangleHorizontal, Hexagon, Diamond, Shapes } from "lucide-react";
-import { MeepProject } from "../types/meepProjectTypes";
+import { MeepProject, MeepLattice } from "../types/meepProjectTypes";
 import LatticeCanvas from "./LatticeCanvas";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useEditorStateStore } from "../providers/EditorStateStore";
+import { reciprocalBasis, calculateTransformationMatrices } from "../utils/latticeCalculations";
 
 const latticeTypes = [
   { key: "square", title: "Square", Icon: Square },
@@ -29,7 +30,7 @@ export default function LatticeBuilder({ project, ghPages }: Props) {
     setSelectedType(type);
     
     // Initialize lattice based on type
-    let meepLattice;
+    let meepLattice: MeepLattice;
     let parameters;
     
     switch (type) {
@@ -64,6 +65,22 @@ export default function LatticeBuilder({ project, ghPages }: Props) {
           basis_size: { x: 1, y: 1, z: 1 }
         };
         parameters = { a: 1, b: 1, gamma: 90 };
+    }
+    
+    // Calculate reciprocal basis vectors
+    try {
+      const { b1, b2 } = reciprocalBasis(meepLattice.basis1, meepLattice.basis2);
+      meepLattice.reciprocal_basis1 = b1;
+      meepLattice.reciprocal_basis2 = b2;
+      
+      // Calculate transformation matrices
+      const transformationMatrices = calculateTransformationMatrices(
+        meepLattice.basis1, 
+        meepLattice.basis2
+      );
+      meepLattice.transformationMatrices = transformationMatrices;
+    } catch (error) {
+      console.error("Failed to calculate reciprocal lattice:", error);
     }
     
     // Update project with new lattice
