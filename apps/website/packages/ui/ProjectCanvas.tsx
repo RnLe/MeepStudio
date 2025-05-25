@@ -42,7 +42,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const { updateProject } = useMeepProjects({ ghPages });
   const {
     selectedId, selectedIds, selectElement, snapToGrid, geometries, setGeometries,
-    addGeometry, updateGeometry, removeGeometry
+    addGeometry, updateGeometry, removeGeometry, removeGeometries
   } = useCanvasStore(
     (s) => ({
       selectedId: s.selectedId,
@@ -54,6 +54,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       addGeometry: s.addGeometry,
       updateGeometry: s.updateGeometry,
       removeGeometry: s.removeGeometry,
+      removeGeometries: s.removeGeometries, // Add this
     }),
     shallow
   );  // --- Geometry Migration Effect ---
@@ -122,6 +123,28 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     });
     if (selectedId === id) selectElement(null);
   }, [removeGeometry, updateProject, projectId, geometries, selectedId, selectElement, project.scene]);
+
+  // Batch delete handler for multiple geometries
+  const handleBatchRemoveGeometries = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    
+    // Create a new geometries array without the deleted items
+    const remainingGeometries = geometries.filter(g => !ids.includes(g.id));
+    
+    // Update the project with the new geometries array
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          geometries: remainingGeometries,
+        }
+      },
+    });
+    
+    // Update the store in one operation
+    removeGeometries(ids);
+  }, [removeGeometries, updateProject, projectId, geometries, project.scene]);
 
   // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -408,12 +431,13 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length > 0) {
-        selectedIds.forEach(id => handleRemoveGeometry(id));
+        e.preventDefault(); // Prevent any default behavior
+        handleBatchRemoveGeometries(selectedIds);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIds, handleRemoveGeometry]);
+  }, [selectedIds, handleBatchRemoveGeometries]);
 
   // --- Dynamic Border Weight Calculation ---
   const borderWeight = useMemo(() => {
@@ -525,67 +549,109 @@ const ProjectCanvas: React.FC<Props> = (props) => {
               function pointInRect(px: number, py: number, rect: {x:number,y:number,width:number,height:number}) {
                 return px >= rect.x && px <= rect.x + rect.width && py >= rect.y && py <= rect.y + rect.height;
               }
-              function linesIntersect(a1: {x:number,y:number}, a2: {x:number,y:number}, b1: {x:number,y:number}, b2: {x:number,y:number}) {
-                const det = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - a1.x);
-                if (det === 0) return false;
-                const lambda = ((b2.y - b1.y) * (b2.x - a1.x) + (b1.x - b2.x) * (b2.y - a1.y)) / det;
-                const gamma = ((a1.y - a2.y) * (b2.x - a1.x) + (a2.x - a1.x) * (b2.y - a1.y)) / det;
-                return (0 <= lambda && lambda <= 1) && (0 <= gamma && gamma <= 1);
+              
+              // Helper: Check if two line segments intersect
+              function segmentsIntersect(p1: {x:number,y:number}, p2: {x:number,y:number}, p3: {x:number,y:number}, p4: {x:number,y:number}) {
+                const d1 = direction(p3, p4, p1);
+                const d2 = direction(p3, p4, p2);
+                const d3 = direction(p1, p2, p3);
+                const d4 = direction(p1, p2, p4);
+                
+                if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+                    ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+                  return true;
+                }
+                
+                if (d1 === 0 && onSegment(p3, p1, p4)) return true;
+                if (d2 === 0 && onSegment(p3, p2, p4)) return true;
+                if (d3 === 0 && onSegment(p1, p3, p2)) return true;
+                if (d4 === 0 && onSegment(p1, p4, p2)) return true;
+                
+                return false;
               }
+              
+              function direction(a: {x:number,y:number}, b: {x:number,y:number}, c: {x:number,y:number}) {
+                return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+              }
+              
+              function onSegment(p: {x:number,y:number}, q: {x:number,y:number}, r: {x:number,y:number}) {
+                return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) &&
+                       q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+              }
+              
               function pointInTriangle(p: {x:number,y:number}, a: {x:number,y:number}, b: {x:number,y:number}, c: {x:number,y:number}) {
-                // Barycentric technique
-                const area = 0.5 * (-b.y * c.x + a.y * (-b.x + c.x) + a.x * (b.y - c.y) + b.x * c.y);
-                const s = 1 / (2 * area) * (a.y * c.x - a.x * c.y + (c.y - a.y) * p.x + (a.x - c.x) * p.y);
-                const t = 1 / (2 * area) * (a.x * b.y - a.y * b.x + (a.y - b.y) * p.x + (b.x - a.x) * p.y);
-                const u = 1 - s - t;
-                return s >= 0 && t >= 0 && u >= 0;
+                // Barycentric coordinates method
+                const v0x = c.x - a.x;
+                const v0y = c.y - a.y;
+                const v1x = b.x - a.x;
+                const v1y = b.y - a.y;
+                const v2x = p.x - a.x;
+                const v2y = p.y - a.y;
+                
+                const dot00 = v0x * v0x + v0y * v0y;
+                const dot01 = v0x * v1x + v0y * v1y;
+                const dot02 = v0x * v2x + v0y * v2y;
+                const dot11 = v1x * v1x + v1y * v1y;
+                const dot12 = v1x * v2x + v1y * v2y;
+                
+                const invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
+                const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+                const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+                
+                return (u >= 0) && (v >= 0) && (u + v <= 1);
               }
-              function triangleRectPrecise(pos: {x:number,y:number}, verts: {x:number,y:number}[], rect: {x:number,y:number,width:number,height:number}) {
-                // Normalize rectangle: ensure width/height positive, x/y is top-left
-                const normRect = { ...rect };
-                if (normRect.width < 0) {
-                  normRect.x += normRect.width;
-                  normRect.width = Math.abs(normRect.width);
-                }
-                if (normRect.height < 0) {
-                  normRect.y += normRect.height;
-                  normRect.height = Math.abs(normRect.height);
-                }
-                const absVerts = verts.map(v => ({ x: pos.x + v.x, y: pos.y + v.y }));
-                // Degenerate rectangle (point selection)
-                if (normRect.width === 0 && normRect.height === 0) {
-                  // Only select if the point is inside the triangle
-                  return pointInTriangle({ x: normRect.x, y: normRect.y }, absVerts[0], absVerts[1], absVerts[2]);
-                }
-                // 1. Any triangle vertex in rect?
-                if (absVerts.some(v => pointInRect(v.x, v.y, normRect))) return true;
-                // 2. Any rect vertex in triangle?
-                const rectVerts = [
-                  { x: normRect.x, y: normRect.y },
-                  { x: normRect.x + normRect.width, y: normRect.y },
-                  { x: normRect.x + normRect.width, y: normRect.y + normRect.height },
-                  { x: normRect.x, y: normRect.y + normRect.height },
+              
+              function triangleRectIntersect(triPos: {x:number,y:number}, triVerts: {x:number,y:number}[], rect: {x:number,y:number,width:number,height:number}) {
+                // Convert relative vertices to absolute positions
+                const absVerts = triVerts.map(v => ({ x: triPos.x + v.x, y: triPos.y + v.y }));
+                
+                // Rectangle corners
+                const rectCorners = [
+                  { x: rect.x, y: rect.y },
+                  { x: rect.x + rect.width, y: rect.y },
+                  { x: rect.x + rect.width, y: rect.y + rect.height },
+                  { x: rect.x, y: rect.y + rect.height }
                 ];
-                if (rectVerts.some(v => pointInTriangle(v, absVerts[0], absVerts[1], absVerts[2]))) return true;
-                // 3. Any edge intersection?
+                
+                // Check 1: Any triangle vertex inside rectangle?
+                for (const vert of absVerts) {
+                  if (pointInRect(vert.x, vert.y, rect)) {
+                    return true;
+                  }
+                }
+                
+                // Check 2: Any rectangle corner inside triangle?
+                for (const corner of rectCorners) {
+                  if (pointInTriangle(corner, absVerts[0], absVerts[1], absVerts[2])) {
+                    return true;
+                  }
+                }
+                
+                // Check 3: Any triangle edge intersects any rectangle edge?
                 const triEdges = [
                   [absVerts[0], absVerts[1]],
                   [absVerts[1], absVerts[2]],
-                  [absVerts[2], absVerts[0]],
+                  [absVerts[2], absVerts[0]]
                 ];
+                
                 const rectEdges = [
-                  [rectVerts[0], rectVerts[1]],
-                  [rectVerts[1], rectVerts[2]],
-                  [rectVerts[2], rectVerts[3]],
-                  [rectVerts[3], rectVerts[0]],
+                  [rectCorners[0], rectCorners[1]],
+                  [rectCorners[1], rectCorners[2]],
+                  [rectCorners[2], rectCorners[3]],
+                  [rectCorners[3], rectCorners[0]]
                 ];
-                for (const [a1, a2] of triEdges) {
-                  for (const [b1, b2] of rectEdges) {
-                    if (linesIntersect(a1, a2, b1, b2)) return true;
+                
+                for (const [t1, t2] of triEdges) {
+                  for (const [r1, r2] of rectEdges) {
+                    if (segmentsIntersect(t1, t2, r1, r2)) {
+                      return true;
+                    }
                   }
                 }
+                
                 return false;
               }
+
               // --- Convert selBox to lattice units ---
               const pxToLattice = (v: number) => v / GRID_PX;
               const latticeBox = {
@@ -606,7 +672,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                 } else if (g.kind === "cylinder") {
                   return circleRectIntersect(g.pos.x, g.pos.y, g.radius, latticeBox);
                 } else if (g.kind === "triangle") {
-                  // Use triangle bounding box intersection for selection
+                  // First pass: bounding box check
                   const absVerts = (g.vertices as { x: number; y: number }[]).map(v => ({ x: g.pos.x + v.x, y: g.pos.y + v.y }));
                   const xs = absVerts.map(pt => pt.x);
                   const ys = absVerts.map(pt => pt.y);
@@ -614,10 +680,17 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   const maxX = Math.max(...xs);
                   const minY = Math.min(...ys);
                   const maxY = Math.max(...ys);
-                  return rectsIntersect(
+                  
+                  const boundingBoxIntersects = rectsIntersect(
                     { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
                     latticeBox
                   );
+                  
+                  // Second pass: precise triangle-rectangle intersection only if bounding box intersects
+                  if (boundingBoxIntersects) {
+                    return triangleRectIntersect(g.pos, g.vertices as { x: number; y: number }[], latticeBox);
+                  }
+                  return false;
                 } else if (g.kind === "continuousSource" || g.kind === "gaussianSource") {
                   return (
                     g.pos.x >= latticeBox.x &&
@@ -665,6 +738,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             listening={false}
           />
         </Layer>
+        
         {/* --- Grid and border layer --- */}
         <Layer>
           {/* Draw subgrid (resolution) lines first, then main grid lines above */}
@@ -676,6 +750,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             borderWeight={borderWeight}
           />
         </Layer>
+        
         {/* --- Geometry elements layer --- */}
         <Layer>
           <GeometryLayer

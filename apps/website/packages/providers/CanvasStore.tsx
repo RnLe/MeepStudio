@@ -29,6 +29,8 @@ type CanvasState = {
   addGeometry: (geom: any) => void;
   updateGeometry: (id: string, partial: Partial<any>) => void;
   removeGeometry: (id: string) => void;
+  removeGeometries: (ids: string[]) => void; // New batch remove
+  
   // Overlay toggles
   showGrid: boolean;
   toggleShowGrid: () => void;
@@ -84,6 +86,11 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
       geometries: s.geometries.filter(g => g.id !== id),
       selectedIds: s.selectedIds.filter(selId => selId !== id),
       selectedId: s.selectedId === id ? null : s.selectedId,
+    })),
+    removeGeometries: (ids) => set((s) => ({
+      geometries: s.geometries.filter(g => !ids.includes(g.id)),
+      selectedIds: s.selectedIds.filter(selId => !ids.includes(selId)),
+      selectedId: s.selectedId && ids.includes(s.selectedId) ? null : s.selectedId,
     })),
     // Overlay toggles
     showGrid: true,
