@@ -1,7 +1,18 @@
 // src/hooks/useMeepProjects.ts
+import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MeepProject } from "../types/meepProjectTypes";
+import { MeepProject, Lattice, serializeMeepProject, deserializeMeepProject } from "../types/meepProjectTypes";
 import { ghPagesSvc } from "./ghPagesProjectsStore";
+import { nanoid } from "nanoid";
+import { useEditorStateStore } from "../providers/EditorStateStore";
+
+/* ---------- File System Helper ---------- */
+async function getRootDirectoryHandle(): Promise<FileSystemDirectoryHandle> {
+  if (typeof window === 'undefined' || !('showDirectoryPicker' in window)) {
+    throw new Error('File System Access API not available');
+  }
+  return await (window as any).showDirectoryPicker();
+}
 
 /* ---------- Service interface ---------- */
 export type Svc = {
@@ -47,59 +58,228 @@ function buildDefaultService(): Svc {
 const remoteSvc = buildDefaultService();
 
 /* ---------- Main hook ---------- */
-export function useMeepProjects(opts: { ghPages?: boolean } = {}) {
-  const { ghPages = false } = opts;
-  const qc = useQueryClient();
+export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
+  const queryClient = useQueryClient();
+  const qc = queryClient; // Fix for qc references
+  const { setProjects, setLattices, setIsLoading, setProjectManagementFunctions, setLatticeManagementFunctions } = useEditorStateStore();
+
+  // Choose service based on ghPages flag
   const service = ghPages ? ghPagesSvc : remoteSvc;
 
   /* READ */
-  const {
-    data: projects = [],
-    isLoading,
-    error,
-  } = useQuery({
+  const projectsQuery = useQuery({
     queryKey: ["meepProjects"],
     queryFn: service.fetchProjects,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 
+  // Lattices query
+  const latticesQuery = useQuery({
+    queryKey: ["meepLattices", ghPages ? "gh-pages" : "local"],
+    queryFn: async () => {
+      if (ghPages) {
+        // Use ghPages service for lattices
+        return await ghPagesSvc.fetchLattices();
+      } else {
+        // For local filesystem
+        const lattices: Lattice[] = [];
+        
+        // Check if we have access to filesystem
+        if (typeof window !== 'undefined' && 'showDirectoryPicker' in window) {
+          // Browser with File System Access API
+          try {
+            // Get or create lattices directory
+            const rootHandle = await getRootDirectoryHandle();
+            let latticesHandle;
+            try {
+              latticesHandle = await rootHandle.getDirectoryHandle('lattices');
+            } catch {
+              latticesHandle = await rootHandle.getDirectoryHandle('lattices', { create: true });
+            }
+            
+            // Read all lattice files
+            for await (const [name, entry] of (latticesHandle as any).entries()) {
+              if (entry.kind === 'file' && name.endsWith('.json')) {
+                const file = await entry.getFile();
+                const text = await file.text();
+                try {
+                  const lattice = JSON.parse(text) as Lattice;
+                  lattices.push(lattice);
+                } catch (e) {
+                  console.error(`Failed to parse lattice ${name}:`, e);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Failed to read lattices:', e);
+          }
+        }
+        
+        return lattices;
+      }
+    },
+    staleTime: ghPages ? Infinity : 5000,
+  });
+
+  // Set lattices in store when they change
+  React.useEffect(() => {
+    if (latticesQuery.data) {
+      setLattices(latticesQuery.data);
+    }
+  }, [latticesQuery.data, setLattices]);
+
   /* CREATE */
-  const createMut = useMutation({
+  const createProjectMutation = useMutation({
     mutationFn: service.createProject,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meepProjects"] }),
   });
 
-  /* UPDATE (optimistic) */
-  const updateMut = useMutation({
+  const updateProjectMutation = useMutation({
     mutationFn: service.updateProject,
-    onMutate: async (vars) => {
-      await qc.cancelQueries({ queryKey: ["meepProjects"] });
-      const prev = qc.getQueryData<MeepProject[]>(["meepProjects"]);
-      if (prev) {
-        qc.setQueryData<MeepProject[]>(["meepProjects"], (old) =>
-          old!.map((p) => (p.documentId === vars.documentId ? { ...p, ...vars.project } : p)),
-        );
-      }
-      return { prev };
-    },
-    onError: (_err, _vars, ctx) =>
-      ctx?.prev && qc.setQueryData(["meepProjects"], ctx.prev),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["meepProjects"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["meepProjects"] }),
   });
 
-  /* DELETE */
-  const deleteMut = useMutation({
+  const deleteProjectMutation = useMutation({
     mutationFn: service.deleteProject,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meepProjects"] }),
   });
 
+  // Lattice mutations
+  const createLatticeMutation = useMutation({
+    mutationFn: async (params: { lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">> }) => {
+      if (ghPages) {
+        // Use ghPages service
+        const result = await ghPagesSvc.createLattice(params.lattice);
+        if (!result) throw new Error("Failed to create lattice");
+        return result;
+      } else {
+        // Save to filesystem
+        const now = new Date().toISOString();
+        const newLattice: Lattice = {
+          documentId: nanoid(),
+          createdAt: now,
+          updatedAt: now,
+          title: params.lattice.title || "Untitled Lattice",
+          description: params.lattice.description,
+          latticeType: params.lattice.latticeType || "square",
+          meepLattice: params.lattice.meepLattice || {
+            basis1: { x: 1, y: 0, z: 0 },
+            basis2: { x: 0, y: 1, z: 0 },
+            basis_size: { x: 1, y: 1, z: 1 }
+          },
+          parameters: params.lattice.parameters || { a: 1, b: 1, gamma: 90 },
+          displaySettings: params.lattice.displaySettings || {
+            showWignerSeitz: false,
+            showBrillouinZone: false,
+            showHighSymmetryPoints: false,
+            showReciprocal: false,
+          }
+        };
+
+        // Save to filesystem
+        const rootHandle = await getRootDirectoryHandle();
+        let latticesHandle;
+        try {
+          latticesHandle = await rootHandle.getDirectoryHandle('lattices');
+        } catch {
+          latticesHandle = await rootHandle.getDirectoryHandle('lattices', { create: true });
+        }
+        
+        const fileHandle = await latticesHandle.getFileHandle(`${newLattice.documentId}.json`, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(JSON.stringify(newLattice, null, 2));
+        await writable.close();
+        
+        return newLattice;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meepLattices"] });
+    }
+  });
+
+  const updateLatticeMutation = useMutation({
+    mutationFn: async (params: { documentId: string; lattice: Partial<Lattice> }) => {
+      if (ghPages) {
+        // Use ghPages service
+        const result = await ghPagesSvc.updateLattice(params);
+        if (!result) throw new Error("Lattice not found");
+        return result;
+      } else {
+        // Save to filesystem
+        const existingLattice = latticesQuery.data?.find(l => l.documentId === params.documentId);
+        if (!existingLattice) throw new Error("Lattice not found");
+
+        const updatedLattice: Lattice = {
+          ...existingLattice,
+          ...params.lattice,
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Save to filesystem
+        const rootHandle = await getRootDirectoryHandle();
+        const latticesHandle = await rootHandle.getDirectoryHandle('lattices');
+        const fileHandle = await latticesHandle.getFileHandle(`${params.documentId}.json`);
+        const writable = await fileHandle.createWritable();
+        await writable.write(JSON.stringify(updatedLattice, null, 2));
+        await writable.close();
+
+        return updatedLattice;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meepLattices"] });
+    }
+  });
+
+  const deleteLatticeMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      if (ghPages) {
+        // Use ghPages service
+        await ghPagesSvc.deleteLattice(documentId);
+      } else {
+        // Delete from filesystem
+        const rootHandle = await getRootDirectoryHandle();
+        const latticesHandle = await rootHandle.getDirectoryHandle('lattices');
+        await latticesHandle.removeEntry(`${documentId}.json`);
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meepLattices"] });
+    }
+  });
+
+  // Initialize store functions
+  React.useEffect(() => {
+    const createFn = async (lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) => {
+      const result = await createLatticeMutation.mutateAsync({ lattice });
+      return result;
+    };
+    
+    const deleteFn = async (id: string) => {
+      await deleteLatticeMutation.mutateAsync(id);
+    };
+    
+    setLatticeManagementFunctions(createFn, deleteFn);
+  }, [setLatticeManagementFunctions]);
+
   return {
-    projects,
-    isLoading,
-    error,
-    createProject: createMut.mutateAsync,
-    updateProject: updateMut.mutateAsync,
-    deleteProject: deleteMut.mutateAsync,
+    projects: projectsQuery.data || [],
+    lattices: latticesQuery.data || [],
+    isLoading: projectsQuery.isLoading || latticesQuery.isLoading,
+    error: projectsQuery.error || latticesQuery.error,
+    createProject: (project: Partial<Omit<MeepProject, "documentId" | "createdAt" | "updatedAt">>) =>
+      createProjectMutation.mutateAsync(project),
+    updateProject: (params: { documentId: string; project: Partial<MeepProject> }) =>
+      updateProjectMutation.mutateAsync(params),
+    deleteProject: (documentId: string) =>
+      deleteProjectMutation.mutateAsync(documentId),
+    createLattice: (lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) =>
+      createLatticeMutation.mutateAsync({ lattice }),
+    updateLattice: (params: { documentId: string; lattice: Partial<Lattice> }) =>
+      updateLatticeMutation.mutateAsync(params),
+    deleteLattice: (documentId: string) =>
+      deleteLatticeMutation.mutateAsync(documentId),
   };
-}
+};

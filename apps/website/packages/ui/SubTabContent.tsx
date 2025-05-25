@@ -17,9 +17,6 @@ const SubTabContent: React.FC<Props> = ({ subTab, project, ghPages }) => {
     case "scene":
       return <TabWindowScene project={project} ghPages={ghPages} />;
     
-    case "lattice":
-      return <TabWindowLattice project={project} ghPages={ghPages} />;
-    
     case "code":
       return <TabWindowCode project={project} ghPages={ghPages} />;
     

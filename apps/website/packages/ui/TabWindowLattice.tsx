@@ -1,21 +1,18 @@
 // src/components/layout/TabWindowLattice.tsx
 "use client";
 import React from "react";
-import { MeepProject } from "../types/meepProjectTypes";
-import LatticeBuilder from "./LatticeBuilder";
+import { Lattice } from "../types/meepProjectTypes";
+import LatticeCanvas from "./LatticeCanvas";
 
 interface Props {
-  project: MeepProject;
+  lattice: Lattice;
   ghPages: boolean;
 }
 
-const TabWindowLattice: React.FC<Props> = ({ project, ghPages }) => {
-  // Access the lattice data from the project
-  const latticeData = project.lattice;
-  
+const TabWindowLattice: React.FC<Props> = ({ lattice, ghPages }) => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gray-900">
-      <LatticeBuilder project={project} ghPages={ghPages} />
+      <LatticeCanvas lattice={lattice} ghPages={ghPages} />
     </div>
   );
 };

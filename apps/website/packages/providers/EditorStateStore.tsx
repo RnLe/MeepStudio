@@ -2,9 +2,10 @@
 
 import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
-import { MeepProject } from "../types/meepProjectTypes";
+import { MeepProject, Lattice } from "../types/meepProjectTypes";
 
-export type SubTabType = "scene" | "lattice" | "code";
+export type SubTabType = "scene" | "code";
+export type MainTabType = "project" | "lattice";
 
 export interface SubTab {
   id: string;
@@ -16,7 +17,10 @@ export interface SubTab {
 type EditorState = {
   // Project-level tabs (top row)
   openProjects: MeepProject[];
+  openLattices: Lattice[];
   activeProjectId: string | null;
+  activeLatticeId: string | null;
+  activeMainTabType: MainTabType | null;
   
   // Sub-tabs for active project (second row)
   subTabs: SubTab[];
@@ -27,76 +31,91 @@ type EditorState = {
   
   // UI state
   rightSidebarOpen: boolean;
+  leftSidebarPanel: "explorer" | "latticeBuilder" | null;
   
   // Project management functions (from useMeepProjects)
   projects: MeepProject[];
+  lattices: Lattice[];
   isLoading: boolean;
   createProjectFn: ((p: Partial<Omit<MeepProject, "documentId" | "createdAt" | "updatedAt">>) => Promise<MeepProject>) | null;
   deleteProjectFn: ((id: string) => Promise<void>) | null;
+  createLatticeFn: ((l: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) => Promise<Lattice>) | null;
+  deleteLatticeFn: ((id: string) => Promise<void>) | null;
   
   // Actions
   openProject: (project: MeepProject) => void;
   closeProject: (projectId: string) => void;
   setActiveProject: (projectId: string) => void;
-    openSubTab: (subTab: SubTab) => void;
+  
+  openLattice: (lattice: Lattice) => void;
+  closeLattice: (latticeId: string) => void;
+  setActiveLattice: (latticeId: string) => void;
+  
+  openSubTab: (subTab: SubTab) => void;
   closeSubTab: (subTabId: string) => void;
   setActiveSubTab: (subTabId: string) => void;
   
   // Dynamic sub-tab management
   addCodeTabToProject: (projectId: string) => void;
-  addLatticeTabToProject: (projectId: string) => void;
   removeCodeTabFromProject: (projectId: string) => void;
-  removeLatticeTabFromProject: (projectId: string) => void;
   
   setGhPages: (ghPages: boolean) => void;
   setRightSidebarOpen: (open: boolean) => void;
+  setLeftSidebarPanel: (panel: "explorer" | "latticeBuilder" | null) => void;
   
   // Project management actions
   setProjects: (projects: MeepProject[]) => void;
+  setLattices: (lattices: Lattice[]) => void;
   setIsLoading: (loading: boolean) => void;
   setProjectManagementFunctions: (
     createFn: (p: Partial<Omit<MeepProject, "documentId" | "createdAt" | "updatedAt">>) => Promise<MeepProject>,
     deleteFn: (id: string) => Promise<void>
   ) => void;
+  setLatticeManagementFunctions: (
+    createFn: (l: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) => Promise<Lattice>,
+    deleteFn: (id: string) => Promise<void>
+  ) => void;
   
   createProject: (project: Partial<Omit<MeepProject, "documentId" | "createdAt" | "updatedAt">>) => Promise<MeepProject | void>;
   deleteProject: (id: string) => Promise<void>;
+  createLattice: (lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) => Promise<Lattice | void>;
+  deleteLattice: (id: string) => Promise<void>;
   
   // Helper to get sub-tabs for active project
   getActiveProjectSubTabs: () => SubTab[];
   getActiveProject: () => MeepProject | undefined;
+  getActiveLattice: () => Lattice | undefined;
 };
 
 export const useEditorStateStore = createWithEqualityFn<EditorState>(
   (set, get) => ({
     openProjects: [],
+    openLattices: [],
     activeProjectId: null,
+    activeLatticeId: null,
+    activeMainTabType: null,
     subTabs: [],
     activeSubTabId: null,
     ghPages: false,
     rightSidebarOpen: true,
+    leftSidebarPanel: "explorer",
     projects: [],
+    lattices: [],
     isLoading: false,
     createProjectFn: null,
-    deleteProjectFn: null,    openProject: (project) => {
+    deleteProjectFn: null,
+    createLatticeFn: null,
+    deleteLatticeFn: null,
+    
+    openProject: (project) => {
       const { openProjects, subTabs, setRightSidebarOpen } = get();
       const isAlreadyOpen = openProjects.some(p => p.documentId === project.documentId);
-      
-      console.log("🔥 openProject called:", {
-        projectId: project.documentId,
-        projectTitle: project.title,
-        isAlreadyOpen,
-        currentSubTabsCount: subTabs.length,
-        hasCode: !!project.code,
-        hasLattice: !!project.lattice
-      });
       
       if (!isAlreadyOpen) {
         set({ openProjects: [...openProjects, project] });
         
         // Create default sub-tabs for this project
         const defaultSubTabs: SubTab[] = [
-          // Scene tab is always available
           {
             id: `${project.documentId}-scene`,
             type: "scene",
@@ -105,7 +124,6 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           }
         ];
 
-        // Add code tab if project has code data
         if (project.code) {
           defaultSubTabs.push({
             id: `${project.documentId}-code`,
@@ -114,20 +132,7 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
             projectId: project.documentId!,
           });
         }
-
-        // Add lattice tab if project has lattice data
-        if (project.lattice) {
-          defaultSubTabs.push({
-            id: `${project.documentId}-lattice`,
-            type: "lattice", 
-            title: "Lattice Builder",
-            projectId: project.documentId!,
-          });
-        }
         
-        console.log("🔥 Created defaultSubTabs:", defaultSubTabs);
-        
-        // Filter out any existing sub-tabs for this project to avoid duplicates
         const existingProjectTabIds = subTabs
           .filter(tab => tab.projectId === project.documentId)
           .map(tab => tab.id);
@@ -136,35 +141,22 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           !existingProjectTabIds.includes(tab.id)
         );
         
-        console.log("🔥 After filtering, newSubTabs:", newSubTabs);
-        
-        // Add new sub-tabs and set active project/sub-tab in one update
-        set(state => {
-          const updatedState = { 
-            subTabs: [...state.subTabs, ...newSubTabs],
-            activeProjectId: project.documentId,
-            activeSubTabId: newSubTabs.length > 0 ? newSubTabs[0].id : null
-          };
-          console.log("🔥 Setting new state:", {
-            totalSubTabs: updatedState.subTabs.length,
-            activeProjectId: updatedState.activeProjectId,
-            activeSubTabId: updatedState.activeSubTabId
-          });
-          return updatedState;
-        });
+        set(state => ({ 
+          subTabs: [...state.subTabs, ...newSubTabs],
+          activeProjectId: project.documentId,
+          activeSubTabId: newSubTabs.length > 0 ? newSubTabs[0].id : null,
+          activeMainTabType: "project",
+          activeLatticeId: null
+        }));
       } else {
-        // Project is already open, just activate it
         const projectSubTabs = subTabs.filter(tab => tab.projectId === project.documentId);
         const newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
-        
-        console.log("🔥 Project already open, activating:", {
-          projectSubTabsCount: projectSubTabs.length,
-          newActiveSubTabId
-        });
         
         set({ 
           activeProjectId: project.documentId,
           activeSubTabId: newActiveSubTabId,
+          activeMainTabType: "project",
+          activeLatticeId: null
         });
       }
       
@@ -172,26 +164,84 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     },
     
     closeProject: (projectId) => {
-      const { openProjects, activeProjectId, subTabs } = get();
+      const { openProjects, activeProjectId, subTabs, openLattices } = get();
       const updatedProjects = openProjects.filter(p => p.documentId !== projectId);
       const updatedSubTabs = subTabs.filter(tab => tab.projectId !== projectId);
       
       let newActiveProjectId = activeProjectId;
       let newActiveSubTabId = null;
+      let newActiveMainTabType: MainTabType | null = null;
+      let newActiveLatticeId = null;
       
       if (activeProjectId === projectId) {
-        newActiveProjectId = updatedProjects.length > 0 ? updatedProjects[0].documentId! : null;
-        if (newActiveProjectId) {
+        if (updatedProjects.length > 0) {
+          newActiveProjectId = updatedProjects[0].documentId!;
           const projectSubTabs = updatedSubTabs.filter(tab => tab.projectId === newActiveProjectId);
           newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
+          newActiveMainTabType = "project";
+        } else if (openLattices.length > 0) {
+          newActiveProjectId = null;
+          newActiveLatticeId = openLattices[0].documentId;
+          newActiveMainTabType = "lattice";
         }
       }
       
       set({ 
         openProjects: updatedProjects,
         activeProjectId: newActiveProjectId,
+        activeLatticeId: newActiveLatticeId,
+        activeMainTabType: newActiveMainTabType,
         subTabs: updatedSubTabs,
         activeSubTabId: newActiveSubTabId,
+      });
+    },
+    
+    openLattice: (lattice) => {
+      const { openLattices, setRightSidebarOpen } = get();
+      const isAlreadyOpen = openLattices.some(l => l.documentId === lattice.documentId);
+      
+      if (!isAlreadyOpen) {
+        set({ openLattices: [...openLattices, lattice] });
+      }
+      
+      set({ 
+        activeLatticeId: lattice.documentId,
+        activeProjectId: null,
+        activeSubTabId: null,
+        activeMainTabType: "lattice"
+      });
+      
+      setRightSidebarOpen(true);
+    },
+    
+    closeLattice: (latticeId) => {
+      const { openLattices, activeLatticeId, openProjects, subTabs } = get();
+      const updatedLattices = openLattices.filter(l => l.documentId !== latticeId);
+      
+      let newActiveLatticeId = activeLatticeId;
+      let newActiveProjectId: string | null = null;
+      let newActiveSubTabId: string | null = null;
+      let newActiveMainTabType: MainTabType | null = null;
+      
+      if (activeLatticeId === latticeId) {
+        if (updatedLattices.length > 0) {
+          newActiveLatticeId = updatedLattices[0].documentId!;
+          newActiveMainTabType = "lattice";
+        } else if (openProjects.length > 0) {
+          newActiveLatticeId = null;
+          newActiveProjectId = openProjects[0].documentId;
+          const projectSubTabs = subTabs.filter(tab => tab.projectId === newActiveProjectId);
+          newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
+          newActiveMainTabType = "project";
+        }
+      }
+      
+      set({ 
+        openLattices: updatedLattices,
+        activeLatticeId: newActiveLatticeId,
+        activeProjectId: newActiveProjectId,
+        activeSubTabId: newActiveSubTabId,
+        activeMainTabType: newActiveMainTabType
       });
     },
     
@@ -203,7 +253,21 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       setRightSidebarOpen(true);
       set({ 
         activeProjectId: projectId,
+        activeLatticeId: null,
         activeSubTabId: newActiveSubTabId,
+        activeMainTabType: "project"
+      });
+    },
+    
+    setActiveLattice: (latticeId) => {
+      const { setRightSidebarOpen } = get();
+      
+      setRightSidebarOpen(true);
+      set({ 
+        activeLatticeId: latticeId,
+        activeProjectId: null,
+        activeSubTabId: null,
+        activeMainTabType: "lattice"
       });
     },
     
@@ -233,7 +297,8 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         activeSubTabId: newActiveSubTabId,
       });
     },
-      setActiveSubTab: (subTabId) => {
+    
+    setActiveSubTab: (subTabId) => {
       set({ activeSubTabId: subTabId });
     },
     
@@ -250,29 +315,6 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           id: codeTabId,
           type: "code",
           title: "Code",
-          projectId,
-        };
-        
-        set(state => ({ 
-          subTabs: [...state.subTabs, newSubTab],
-          activeSubTabId: newSubTab.id
-        }));
-      }
-    },
-    
-    addLatticeTabToProject: (projectId) => {
-      const { subTabs, projects } = get();
-      const project = projects.find(p => p.documentId === projectId);
-      if (!project) return;
-      
-      const latticeTabId = `${projectId}-lattice`;
-      const hasLatticeTab = subTabs.some(tab => tab.id === latticeTabId);
-      
-      if (!hasLatticeTab) {
-        const newSubTab: SubTab = {
-          id: latticeTabId,
-          type: "lattice",
-          title: "Lattice Builder",
           projectId,
         };
         
@@ -300,23 +342,6 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       });
     },
     
-    removeLatticeTabFromProject: (projectId) => {
-      const { subTabs, activeSubTabId, activeProjectId } = get();
-      const latticeTabId = `${projectId}-lattice`;
-      const updatedSubTabs = subTabs.filter(tab => tab.id !== latticeTabId);
-      
-      let newActiveSubTabId = activeSubTabId;
-      if (activeSubTabId === latticeTabId && activeProjectId === projectId) {
-        const remainingProjectSubTabs = updatedSubTabs.filter(tab => tab.projectId === projectId);
-        newActiveSubTabId = remainingProjectSubTabs.length > 0 ? remainingProjectSubTabs[0].id : null;
-      }
-      
-      set({ 
-        subTabs: updatedSubTabs,
-        activeSubTabId: newActiveSubTabId,
-      });
-    },
-    
     setGhPages: (ghPages) => {
       set({ ghPages });
     },
@@ -325,8 +350,16 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       set({ rightSidebarOpen: open });
     },
     
+    setLeftSidebarPanel: (panel) => {
+      set({ leftSidebarPanel: panel });
+    },
+    
     setProjects: (projects) => {
       set({ projects });
+    },
+    
+    setLattices: (lattices) => {
+      set({ lattices });
     },
     
     setIsLoading: (loading) => {
@@ -337,6 +370,13 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       set({ 
         createProjectFn: createFn,
         deleteProjectFn: deleteFn,
+      });
+    },
+    
+    setLatticeManagementFunctions: (createFn, deleteFn) => {
+      set({ 
+        createLatticeFn: createFn,
+        deleteLatticeFn: deleteFn,
       });
     },
     
@@ -372,7 +412,41 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         throw error;
       }
     },
-      getActiveProjectSubTabs: () => {
+    
+    createLattice: async (lattice) => {
+      const { createLatticeFn, openLattice } = get();
+      if (!createLatticeFn) {
+        console.error("Create lattice function not initialized");
+        return;
+      }
+      
+      try {
+        const newLattice = await createLatticeFn(lattice);
+        openLattice(newLattice);
+        return newLattice;
+      } catch (error) {
+        console.error("Failed to create lattice", error);
+        throw error;
+      }
+    },
+    
+    deleteLattice: async (id) => {
+      const { deleteLatticeFn, closeLattice } = get();
+      if (!deleteLatticeFn) {
+        console.error("Delete lattice function not initialized");
+        return;
+      }
+      
+      try {
+        await deleteLatticeFn(id);
+        closeLattice(id);
+      } catch (error) {
+        console.error("Failed to delete lattice", error);
+        throw error;
+      }
+    },
+    
+    getActiveProjectSubTabs: () => {
       const { subTabs, activeProjectId } = get();
       const result = activeProjectId ? subTabs.filter(tab => tab.projectId === activeProjectId) : [];
       console.log("🔥 getActiveProjectSubTabs:", {
@@ -388,6 +462,11 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     getActiveProject: () => {
       const { projects, activeProjectId } = get();
       return projects.find(p => p.documentId === activeProjectId);
+    },
+    
+    getActiveLattice: () => {
+      const { lattices, activeLatticeId } = get();
+      return lattices.find(l => l.documentId === activeLatticeId);
     },
   }),
   shallow

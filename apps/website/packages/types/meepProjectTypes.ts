@@ -41,13 +41,73 @@ export interface ProjectCode {
   additionalFiles?: Record<string, string>;
 }
 
+/* ---------- Meep Lattice Interface ---------- */
+export interface Vector3 {
+  x: number;
+  y: number;
+  z?: number;
+}
+
+export interface MeepLattice {
+  /** Basis vectors in real space */
+  basis1: Vector3;
+  basis2: Vector3;
+  basis3?: Vector3;
+  
+  /** Size/scale factors for the basis vectors */
+  basis_size: Vector3;
+  
+  /** Computed reciprocal basis vectors (k-space) */
+  reciprocal_basis1?: Vector3;
+  reciprocal_basis2?: Vector3;
+  reciprocal_basis3?: Vector3;
+}
+
+/* ---------- Lattice Interface (standalone) ---------- */
+export interface Lattice {
+  /** Primary key = unique identifier */
+  documentId: string;
+  /** ISO strings for historical sorting */
+  createdAt: string;
+  updatedAt: string;
+  
+  /** Metadata */
+  title: string;
+  description?: string;
+  
+  /** Lattice type */
+  latticeType: 'square' | 'rectangular' | 'hexagonal' | 'rhombic' | 'oblique' | 'custom';
+  
+  /** Core lattice definition */
+  meepLattice: MeepLattice;
+  
+  /** Lattice parameters for easier UI manipulation */
+  parameters: {
+    a?: number;      // lattice constant a
+    b?: number;      // lattice constant b  
+    c?: number;      // lattice constant c (for 3D)
+    alpha?: number;  // angle between b and c
+    beta?: number;   // angle between a and c
+    gamma?: number;  // angle between a and b
+  };
+  
+  /** Display settings */
+  displaySettings?: {
+    showWignerSeitz: boolean;
+    showBrillouinZone: boolean;
+    showHighSymmetryPoints: boolean;
+    showReciprocal: boolean;
+  };
+  
+  /** Generated lattice data */
+  latticeData?: any;
+}
+
 /* ---------- Project Lattice Interface ---------- */
 export interface ProjectLattice {
-  /** Lattice type (e.g., 'square', 'triangular', 'hexagonal') */
-  latticeType: string;
-  /** Lattice parameters */
-  parameters: Record<string, any>;
-  /** Generated lattice data */
+  /** Reference to a lattice by ID */
+  latticeId?: string;
+  /** Inline lattice data (for backwards compatibility) */
   latticeData?: any;
 }
 

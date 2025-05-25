@@ -1,18 +1,30 @@
 import React, { useState } from "react";
 import { Folder, Hexagon } from "lucide-react";
-import ProjectExplorer from "./ProjectExplorer";
-import LatticeBuilder from "./LatticeBuilder";
+import LeftExplorer from "./LeftExplorer";
+import LeftLatticeBuilder from "./LeftLatticeBuilder";
+import { useEditorStateStore } from "../providers/EditorStateStore";
 
-type Panel = "explorer" | "lattice" | null;
+type Panel = "explorer" | "latticeBuilder" | null;
 
 export default function LeftSidebar() {
   const [panel, setPanel] = useState<Panel>("explorer");
+  const { setLeftSidebarPanel, leftSidebarPanel } = useEditorStateStore();
 
-  const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
+  React.useEffect(() => {
+    if (leftSidebarPanel) {
+      setPanel(leftSidebarPanel);
+    }
+  }, [leftSidebarPanel]);
+
+  const toggle = (p: Panel) => {
+    const newPanel = panel === p ? null : p;
+    setPanel(newPanel);
+    setLeftSidebarPanel(newPanel);
+  };
 
   const icons = [
-    { key: "explorer", Icon: Folder, title: "Project Explorer" },
-    { key: "lattice", Icon: Hexagon, title: "Lattice Builder" },
+    { key: "explorer", Icon: Folder, title: "Explorer" },
+    { key: "latticeBuilder", Icon: Hexagon, title: "Lattice Builder" },
   ] as const;
 
   return (
@@ -50,12 +62,15 @@ export default function LeftSidebar() {
         <div className="h-full flex flex-col">
           {/* Panel Top Navbar */}
           <div className="h-8 w-full flex items-center px-4 text-xs tracking-widest uppercase text-gray-300 select-none" style={{ minHeight: 32 }}>
-            {panel === "explorer" && "Project Explorer"}
-            {panel === "lattice" && "Lattice Builder"}
-          </div>          {/* Panel Content */}
-          <div className="flex-1">
-            {panel === "explorer" && <ProjectExplorer />}
-            {panel === "lattice" && <LatticeBuilder />}
+            {panel === "explorer" && "Explorer"}
+            {panel === "latticeBuilder" && "Lattice Builder"}
+          </div>
+          {/* Panel Content */}
+          <div className="flex-1 overflow-y-auto">
+            {panel === "explorer" && <LeftExplorer />}
+            {panel === "latticeBuilder" && (
+              <LeftLatticeBuilder onCancel={() => toggle("explorer")} />
+            )}
           </div>
         </div>
       </div>

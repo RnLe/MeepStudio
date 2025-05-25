@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { X, Code, Grid3X3, Layers } from "lucide-react";
+import { X, Code, Grid3X3, Layers, Hexagon } from "lucide-react";
 import ContextMenu from "./ContextMenu";
-import { MeepProject } from "../types/meepProjectTypes";
+import { MeepProject, Lattice } from "../types/meepProjectTypes";
 import { useEditorStateStore, SubTab, SubTabType } from "../providers/EditorStateStore";
 
 interface Props {
@@ -11,8 +11,6 @@ const getSubTabIcon = (type: SubTabType) => {
   switch (type) {
     case "scene":
       return Layers;
-    case "lattice":
-      return Grid3X3;
     case "code":
       return Code;
     default:
@@ -21,20 +19,25 @@ const getSubTabIcon = (type: SubTabType) => {
 };
 
 const TabBar: React.FC<Props> = () => {
-  const [contextMenu, setContextMenu] = useState<null | { x: number; y: number; tab: MeepProject }>(null);
+  const [contextMenu, setContextMenu] = useState<null | { x: number; y: number; item: MeepProject | Lattice; type: 'project' | 'lattice' }>(null);
   
   const {
     openProjects,
+    openLattices,
     activeProjectId,
+    activeLatticeId,
     getActiveProjectSubTabs,
     activeSubTabId,
     setActiveProject,
+    setActiveLattice,
     closeProject,
+    closeLattice,
     setActiveSubTab,
     closeSubTab,
     deleteProject,
+    deleteLattice,
   } = useEditorStateStore();
-    const activeProjectSubTabs = getActiveProjectSubTabs();
+  const activeProjectSubTabs = getActiveProjectSubTabs();
 
   // Debug logging
   console.log("TabBar Debug:", {
@@ -46,35 +49,44 @@ const TabBar: React.FC<Props> = () => {
     shouldShowBottomRow: !!(activeProjectId && activeProjectSubTabs.length > 0)
   });
 
-  const handleContextMenu = (e: React.MouseEvent, tab: MeepProject) => {
+  const handleContextMenu = (e: React.MouseEvent, item: MeepProject | Lattice, type: 'project' | 'lattice') => {
     e.preventDefault();
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
-      tab,
+      item,
+      type,
     });
   };
-  const handleRemove = async (tab: MeepProject) => {
-    if (window.confirm(`Are you sure you want to delete the project "${tab.title}"? This cannot be undone.`)) {
-      await deleteProject(tab.documentId);
+  
+  const handleRemove = async (item: MeepProject | Lattice, type: 'project' | 'lattice') => {
+    if (window.confirm(`Are you sure you want to delete the ${type} "${item.title}"? This cannot be undone.`)) {
+      if (type === 'project') {
+        await deleteProject(item.documentId);
+      } else {
+        await deleteLattice(item.documentId);
+      }
     }
   };
+  
   return (
     <div className="flex flex-col bg-slate-900 border-b border-slate-700/50 shadow-xl">
-      {/* Top Row - Project Tabs */}
+      {/* Top Row - Project and Lattice Tabs */}
       <div className="flex items-center h-12 px-4 bg-slate-800">
         <div className="flex overflow-hidden">
+          {/* Project tabs */}
           {openProjects.map((project) => (
             <div
               key={project.documentId}
               onClick={() => setActiveProject(project.documentId!)}
-              onContextMenu={(e) => handleContextMenu(e, project)}
+              onContextMenu={(e) => handleContextMenu(e, project, 'project')}
               className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
                 project.documentId === activeProjectId 
                   ? "bg-slate-700 text-white" 
                   : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
               }`}
             >
+              <Layers size={14} className="mr-2 text-slate-400" />
               <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">{project.title}</span>
               <button
                 onClick={(e) => {
@@ -89,11 +101,46 @@ const TabBar: React.FC<Props> = () => {
               >
                 <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
               </button>
-              {/* Active project indicator at top */}
               {project.documentId === activeProjectId && (
                 <>
                   <div className="absolute -top-0.5 left-0 right-0 h-1 bg-blue-400 rounded-full shadow-md"></div>
                   <div className="absolute -top-0.5 left-0 right-0 h-1 bg-blue-400 rounded-full animate-pulse opacity-60"></div>
+                </>
+              )}
+            </div>
+          ))}
+          
+          {/* Lattice tabs */}
+          {openLattices.map((lattice) => (
+            <div
+              key={lattice.documentId}
+              onClick={() => setActiveLattice(lattice.documentId!)}
+              onContextMenu={(e) => handleContextMenu(e, lattice, 'lattice')}
+              className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
+                lattice.documentId === activeLatticeId 
+                  ? "bg-slate-700 text-white" 
+                  : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
+              }`}
+            >
+              <Hexagon size={14} className="mr-2 text-slate-400" />
+              <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">{lattice.title}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeLattice(lattice.documentId!);
+                }}
+                className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
+                  lattice.documentId === activeLatticeId 
+                    ? "opacity-100" 
+                    : "opacity-0 group-hover:opacity-100"
+                }`}
+              >
+                <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
+              </button>
+              {lattice.documentId === activeLatticeId && (
+                <>
+                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-green-400 rounded-full shadow-md"></div>
+                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-green-400 rounded-full animate-pulse opacity-60"></div>
                 </>
               )}
             </div>
@@ -159,9 +206,9 @@ const TabBar: React.FC<Props> = () => {
           y={contextMenu.y}
           entries={[
             {
-              label: "Remove Project",
+              label: `Remove ${contextMenu.type === 'project' ? 'Project' : 'Lattice'}`,
               danger: true,
-              onClick: () => handleRemove(contextMenu.tab),
+              onClick: () => handleRemove(contextMenu.item, contextMenu.type),
             },
           ]}
           onClose={() => setContextMenu(null)}
