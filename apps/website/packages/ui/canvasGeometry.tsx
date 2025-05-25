@@ -65,8 +65,9 @@ export function GeometryLayer({
                   const newY = evt.target.y() / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
+                  
+                  // Update all selected items including the anchor
                   selectedIds.forEach((id: string) => {
-                    if (id === c.id) return;
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
                       const init = multiDragAnchor.initialPositions[id];
@@ -83,6 +84,8 @@ export function GeometryLayer({
                   const newY = evt.target.y() / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
+                  
+                  // Update all selected items with final positions
                   selectedIds.forEach((id: string) => {
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
@@ -94,6 +97,7 @@ export function GeometryLayer({
                   });
                   setMultiDragAnchor(null);
                 } else {
+                  // Single item drag
                   const x = evt.target.x() / GRID_PX;
                   const y = evt.target.y() / GRID_PX;
                   handleUpdateGeometry(c.id, { pos: { x, y } });
@@ -145,8 +149,9 @@ export function GeometryLayer({
                   const newY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
+                  
+                  // Update all selected items including the anchor
                   selectedIds.forEach((id: string) => {
-                    if (id === r.id) return;
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
                       const init = multiDragAnchor.initialPositions[id];
@@ -163,6 +168,8 @@ export function GeometryLayer({
                   const newY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
+                  
+                  // Update all selected items with final positions
                   selectedIds.forEach((id: string) => {
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
@@ -174,6 +181,7 @@ export function GeometryLayer({
                   });
                   setMultiDragAnchor(null);
                 } else {
+                  // Single item drag
                   const centerX = (evt.target.x() + (r.width * GRID_PX) / 2) / GRID_PX;
                   const centerY = (evt.target.y() + (r.height * GRID_PX) / 2) / GRID_PX;
                   handleUpdateGeometry(r.id, { pos: { x: centerX, y: centerY } });
@@ -228,8 +236,9 @@ export function GeometryLayer({
                   const newY = evt.target.y() / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
+                  
+                  // Update all selected items including the anchor
                   selectedIds.forEach((id: string) => {
-                    if (id === t.id) return;
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
                       const init = multiDragAnchor.initialPositions[id];
@@ -246,6 +255,8 @@ export function GeometryLayer({
                   const newY = evt.target.y() / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
+                  
+                  // Update all selected items with final positions
                   selectedIds.forEach((id: string) => {
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
@@ -257,6 +268,7 @@ export function GeometryLayer({
                   });
                   setMultiDragAnchor(null);
                 } else {
+                  // Single item drag
                   const newX = evt.target.x() / GRID_PX;
                   const newY = evt.target.y() / GRID_PX;
                   handleUpdateGeometry(t.id, { pos: { x: newX, y: newY } });
