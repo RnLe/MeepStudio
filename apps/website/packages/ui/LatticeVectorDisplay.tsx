@@ -2,11 +2,17 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useSpring, animated } from "@react-spring/web";
+import { Vector3 } from "../types/meepProjectTypes";
 
 type LatticeType = 'square' | 'rectangular' | 'hexagonal' | 'rhombic' | 'oblique' | 'custom';
 
 interface LatticeVectorDisplayProps {
   latticeType: LatticeType;
+  customVectors?: {
+    basis1: Vector3;
+    basis2: Vector3;
+  };
+  customAngle?: number;
 }
 
 interface LatticeParams {
@@ -55,7 +61,7 @@ const latticeParams: Record<LatticeType, LatticeParams> = {
   }
 };
 
-export default function LatticeVectorDisplay({ latticeType }: LatticeVectorDisplayProps) {
+export default function LatticeVectorDisplay({ latticeType, customVectors, customAngle }: LatticeVectorDisplayProps) {
   const params = latticeParams[latticeType];
   const centerX = 80; // Adjusted to align with grid (multiple of 20)
   const centerY = 60; // Already aligned with grid (multiple of 20)
@@ -101,13 +107,35 @@ export default function LatticeVectorDisplay({ latticeType }: LatticeVectorDispl
     return rotation % 360;
   };
 
-  // Animate vectors with smooth transition to custom
+  // Use custom vectors if provided, otherwise use default params
+  const displayVectors = customVectors ? {
+    a1: { x: customVectors.basis1.x * 60, y: customVectors.basis1.y * 60 },
+    a2: { x: customVectors.basis2.x * 60, y: customVectors.basis2.y * 60 }
+  } : {
+    a1: params.a1,
+    a2: params.a2
+  };
+  
+  // Calculate angle from vectors if custom vectors provided
+  const calculateAngle = (v1: { x: number; y: number }, v2: { x: number; y: number }) => {
+    const dot = v1.x * v2.x + v1.y * v2.y;
+    const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+    const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+    if (mag1 === 0 || mag2 === 0) return 0;
+    const cosAngle = dot / (mag1 * mag2);
+    return Math.acos(Math.max(-1, Math.min(1, cosAngle))) * 180 / Math.PI;
+  };
+  
+  const displayAngle = customAngle !== undefined ? customAngle : 
+    (customVectors ? calculateAngle(displayVectors.a1, displayVectors.a2) : params.angle);
+
+  // Animate vectors with smooth transition
   const vectorSpring = useSpring({
-    a1x: params.a1.x * 0.8, // Scale down to fit better
-    a1y: params.a1.y * 0.8,
-    a2x: latticeType === 'custom' ? getCustomA2(customRotationValue).x : params.a2.x * 0.8,
-    a2y: latticeType === 'custom' ? getCustomA2(customRotationValue).y : params.a2.y * 0.8,
-    angle: latticeType === 'custom' ? getCustomAngle(customRotationValue) : params.angle,
+    a1x: displayVectors.a1.x * 0.8,
+    a1y: displayVectors.a1.y * 0.8,
+    a2x: latticeType === 'custom' && !customVectors ? getCustomA2(customRotationValue).x : displayVectors.a2.x * 0.8,
+    a2y: latticeType === 'custom' && !customVectors ? getCustomA2(customRotationValue).y : displayVectors.a2.y * 0.8,
+    angle: latticeType === 'custom' && !customVectors ? getCustomAngle(customRotationValue) : displayAngle,
     config: { tension: 120, friction: 14 }
   });
 
@@ -149,7 +177,7 @@ export default function LatticeVectorDisplay({ latticeType }: LatticeVectorDispl
           <rect x="-10" y="-10" width="180" height="140" fill="url(#grid)" />
 
           {/* Angle arc */}
-          {latticeType === 'custom' ? (
+          {(latticeType === 'custom' && !customVectors) ? (
             <animated.path
               d={customRotation.rotation.to(rotation => getArcPath(getCustomAngle(rotation)))}
               fill="none"

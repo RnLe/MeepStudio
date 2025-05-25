@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
-import { MoreHorizontal, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { MoreHorizontal, Plus, ChevronDown, ChevronRight, Layers, Hexagon } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import CreateProjectModal from "./CreateProjectModal";
@@ -75,7 +75,10 @@ export default function LeftExplorer() {
           {projectsExpanded && (
             <div className="px-2 pb-2">
               {/* Project List */}
-              <div className="space-y-1">
+              <div className="relative">
+                {/* Vertical line */}
+                <div className="absolute left-1 top-0 bottom-0 w-px bg-gray-600"></div>
+                
                 {projects.map((project) => (
                   <div
                     key={project.documentId}
@@ -97,6 +100,7 @@ export default function LeftExplorer() {
                       });
                     }}
                   >
+                    <Layers size={14} className="mr-2 text-gray-400 flex-shrink-0 ml-3" />
                     <span className="truncate flex-1">{project.title}</span>
                     <button
                       className="ml-2 cursor-pointer project-menu-btn z-10 group/icon"
@@ -117,7 +121,7 @@ export default function LeftExplorer() {
                   </div>
                 ))}
                 {projects.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-gray-500 italic">
+                  <div className="px-3 py-2 text-xs text-gray-500 italic ml-3">
                     No projects yet
                   </div>
                 )}
@@ -150,7 +154,10 @@ export default function LeftExplorer() {
           {latticesExpanded && (
             <div className="px-2 pb-2">
               {/* Lattice List */}
-              <div className="space-y-1">
+              <div className="relative">
+                {/* Vertical line */}
+                <div className="absolute left-1 top-0 bottom-0 w-px bg-gray-600"></div>
+                
                 {lattices.map((lattice) => (
                   <div
                     key={lattice.documentId}
@@ -172,6 +179,7 @@ export default function LeftExplorer() {
                       });
                     }}
                   >
+                    <Hexagon size={14} className="mr-2 text-gray-400 flex-shrink-0 ml-3" />
                     <span className="truncate flex-1">{lattice.title}</span>
                     <button
                       className="ml-2 cursor-pointer project-menu-btn z-10 group/icon"
@@ -192,7 +200,7 @@ export default function LeftExplorer() {
                   </div>
                 ))}
                 {lattices.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-gray-500 italic">
+                  <div className="px-3 py-2 text-xs text-gray-500 italic ml-3">
                     No lattices yet
                   </div>
                 )}

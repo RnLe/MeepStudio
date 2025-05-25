@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { Stage, Layer, Line, Circle, Text, Arrow } from "react-konva";
+import { Stage, Layer, Line, Circle, Text, Arrow, Rect, Group } from "react-konva";
 import { Lattice } from "../types/meepProjectTypes";
 
 interface Props {
@@ -93,47 +93,55 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
         {/* Basis vector 1 */}
         <Arrow
           points={[0, 0, v1.x, v1.y]}
-          stroke="#3b82f6"
-          strokeWidth={2}
-          fill="#3b82f6"
+          stroke="#10b981"
+          strokeWidth={3}
+          fill="#10b981"
+          pointerLength={10}
+          pointerWidth={10}
         />
         <Text
-          x={v1.x + 10}
-          y={v1.y - 10}
+          x={v1.x + 15}
+          y={v1.y - 15}
           text="a₁"
-          fontSize={14}
-          fill="#3b82f6"
+          fontSize={16}
+          fontFamily="system-ui"
+          fill="#10b981"
+          fontStyle="bold"
         />
         
         {/* Basis vector 2 */}
         <Arrow
           points={[0, 0, v2.x, v2.y]}
-          stroke="#10b981"
-          strokeWidth={2}
-          fill="#10b981"
+          stroke="#f59e0b"
+          strokeWidth={3}
+          fill="#f59e0b"
+          pointerLength={10}
+          pointerWidth={10}
         />
         <Text
-          x={v2.x + 10}
-          y={v2.y - 10}
+          x={v2.x + 15}
+          y={v2.y - 15}
           text="a₂"
-          fontSize={14}
-          fill="#10b981"
+          fontSize={16}
+          fontFamily="system-ui"
+          fill="#f59e0b"
+          fontStyle="bold"
         />
         
         {/* Origin */}
         <Circle
           x={0}
           y={0}
-          radius={4}
+          radius={5}
           fill="#fff"
-          stroke="#000"
-          strokeWidth={1}
+          stroke="#1f2937"
+          strokeWidth={2}
         />
       </>
     );
   };
 
-  // Draw lattice points
+  // Draw lattice points with better styling
   const drawLatticePoints = () => {
     if (!lattice?.meepLattice) return null;
     
@@ -142,20 +150,27 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     const points: React.ReactNode[] = [];
     
     // Draw a grid of lattice points
-    const n = 5; // Number of cells in each direction
+    const n = 8; // Number of cells in each direction
     for (let i = -n; i <= n; i++) {
       for (let j = -n; j <= n; j++) {
         const x = (i * basis1.x + j * basis2.x) * basis_size.x * scale;
         const y = -(i * basis1.y + j * basis2.y) * basis_size.y * scale;
+        
+        // Fade points further from origin
+        const distance = Math.sqrt(x * x + y * y);
+        const maxDistance = n * scale * 1.5;
+        const opacity = Math.max(0.2, 1 - (distance / maxDistance));
         
         points.push(
           <Circle
             key={`${i}-${j}`}
             x={x}
             y={y}
-            radius={3}
-            fill="#6b7280"
-            opacity={0.8}
+            radius={4}
+            fill="#60a5fa"
+            opacity={opacity}
+            strokeWidth={1}
+            stroke="#1e40af"
           />
         );
       }
@@ -164,10 +179,86 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     return <>{points}</>;
   };
 
+  // Draw unit cell outline
+  const drawUnitCell = () => {
+    if (!lattice?.meepLattice) return null;
+    
+    const { basis1, basis2, basis_size } = lattice.meepLattice;
+    const scale = 100;
+    
+    const v1 = {
+      x: basis1.x * basis_size.x * scale,
+      y: -basis1.y * basis_size.y * scale
+    };
+    const v2 = {
+      x: basis2.x * basis_size.x * scale,
+      y: -basis2.y * basis_size.y * scale
+    };
+    
+    return (
+      <Line
+        points={[
+          0, 0,
+          v1.x, v1.y,
+          v1.x + v2.x, v1.y + v2.y,
+          v2.x, v2.y,
+          0, 0
+        ]}
+        stroke="#94a3b8"
+        strokeWidth={2}
+        dash={[5, 5]}
+        opacity={0.5}
+      />
+    );
+  };
+
+  // Draw coordinate system
+  const drawCoordinateSystem = () => {
+    const axisLength = 2000;
+    const tickSpacing = 50;
+    const tickLength = 10;
+    
+    return (
+      <Group opacity={0.3}>
+        {/* X axis */}
+        <Line
+          points={[-axisLength, 0, axisLength, 0]}
+          stroke="#475569"
+          strokeWidth={1}
+        />
+        {/* Y axis */}
+        <Line
+          points={[0, -axisLength, 0, axisLength]}
+          stroke="#475569"
+          strokeWidth={1}
+        />
+        
+        {/* Grid lines */}
+        {Array.from({ length: Math.floor(axisLength / tickSpacing) * 2 + 1 }, (_, i) => {
+          const pos = (i - Math.floor(axisLength / tickSpacing)) * tickSpacing;
+          return (
+            <React.Fragment key={i}>
+              <Line
+                points={[pos, -axisLength, pos, axisLength]}
+                stroke="#334155"
+                strokeWidth={0.5}
+              />
+              <Line
+                points={[-axisLength, pos, axisLength, pos]}
+                stroke="#334155"
+                strokeWidth={0.5}
+              />
+            </React.Fragment>
+          );
+        })}
+      </Group>
+    );
+  };
+
   return (
     <div
       ref={containerRef}
-      className="flex-1 flex items-center justify-center bg-gray-800 w-full h-full overflow-hidden"
+      className="flex-1 flex items-center justify-center bg-gray-900 w-full h-full overflow-hidden"
       onContextMenu={(e) => e.preventDefault()}
     >
       <Stage
@@ -181,7 +272,7 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
         onWheel={handleWheel}
         onMouseDown={(e) => {
           const evt = e.evt;
-          if (evt.button === 2) {
+          if (evt.button === 2 || evt.button === 0) {
             evt.preventDefault();
             setLastPointer(stageRef.current!.getPointerPosition()!);
             setIsPanning(true);
@@ -196,35 +287,47 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
             setLastPointer(abs);
           }
         }}
-        onMouseUp={(e) => {
-          if (e.evt.button === 2) {
-            setIsPanning(false);
-            setLastPointer(null);
-          }
+        onMouseUp={() => {
+          setIsPanning(false);
+          setLastPointer(null);
+        }}
+        onMouseLeave={() => {
+          setIsPanning(false);
+          setLastPointer(null);
         }}
       >
         <Layer>
-          {/* Grid lines for reference */}
-          <Line
-            points={[-1000, 0, 1000, 0]}
-            stroke="#374151"
-            strokeWidth={1}
-            opacity={0.5}
+          {/* Background */}
+          <Rect
+            x={-10000}
+            y={-10000}
+            width={20000}
+            height={20000}
+            fill="#111827"
           />
-          <Line
-            points={[0, -1000, 0, 1000]}
-            stroke="#374151"
-            strokeWidth={1}
-            opacity={0.5}
-          />
+          
+          {/* Coordinate system and grid */}
+          {drawCoordinateSystem()}
+          
+          {/* Unit cell outline */}
+          {drawUnitCell()}
           
           {/* Lattice points */}
           {drawLatticePoints()}
           
-          {/* Lattice vectors */}
+          {/* Lattice vectors (drawn last to be on top) */}
           {drawLatticeVectors()}
         </Layer>
       </Stage>
+      
+      {/* Controls overlay */}
+      <div className="absolute bottom-4 left-4 bg-gray-800/90 backdrop-blur rounded-lg p-3 text-xs text-gray-300">
+        <div className="space-y-1">
+          <div>Scroll: Zoom in/out</div>
+          <div>Click + Drag: Pan view</div>
+          <div className="text-gray-500">Scale: {scale.toFixed(2)}x</div>
+        </div>
+      </div>
     </div>
   );
 };
