@@ -3,12 +3,13 @@ import { Folder, Hexagon } from "lucide-react";
 import LeftExplorer from "./LeftExplorer";
 import LeftLatticeBuilder from "./LeftLatticeBuilder";
 import { useEditorStateStore } from "../providers/EditorStateStore";
+import CustomLucideIcon from "./CustomLucideIcon";
 
 type Panel = "explorer" | "latticeBuilder" | null;
 
 export default function LeftSidebar() {
   const [panel, setPanel] = useState<Panel>("explorer");
-  const { setLeftSidebarPanel, leftSidebarPanel } = useEditorStateStore();
+  const { setLeftSidebarPanel, leftSidebarPanel, openDashboard, activeDashboardId } = useEditorStateStore();
 
   React.useEffect(() => {
     if (leftSidebarPanel) {
@@ -22,21 +23,36 @@ export default function LeftSidebar() {
     setLeftSidebarPanel(newPanel);
   };
 
+  const handleDashboardClick = () => {
+    // Don't close panels, just open dashboard
+    openDashboard();
+  };
+
   const icons = [
-    { key: "explorer", Icon: Folder, title: "Explorer" },
-    { key: "latticeBuilder", Icon: Hexagon, title: "Lattice Builder" },
-  ] as const;
+    { 
+      key: "dashboard", 
+      Icon: ({ className }: { className?: string }) => (
+        <CustomLucideIcon src="/icons/dashboard.svg" size={25} className={className} />
+      ), 
+      title: "Dashboard",
+      onClick: handleDashboardClick,
+      isSpecial: true
+    },
+    { key: "explorer", Icon: Folder, title: "Explorer", onClick: undefined, isSpecial: false },
+    { key: "latticeBuilder", Icon: Hexagon, title: "Lattice Builder", onClick: undefined, isSpecial: false },
+  ];
 
   return (
     <div className="flex h-full">
       {/* Icon column */}
       <div className="flex flex-col w-14 bg-gray-800 border-r border-gray-700 space-y-2">
-        {icons.map(({ key, Icon, title }) => {
-          const isActive = panel === key;
+        {icons.map((icon) => {
+          const { key, Icon, title, onClick, isSpecial } = icon;
+          const isActive = !isSpecial && panel === key;
           return (
             <button
               key={key}
-              onClick={() => toggle(key)}
+              onClick={() => isSpecial && onClick ? onClick() : toggle(key as Panel)}
               title={title}
               className={`group cursor-pointer relative flex items-center justify-center w-full h-12 box-border ${
                 isActive ? "border-l-4 border-blue-400" : "border-l-4 border-transparent"

@@ -3,6 +3,7 @@ import { X, Code, Grid3X3, Layers, Hexagon } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
 import { useEditorStateStore, SubTab, SubTabType } from "../providers/EditorStateStore";
+import CustomLucideIcon from "./CustomLucideIcon";
 
 interface Props {
 }
@@ -24,14 +25,18 @@ const TabBar: React.FC<Props> = () => {
   const {
     openProjects,
     openLattices,
+    openDashboards,
     activeProjectId,
     activeLatticeId,
+    activeDashboardId,
     getActiveProjectSubTabs,
     activeSubTabId,
     setActiveProject,
     setActiveLattice,
+    setActiveDashboard,
     closeProject,
     closeLattice,
+    closeDashboard,
     setActiveSubTab,
     closeSubTab,
     deleteProject,
@@ -74,6 +79,41 @@ const TabBar: React.FC<Props> = () => {
       {/* Top Row - Project and Lattice Tabs */}
       <div className="flex items-center h-12 px-4 bg-slate-800">
         <div className="flex overflow-hidden">
+          {/* Dashboard tabs */}
+          {openDashboards.map((dashboardId) => (
+            <div
+              key={dashboardId}
+              onClick={() => setActiveDashboard(dashboardId)}
+              className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
+                dashboardId === activeDashboardId 
+                  ? "bg-slate-700 text-white" 
+                  : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
+              }`}
+            >
+              <CustomLucideIcon src="/icons/dashboard.svg" size={14} className="mr-2 text-slate-400" />
+              <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">Dashboard</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeDashboard(dashboardId);
+                }}
+                className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
+                  dashboardId === activeDashboardId 
+                    ? "opacity-100" 
+                    : "opacity-0 group-hover:opacity-100"
+                }`}
+              >
+                <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
+              </button>
+              {dashboardId === activeDashboardId && (
+                <>
+                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-purple-400 rounded-full shadow-md"></div>
+                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-purple-400 rounded-full animate-pulse opacity-60"></div>
+                </>
+              )}
+            </div>
+          ))}
+          
           {/* Project tabs */}
           {openProjects.map((project) => (
             <div

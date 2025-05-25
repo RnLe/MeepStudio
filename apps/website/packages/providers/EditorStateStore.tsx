@@ -5,7 +5,7 @@ import { shallow } from "zustand/shallow";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
 
 export type SubTabType = "scene" | "code";
-export type MainTabType = "project" | "lattice";
+export type MainTabType = "project" | "lattice" | "dashboard";
 
 export interface SubTab {
   id: string;
@@ -18,8 +18,10 @@ type EditorState = {
   // Project-level tabs (top row)
   openProjects: MeepProject[];
   openLattices: Lattice[];
+  openDashboards: string[]; // Dashboard IDs
   activeProjectId: string | null;
   activeLatticeId: string | null;
+  activeDashboardId: string | null;
   activeMainTabType: MainTabType | null;
   
   // Sub-tabs for active project (second row)
@@ -50,6 +52,10 @@ type EditorState = {
   openLattice: (lattice: Lattice) => void;
   closeLattice: (latticeId: string) => void;
   setActiveLattice: (latticeId: string) => void;
+  
+  openDashboard: (dashboardId?: string) => void;
+  closeDashboard: (dashboardId: string) => void;
+  setActiveDashboard: (dashboardId: string) => void;
   
   openSubTab: (subTab: SubTab) => void;
   closeSubTab: (subTabId: string) => void;
@@ -91,8 +97,10 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
   (set, get) => ({
     openProjects: [],
     openLattices: [],
+    openDashboards: [],
     activeProjectId: null,
     activeLatticeId: null,
+    activeDashboardId: null,
     activeMainTabType: null,
     subTabs: [],
     activeSubTabId: null,
@@ -146,7 +154,8 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           activeProjectId: project.documentId,
           activeSubTabId: newSubTabs.length > 0 ? newSubTabs[0].id : null,
           activeMainTabType: "project",
-          activeLatticeId: null
+          activeLatticeId: null,
+          activeDashboardId: null  // Clear dashboard when project is active
         }));
       } else {
         const projectSubTabs = subTabs.filter(tab => tab.projectId === project.documentId);
@@ -156,7 +165,8 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           activeProjectId: project.documentId,
           activeSubTabId: newActiveSubTabId,
           activeMainTabType: "project",
-          activeLatticeId: null
+          activeLatticeId: null,
+          activeDashboardId: null  // Clear dashboard when project is active
         });
       }
       
@@ -164,7 +174,7 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     },
     
     closeProject: (projectId) => {
-      const { openProjects, activeProjectId, subTabs, openLattices } = get();
+      const { openProjects, activeProjectId, subTabs, openLattices, openDashboards } = get();
       const updatedProjects = openProjects.filter(p => p.documentId !== projectId);
       const updatedSubTabs = subTabs.filter(tab => tab.projectId !== projectId);
       
@@ -172,6 +182,7 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       let newActiveSubTabId = null;
       let newActiveMainTabType: MainTabType | null = null;
       let newActiveLatticeId = null;
+      let newActiveDashboardId = null;
       
       if (activeProjectId === projectId) {
         if (updatedProjects.length > 0) {
@@ -183,6 +194,10 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           newActiveProjectId = null;
           newActiveLatticeId = openLattices[0].documentId;
           newActiveMainTabType = "lattice";
+        } else if (openDashboards.length > 0) {
+          newActiveProjectId = null;
+          newActiveDashboardId = openDashboards[0];
+          newActiveMainTabType = "dashboard";
         }
       }
       
@@ -190,6 +205,7 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         openProjects: updatedProjects,
         activeProjectId: newActiveProjectId,
         activeLatticeId: newActiveLatticeId,
+        activeDashboardId: newActiveDashboardId,
         activeMainTabType: newActiveMainTabType,
         subTabs: updatedSubTabs,
         activeSubTabId: newActiveSubTabId,
@@ -208,19 +224,21 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         activeLatticeId: lattice.documentId,
         activeProjectId: null,
         activeSubTabId: null,
-        activeMainTabType: "lattice"
+        activeMainTabType: "lattice",
+        activeDashboardId: null  // Clear dashboard when lattice is active
       });
       
       setRightSidebarOpen(true);
     },
     
     closeLattice: (latticeId) => {
-      const { openLattices, activeLatticeId, openProjects, subTabs } = get();
+      const { openLattices, activeLatticeId, openProjects, subTabs, openDashboards } = get();
       const updatedLattices = openLattices.filter(l => l.documentId !== latticeId);
       
       let newActiveLatticeId = activeLatticeId;
       let newActiveProjectId: string | null = null;
       let newActiveSubTabId: string | null = null;
+      let newActiveDashboardId: string | null = null;
       let newActiveMainTabType: MainTabType | null = null;
       
       if (activeLatticeId === latticeId) {
@@ -233,6 +251,10 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           const projectSubTabs = subTabs.filter(tab => tab.projectId === newActiveProjectId);
           newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
           newActiveMainTabType = "project";
+        } else if (openDashboards.length > 0) {
+          newActiveLatticeId = null;
+          newActiveDashboardId = openDashboards[0];
+          newActiveMainTabType = "dashboard";
         }
       }
       
@@ -240,6 +262,63 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         openLattices: updatedLattices,
         activeLatticeId: newActiveLatticeId,
         activeProjectId: newActiveProjectId,
+        activeDashboardId: newActiveDashboardId,
+        activeSubTabId: newActiveSubTabId,
+        activeMainTabType: newActiveMainTabType
+      });
+    },
+    
+    openDashboard: (dashboardId = 'main') => {
+      const { openDashboards, setRightSidebarOpen } = get();
+      const isAlreadyOpen = openDashboards.includes(dashboardId);
+      
+      if (!isAlreadyOpen) {
+        set({ openDashboards: [...openDashboards, dashboardId] });
+      }
+      
+      set({ 
+        activeDashboardId: dashboardId,
+        activeProjectId: null,
+        activeLatticeId: null,
+        activeSubTabId: null,
+        activeMainTabType: "dashboard"
+      });
+      
+      setRightSidebarOpen(false); // Dashboard has no right sidebar panel
+    },
+    
+    closeDashboard: (dashboardId) => {
+      const { openDashboards, activeDashboardId, openProjects, openLattices, subTabs } = get();
+      const updatedDashboards = openDashboards.filter(id => id !== dashboardId);
+      
+      let newActiveDashboardId = activeDashboardId;
+      let newActiveProjectId: string | null = null;
+      let newActiveLatticeId: string | null = null;
+      let newActiveSubTabId: string | null = null;
+      let newActiveMainTabType: MainTabType | null = null;
+      
+      if (activeDashboardId === dashboardId) {
+        if (updatedDashboards.length > 0) {
+          newActiveDashboardId = updatedDashboards[0];
+          newActiveMainTabType = "dashboard";
+        } else if (openProjects.length > 0) {
+          newActiveDashboardId = null;
+          newActiveProjectId = openProjects[0].documentId;
+          const projectSubTabs = subTabs.filter(tab => tab.projectId === newActiveProjectId);
+          newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
+          newActiveMainTabType = "project";
+        } else if (openLattices.length > 0) {
+          newActiveDashboardId = null;
+          newActiveLatticeId = openLattices[0].documentId;
+          newActiveMainTabType = "lattice";
+        }
+      }
+      
+      set({ 
+        openDashboards: updatedDashboards,
+        activeDashboardId: newActiveDashboardId,
+        activeProjectId: newActiveProjectId,
+        activeLatticeId: newActiveLatticeId,
         activeSubTabId: newActiveSubTabId,
         activeMainTabType: newActiveMainTabType
       });
@@ -254,6 +333,7 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       set({ 
         activeProjectId: projectId,
         activeLatticeId: null,
+        activeDashboardId: null,  // Clear dashboard when project is active
         activeSubTabId: newActiveSubTabId,
         activeMainTabType: "project"
       });
@@ -266,8 +346,22 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       set({ 
         activeLatticeId: latticeId,
         activeProjectId: null,
+        activeDashboardId: null,  // Clear dashboard when lattice is active
         activeSubTabId: null,
         activeMainTabType: "lattice"
+      });
+    },
+    
+    setActiveDashboard: (dashboardId) => {
+      const { setRightSidebarOpen } = get();
+      
+      setRightSidebarOpen(false);
+      set({ 
+        activeDashboardId: dashboardId,
+        activeProjectId: null,
+        activeLatticeId: null,
+        activeSubTabId: null,
+        activeMainTabType: "dashboard"
       });
     },
     

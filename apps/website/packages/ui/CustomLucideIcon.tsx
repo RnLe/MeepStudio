@@ -21,7 +21,15 @@ const CustomLucideIcon: React.FC<CustomLucideIconProps> = ({
   useEffect(() => {
     fetch(src)
       .then((res) => res.text())
-      .then((text) => setSvgContent(text))
+      .then((text) => {
+        // Remove any hardcoded stroke colors and replace with currentColor
+        const cleanedText = text
+          .replace(/stroke="[^"]*"/g, '')
+          .replace(/stroke='[^']*'/g, '')
+          .replace(/fill="[^"]*"/g, 'fill="none"')
+          .replace(/fill='[^']*'/g, "fill='none'");
+        setSvgContent(cleanedText);
+      })
       .catch(() => setSvgContent(null));
   }, [src]);
 

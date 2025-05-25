@@ -25,7 +25,9 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
       {/* Top navbar */}
       <div className="flex items-center h-10 bg-gray-800 border-b border-gray-700 justify-between sticky top-0 z-10" style={{ margin: 0, padding: 0 }}>
         <span className="font-semibold text-white pl-2">
-          {activeMainTabType === "lattice" ? "Lattice Properties" : "Project Properties"}
+          {activeMainTabType === "lattice" ? "Lattice Properties" : 
+           activeMainTabType === "dashboard" ? "Dashboard" : 
+           "Project Properties"}
         </span>
         <button className="p-1 rounded hover:bg-gray-700 mr-2" onClick={onClose}>
           <X size={18} className="text-gray-400 hover:text-white" />
@@ -39,6 +41,10 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
       
       {activeMainTabType === "lattice" && activeLattice && (
         <RightLatticePanel lattice={activeLattice} ghPages={ghPages} />
+      )}
+      
+      {activeMainTabType === "dashboard" && (
+        <div className="p-4 text-gray-500">Dashboard has no properties panel</div>
       )}
       
       {!activeMainTabType && (
