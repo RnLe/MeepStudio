@@ -415,6 +415,20 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedIds, handleRemoveGeometry]);
 
+  // --- Dynamic Border Weight Calculation ---
+  const borderWeight = useMemo(() => {
+    // Consider the longest edge (max of width and height)
+    const maxDimension = Math.max(gridWidth, gridHeight);
+    
+    // If dimension is 10 or higher, weight is 1
+    if (maxDimension >= 10) return 1;
+    
+    // Linear scaling from 1/3 (at dimension 1) to 1 (at dimension 10)
+    // weight = 1/3 + (2/3) * (dimension - 1) / 9
+    const weight = 1/3 + (2/3) * (maxDimension - 1) / 9;
+    return weight;
+  }, [gridWidth, gridHeight]);
+
   // --- Render ---
   return (
     <div
@@ -659,6 +673,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             gridLines={gridLines}
             LOGICAL_W={LOGICAL_W}
             LOGICAL_H={LOGICAL_H}
+            borderWeight={borderWeight}
           />
         </Layer>
         {/* --- Geometry elements layer --- */}

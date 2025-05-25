@@ -92,6 +92,14 @@ export default function ProjectExplorer() {
               width: 'calc(100% + 1rem)', // compensate for px-2 parent
             }}
             onClick={() => openProject(project)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                project,
+              });
+            }}
             // Remove hover when three-dots is hovered
             onMouseEnter={e => {
               const btn = e.currentTarget.querySelector('.project-menu-btn');

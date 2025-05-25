@@ -29,14 +29,13 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, entries, onClose }) => 
   return (
     <div
       ref={ref}
-      className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-lg min-w-[120px]"
+      className="fixed z-50 bg-slate-800/95 backdrop-blur-md border border-slate-600/50 rounded-lg shadow-2xl min-w-[120px] py-0.5"
       style={{ left: x, top: y }}
     >
       {entries.map((entry, i) => (
         <button
           key={i}
-          className={`w-full text-left px-2 py-1 text-sm hover:bg-gray-700 focus:bg-gray-700 transition-colors text-gray-200`}
-          style={{ margin: 0, borderRadius: 0 }}
+          className="w-full text-left px-3 py-1.5 text-sm transition-all duration-200 first:rounded-t-lg last:rounded-b-lg text-slate-200 hover:bg-slate-700/60 hover:text-white focus:bg-slate-700/60"
           onClick={() => {
             entry.onClick();
             onClose();

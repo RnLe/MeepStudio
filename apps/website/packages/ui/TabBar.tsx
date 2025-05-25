@@ -60,43 +60,51 @@ const TabBar: React.FC<Props> = () => {
     }
   };
   return (
-    <div className="flex flex-col bg-gray-900 border-b-2 border-gray-600 shadow-lg">
+    <div className="flex flex-col bg-slate-900 border-b border-slate-700/50 shadow-xl">
       {/* Top Row - Project Tabs */}
-      <div className="flex items-center h-11 px-3 bg-gradient-to-b from-gray-800 to-gray-850">
-        <div className="flex space-x-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+      <div className="flex items-center h-12 px-4 bg-slate-800">
+        <div className="flex overflow-hidden">
           {openProjects.map((project) => (
             <div
               key={project.documentId}
               onClick={() => setActiveProject(project.documentId!)}
               onContextMenu={(e) => handleContextMenu(e, project)}
-              className={`flex items-center px-4 py-2 rounded-t-lg cursor-pointer transition-all duration-200 group relative ${
+              className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
                 project.documentId === activeProjectId 
-                  ? "bg-gray-700 text-white shadow-lg border-t-2 border-blue-400" 
-                  : "bg-gray-800 hover:bg-gray-750 text-gray-300 hover:text-white"
+                  ? "bg-slate-700 text-white" 
+                  : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
               }`}
             >
-              <span className="truncate max-w-32 font-medium text-sm">{project.title}</span>
+              <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">{project.title}</span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   closeProject(project.documentId!);
                 }}
-                className="ml-2 hover:bg-gray-600 rounded-full p-1 opacity-70 hover:opacity-100 transition-all"
+                className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
+                  project.documentId === activeProjectId 
+                    ? "opacity-100" 
+                    : "opacity-0 group-hover:opacity-100"
+                }`}
               >
-                <X size={12} className="text-gray-400 hover:text-red-400" />
+                <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
               </button>
-              {/* Active project indicator */}
+              {/* Active project indicator at top */}
               {project.documentId === activeProjectId && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-full"></div>
+                <>
+                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-blue-400 rounded-full shadow-md"></div>
+                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-blue-400 rounded-full animate-pulse opacity-60"></div>
+                </>
               )}
             </div>
           ))}
         </div>
-      </div>      {/* Bottom Row - Sub Tabs (only show if there's an active project) */}
+      </div>
+
+      {/* Bottom Row - Sub Tabs (only show if there's an active project) */}
       {activeProjectId && activeProjectSubTabs.length > 0 && (
-        <div className="flex items-center h-10 px-3 bg-gradient-to-b from-gray-750 to-gray-800 border-t border-gray-600">
-          <div className="text-xs text-red-400 mr-2">DEBUG: Sub-tabs found: {activeProjectSubTabs.length}</div>
-          <div className="flex space-x-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+        <div className="flex items-center h-11 px-4 bg-slate-700 -mt-1">
+          <div className="flex space-x-1.5 overflow-hidden">
             {activeProjectSubTabs.map((subTab) => {
               const IconComponent = getSubTabIcon(subTab.type);
               const isActive = subTab.id === activeSubTabId;
@@ -104,17 +112,19 @@ const TabBar: React.FC<Props> = () => {
                 <div
                   key={subTab.id}
                   onClick={() => setActiveSubTab(subTab.id)}
-                  className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 relative ${
+                  className={`group flex items-center py-2 pl-4 pr-3 rounded-md cursor-pointer transition-all duration-200 ease-out relative min-w-fit flex-shrink-0 ${
                     isActive 
-                      ? "bg-gray-600 text-white shadow-md border border-gray-500" 
-                      : "bg-gray-750 hover:bg-gray-650 text-gray-300 hover:text-white border border-transparent"
+                      ? "bg-slate-600 text-white shadow-lg" 
+                      : "bg-slate-700/50 hover:bg-slate-600/70 text-slate-300 hover:text-white"
                   }`}
                 >
                   <IconComponent 
-                    size={14} 
-                    className={`mr-2 ${isActive ? 'text-blue-400' : 'text-gray-400'}`} 
+                    size={16} 
+                    className={`mr-2.5 transition-colors ${
+                      isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-300'
+                    }`} 
                   />
-                  <span className="text-xs font-medium truncate max-w-24 capitalize">
+                  <span className="text-xs font-medium truncate max-w-28 capitalize tracking-wide mr-6">
                     {subTab.title}
                   </span>
                   {subTab.type !== "scene" && ( // Don't allow closing the main scene tab
@@ -123,14 +133,18 @@ const TabBar: React.FC<Props> = () => {
                         e.stopPropagation();
                         closeSubTab(subTab.id);
                       }}
-                      className="ml-2 hover:bg-gray-500 rounded-full p-0.5 opacity-70 hover:opacity-100 transition-all"
+                      className={`absolute right-2 p-1 transition-all duration-200 hover:bg-slate-500/50 rounded cursor-pointer ${
+                        isActive 
+                          ? "opacity-100" 
+                          : "opacity-0 group-hover:opacity-100"
+                      }`}
                     >
-                      <X size={10} className="text-gray-400 hover:text-red-400" />
+                      <X size={11} className="text-slate-400 hover:text-slate-200 transition-colors" />
                     </button>
                   )}
-                  {/* Active sub-tab indicator */}
+                  {/* Active sub-tab indicator at top */}
                   {isActive && (
-                    <div className="absolute -bottom-0.5 left-1 right-1 h-0.5 bg-blue-400 rounded-full"></div>
+                    <div className="absolute -top-0.5 left-0 right-0 h-0.5 bg-blue-400 rounded-full shadow-sm"></div>
                   )}
                 </div>
               );
@@ -138,11 +152,6 @@ const TabBar: React.FC<Props> = () => {
           </div>
         </div>
       )}
-
-      {/* Temporary debug info - always shown */}
-      <div className="bg-red-600 text-white text-xs p-1">
-        Debug: activeProjectId={activeProjectId}, subTabs={activeProjectSubTabs.length}
-      </div>
       
       {contextMenu && (
         <ContextMenu
