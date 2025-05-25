@@ -1,22 +1,11 @@
-"use client";
-
 import React, { useState } from "react";
 import { Folder, Hexagon } from "lucide-react";
-import { MeepProject } from "../types/meepProjectTypes";
 import ProjectExplorer from "./ProjectExplorer";
 import LatticeBuilder from "./LatticeBuilder";
 
 type Panel = "explorer" | "lattice" | null;
 
-interface Props {
-  projects: MeepProject[];
-  openProject: (p: MeepProject) => void;
-  createProject: (p: MeepProject) => Promise<MeepProject>;
-  deleteProject: (id: string) => Promise<void>;
-  onCloseTab?: (id: string) => void;
-}
-
-export default function LeftSidebar({ projects, openProject, createProject, deleteProject, onCloseTab }: Props) {
+export default function LeftSidebar() {
   const [panel, setPanel] = useState<Panel>("explorer");
 
   const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
@@ -63,18 +52,9 @@ export default function LeftSidebar({ projects, openProject, createProject, dele
           <div className="h-8 w-full flex items-center px-4 text-xs tracking-widest uppercase text-gray-300 select-none" style={{ minHeight: 32 }}>
             {panel === "explorer" && "Project Explorer"}
             {panel === "lattice" && "Lattice Builder"}
-          </div>
-          {/* Panel Content */}
+          </div>          {/* Panel Content */}
           <div className="flex-1">
-            {panel === "explorer" && (
-              <ProjectExplorer
-                projects={projects}
-                openProject={openProject}
-                createProject={createProject}
-                deleteProject={deleteProject}
-                onCloseTab={onCloseTab}
-              />
-            )}
+            {panel === "explorer" && <ProjectExplorer />}
             {panel === "lattice" && <LatticeBuilder />}
           </div>
         </div>

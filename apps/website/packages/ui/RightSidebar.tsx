@@ -9,26 +9,15 @@ import ObjectPropertiesPanel from "./ObjectPropertiesPanels";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { useQueryClient } from "@tanstack/react-query";
-
+import { useEditorStateStore } from "../providers/EditorStateStore";
 
 interface Props {
-  open: boolean;
-  ghPages: boolean;
-  project?: MeepProject;
   onClose?: () => void;
-  deleteProject?: (id: string) => Promise<void>;
 }
 
-const RightSidebar: React.FC<Props> = ({ open, ghPages, project: propProject, onClose, deleteProject }) => {
-  // Get active projectId from zustand
-  const activeProjectId = useCanvasStore((s) => s.activeProjectId);
-  const { projects } = useMeepProjects({ ghPages });
-  // Find the latest project from the list, fallback to prop
-  const project = React.useMemo(() => {
-    if (!activeProjectId) return propProject;
-    const found = projects.find((p) => p.documentId === activeProjectId);
-    return found || propProject;
-  }, [activeProjectId, projects, propProject]);
+const RightSidebar: React.FC<Props> = ({ onClose }) => {
+  const { ghPages, getActiveProject, deleteProject } = useEditorStateStore();
+  const project = getActiveProject();
 
   const [editing, setEditing] = React.useState(false);
   const [editValues, setEditValues] = React.useState({
@@ -134,12 +123,9 @@ const RightSidebar: React.FC<Props> = ({ open, ghPages, project: propProject, on
   };
 
   console.log("Project size:", project?.rectWidth, project?.rectHeight);
-
   return (
     <div
-      className={`flex-shrink-0 w-80 bg-neutral-800 border-l border-gray-700 p-0 space-y-4
-        transform transition-transform duration-200
-        ${open ? "translate-x-0" : "translate-x-full"}`}
+      className="flex-shrink-0 w-80 bg-neutral-800 border-l border-gray-700 p-0 space-y-4"
     >
       {/* Top navbar-like container, not affected by parent padding */}
       <div className="flex items-center h-10 bg-gray-800 border-b border-gray-700 justify-between sticky top-0 z-10" style={{ margin: 0, padding: 0 }}>

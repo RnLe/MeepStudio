@@ -93,5 +93,3 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
   }),
   shallow
 );
-
-// Removed saveProjectGeometries and all geometry state/actions

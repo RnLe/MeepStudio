@@ -7,16 +7,16 @@ import { MeepProject } from "../types/meepProjectTypes";
 import { MoreHorizontal, Ban } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { projectSettings } from "../types/editorSettings";
+import { useEditorStateStore } from "../providers/EditorStateStore";
 
-interface Props {
-  projects: MeepProject[];
-  openProject: (p: MeepProject) => void;
-  createProject: (p: MeepProject) => Promise<MeepProject>;
-  deleteProject: (id: string) => Promise<void>;
-  onCloseTab?: (id: string) => void; // Added prop for closing tab
-}
-
-export default function ProjectExplorer({ projects, openProject, createProject, deleteProject, onCloseTab }: Props) {
+export default function ProjectExplorer() {
+  const { 
+    projects, 
+    openProject, 
+    createProject, 
+    deleteProject,
+    closeProject 
+  } = useEditorStateStore();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -31,7 +31,6 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
   >(null);
   const predefinedResolutions = [4, 8, 16, 32, 64]; // 128 removed
   const [resolutionMode, setResolutionMode] = useState<'predefined' | 'custom'>('predefined');
-
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const title = newTitle.trim();
@@ -47,9 +46,6 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
     }
     try {
       const project = await createProject({
-        documentId: nanoid(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
         title,
         dimension,
         rectWidth,
@@ -66,16 +62,17 @@ export default function ProjectExplorer({ projects, openProject, createProject, 
       setResolutionMode('predefined');
       setShowCreateForm(false);
       setShowAdditional(false);
-      openProject(project);
+      if (project) {
+        openProject(project);
+      }
     } catch (error) {
       console.error("Failed to create project", error);
     }
   };
-
   const handleDelete = async (project: MeepProject) => {
     if (window.confirm(`Are you sure you want to delete the project "${project.title}"? This cannot be undone.`)) {
       await deleteProject(project.documentId);
-      onCloseTab?.(project.documentId); // Close tab after deletion
+      closeProject(project.documentId); // Close tab after deletion
     }
   };
 

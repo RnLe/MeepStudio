@@ -1,51 +1,48 @@
 // src/components/layout/TabWindowContainer.tsx
 "use client";
 import React from "react";
-import TabWindowProject from "./TabWindowProject";
 import TabBar from "./TabBar";
-import { MeepProject } from "../types/meepProjectTypes";
-import { useMeepProjects } from '../hooks/useMeepProjects';
+import SubTabContent from "./SubTabContent";
+import { useEditorStateStore } from "../providers/EditorStateStore";
 
-interface Props {
-  tabs: MeepProject[];
-  ghPages: boolean;
-  activeId: string | null;
-  onSelect: (id: string) => void;
-  onClose: (id: string) => void;
-  onRemoveProject?: (id: string) => void;
-}
-
-const TabWindowContainer: React.FC<Props> = ({
-  tabs,
-  ghPages,
-  activeId,
-  onSelect,
-  onClose,
-  onRemoveProject,
-}) => {
-  // Get the up-to-date projects list
-  const { projects } = useMeepProjects({ ghPages });
-  // Remap open tabs to the latest project objects
-  const displayedTabs = React.useMemo(
-    () => tabs.map(tab => projects.find(p => p.documentId === tab.documentId) || tab),
-    [tabs, projects]
+const TabWindowContainer: React.FC = () => {
+  const {
+    openProjects,
+    activeProjectId,
+    activeSubTabId,
+    subTabs,
+    ghPages,
+    projects,
+    getActiveProject,
+  } = useEditorStateStore();
+  
+  // Remap open projects to the latest project objects
+  const displayedProjects = React.useMemo(
+    () => openProjects.map(project => 
+      projects.find(p => p.documentId === project.documentId) || project
+    ),
+    [openProjects, projects]
   );
-  // Use displayedTabs for both TabBar and finding the active project
-  const activeProject = displayedTabs.find(tab => tab.documentId === activeId);
+  
+  // Find the active project and sub-tab
+  const activeProject = displayedProjects.find(project => project.documentId === activeProjectId);
+  const activeSubTab = subTabs.find(tab => tab.id === activeSubTabId);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <TabBar
-        tabs={displayedTabs}
-        activeId={activeId}
-        onSelect={onSelect}
-        onClose={onClose}
-        onRemoveProject={onRemoveProject}
-      />
-      {activeProject ? (
+      <TabBar />
+      
+      {activeProject && activeSubTab ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* The actual project window */}
-          <TabWindowProject project={activeProject} ghPages={ghPages} />
+          <SubTabContent 
+            subTab={activeSubTab}
+            project={activeProject}
+            ghPages={ghPages}
+          />
+        </div>
+      ) : activeProject ? (
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          No sub-tab selected for project "{activeProject.title}"
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-500">

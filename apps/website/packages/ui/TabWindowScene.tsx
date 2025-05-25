@@ -24,7 +24,7 @@ interface Props {
   ghPages: boolean;
 }
 
-const TabWindowProject: React.FC<Props> = ({ project, ghPages }) => {
+const TabWindowScene: React.FC<Props> = ({ project, ghPages }) => {
   const setActiveProject = useCanvasStore((s) => s.setActiveProject);
   const dimension = project.dimension;
   React.useEffect(() => {
@@ -49,4 +49,4 @@ const TabWindowProject: React.FC<Props> = ({ project, ghPages }) => {
   );
 };
 
-export default TabWindowProject;
+export default TabWindowScene;

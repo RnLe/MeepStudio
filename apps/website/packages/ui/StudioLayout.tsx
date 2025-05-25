@@ -1,44 +1,55 @@
 // src/components/layout/StudioLayout.tsx
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
 import TopNavBar from "./TopNavBar";
 import TabWindowContainer from "./TabWindowContainer";
-import { StudioTabsProvider, useStudioTabs } from "./StudioTabsContext";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useCanvasStore } from "../providers/CanvasStore";
+import { useEditorStateStore } from "../providers/EditorStateStore";
 
 interface Props {
   ghPages: boolean;     // Whether to use GitHub Pages; controls the availability of some features
 }
 
-const InnerLayout: React.FC<Props> = ({ghPages}) => {
+const StudioLayout: React.FC<Props> = ({ ghPages }) => {
   const { projects, isLoading, createProject, deleteProject } = useMeepProjects({ ghPages });
-  const [rightOpen, setRightOpen] = useState(true);
-  const { tabs, activeId, openTab, closeTab, selectTab } = useStudioTabs();
   const setActiveProject = useCanvasStore((s) => s.setActiveProject);
+  
+  const {
+    rightSidebarOpen,
+    setGhPages,
+    setProjects,
+    setIsLoading,
+    setProjectManagementFunctions,
+    setRightSidebarOpen,
+    getActiveProject,
+  } = useEditorStateStore();
 
-  // Use the latest project from the projects array for the active tab
-  const activeProject = React.useMemo(
-    () => projects.find(p => p.documentId === activeId),
-    [projects, activeId]
-  );
+  // Initialize the store with projects data and functions
+  React.useEffect(() => {
+    setGhPages(ghPages);
+  }, [ghPages, setGhPages]);
 
+  React.useEffect(() => {
+    setProjects(projects);
+  }, [projects, setProjects]);
+
+  React.useEffect(() => {
+    setIsLoading(isLoading);
+  }, [isLoading, setIsLoading]);
+
+  React.useEffect(() => {
+    setProjectManagementFunctions(createProject, deleteProject);
+  }, [createProject, deleteProject, setProjectManagementFunctions]);
+
+  // Sync active project with canvas store
+  const activeProject = getActiveProject();
   React.useEffect(() => {
     setActiveProject(activeProject?.documentId || null);
   }, [activeProject?.documentId, setActiveProject]);
-
-  // Handler to open right sidebar when a project or tab is selected
-  const handleOpenTab = (project: any) => {
-    setRightOpen(true);
-    openTab(project);
-  };
-  const handleSelectTab = (id: string) => {
-    setRightOpen(true);
-    selectTab(id);
-  };
 
   if (isLoading) return <div className="p-4">Loading …</div>;
 
@@ -46,37 +57,17 @@ const InnerLayout: React.FC<Props> = ({ghPages}) => {
     <div className="flex flex-col h-full w-full bg-neutral-900 text-white overflow-hidden relative">
       <TopNavBar />
       <div className="flex flex-1 h-0 w-full overflow-hidden">
-        <LeftSidebar 
-          projects={projects}
-          openProject={handleOpenTab}
-          createProject={createProject}
-          deleteProject={deleteProject}
-          onCloseTab={closeTab} // Pass closeTab to ProjectExplorer
-        />
+        <LeftSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <TabWindowContainer 
-            tabs={tabs}
-            ghPages={ghPages}
-            activeId={activeId}
-            onSelect={handleSelectTab}
-            onClose={closeTab}
-            onRemoveProject={deleteProject}
+          <TabWindowContainer />
+        </div>        {rightSidebarOpen && (
+          <RightSidebar 
+            onClose={() => setRightSidebarOpen(false)} 
           />
-        </div>
-        {rightOpen && (
-          <RightSidebar open={rightOpen} ghPages={ghPages} project={activeProject} onClose={() => setRightOpen(false)} deleteProject={deleteProject} />
         )}
       </div>
     </div>
   );
 };
 
-interface StudioLayoutProps {
-  ghPages: boolean;     // Whether to use GitHub Pages; controls the availability of some features
-}
-
-export const StudioLayout: React.FC<StudioLayoutProps> = ({ ghPages }) => (
-  <StudioTabsProvider>
-    <InnerLayout ghPages={ghPages} />
-  </StudioTabsProvider>
-);
+export default StudioLayout;
