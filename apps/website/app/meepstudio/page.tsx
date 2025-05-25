@@ -1,6 +1,6 @@
 // Import logger
 import { logger } from "../../packages/utils/logger";
-import { StudioLayout } from "../../packages/ui/StudioLayout";
+import StudioLayout from "packages/ui/StudioLayout";
  
 export default function MeepStudio() {
   // Logging

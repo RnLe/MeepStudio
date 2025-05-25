@@ -1,6 +1,6 @@
 // src/components/layout/RightSidebar.tsx
 import React from "react";
-import { Pen, X } from "lucide-react";
+import { Pen, X, Code, Grid3X3, Plus } from "lucide-react";
 import { MeepProject } from "../types/meepProjectTypes";
 import { projectSettings } from "../types/editorSettings";
 import ContextMenu from "./ContextMenu";
@@ -16,15 +16,23 @@ interface Props {
 }
 
 const RightSidebar: React.FC<Props> = ({ onClose }) => {
-  const { ghPages, getActiveProject, deleteProject } = useEditorStateStore();
+  const { 
+    ghPages, 
+    getActiveProject, 
+    deleteProject,
+    addCodeTabToProject,
+    addLatticeTabToProject,
+    removeCodeTabFromProject,
+    removeLatticeTabFromProject,
+    getActiveProjectSubTabs
+  } = useEditorStateStore();
   const project = getActiveProject();
 
-  const [editing, setEditing] = React.useState(false);
-  const [editValues, setEditValues] = React.useState({
+  const [editing, setEditing] = React.useState(false);  const [editValues, setEditValues] = React.useState({
     title: project?.title || "",
-    rectWidth: project?.rectWidth || projectSettings.rectWidth.default,
-    rectHeight: project?.rectHeight || projectSettings.rectHeight.default,
-    resolution: project?.resolution || projectSettings.resolution.default,
+    rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
+    rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
+    resolution: project?.scene?.resolution || projectSettings.resolution.default,
   });
 
   // --- Add hooks for project update and canvas store ---
@@ -39,39 +47,41 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
   const setResolution = React.useCallback((res: number) => {
     // Optionally, you could add a setResolution action to CanvasStore
   }, []);
-
   React.useEffect(() => {
     setEditValues({
       title: project?.title || "",
-      rectWidth: project?.rectWidth || projectSettings.rectWidth.default,
-      rectHeight: project?.rectHeight || projectSettings.rectHeight.default,
-      resolution: project?.resolution || projectSettings.resolution.default,
+      rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
+      rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
+      resolution: project?.scene?.resolution || projectSettings.resolution.default,
     });
     if (project?.documentId) setActiveProject(project.documentId);
-    if (project?.geometries) setGeometries(project.geometries);
+    if (project?.scene?.geometries) setGeometries(project.scene.geometries);
   }, [project, setActiveProject, setGeometries]);
 
-  const handleEditClick = () => setEditing(true);
-  const handleCancel = () => {
+  const handleEditClick = () => setEditing(true);  const handleCancel = () => {
     setEditing(false);
     setEditValues({
       title: project?.title || "",
-      rectWidth: project?.rectWidth || projectSettings.rectWidth.default,
-      rectHeight: project?.rectHeight || projectSettings.rectHeight.default,
-      resolution: project?.resolution || projectSettings.resolution.default,
+      rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
+      rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
+      resolution: project?.scene?.resolution || projectSettings.resolution.default,
     });
-  };
-  const refreshProjectInStore = React.useCallback((updatedProject: MeepProject) => {
+  };  const refreshProjectInStore = React.useCallback((updatedProject: MeepProject) => {
     // Update the canvas store with the new project properties
     setActiveProject(updatedProject.documentId);
-    setGeometries(updatedProject.geometries || []);
-  }, [setActiveProject, setGeometries]);
-  const handleSave = async () => {
+    setGeometries(updatedProject.scene?.geometries || []);
+  }, [setActiveProject, setGeometries]);  const handleSave = async () => {
     setEditing(false);
     if (project) {
       const updated = {
         ...project,
-        ...editValues,
+        title: editValues.title,
+        scene: {
+          ...project.scene,
+          rectWidth: editValues.rectWidth,
+          rectHeight: editValues.rectHeight,
+          resolution: editValues.resolution,
+        },
       };
       await updateProject({
         documentId: project.documentId,
@@ -84,9 +94,9 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
       // Optionally, update local state for immediate feedback
       setEditValues({
         title: updated.title,
-        rectWidth: updated.rectWidth,
-        rectHeight: updated.rectHeight,
-        resolution: updated.resolution,
+        rectWidth: updated.scene.rectWidth,
+        rectHeight: updated.scene.rectHeight,
+        resolution: updated.scene.resolution,
       });
     }
   };
@@ -122,7 +132,6 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
     setEditValues((prev) => ({ ...prev, [name]: newValue }));
   };
 
-  console.log("Project size:", project?.rectWidth, project?.rectHeight);
   return (
     <div
       className="flex-shrink-0 w-80 bg-neutral-800 border-l border-gray-700 p-0 space-y-4"
@@ -197,13 +206,18 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
                       onChange={handleChange}
                       onWheel={handleNumberWheel}
                       className="w-10 text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
-                      style={{ MozAppearance: 'textfield', WebkitAppearance: 'none', appearance: 'textfield', height: '16px', lineHeight: '16px' }}
-                      onBlur={() => {
-                        if (project && editValues.rectWidth !== project.rectWidth) {
-                          const updated = { ...project, rectWidth: editValues.rectWidth };
+                      style={{ MozAppearance: 'textfield', WebkitAppearance: 'none', appearance: 'textfield', height: '16px', lineHeight: '16px' }}                      onBlur={() => {
+                        if (project && editValues.rectWidth !== project.scene?.rectWidth) {
+                          const updated = { 
+                            ...project, 
+                            scene: { 
+                              ...project.scene, 
+                              rectWidth: editValues.rectWidth 
+                            } 
+                          };
                           updateProject({
                             documentId: project.documentId,
-                            project: { rectWidth: editValues.rectWidth },
+                            project: updated,
                           });
                           refreshProjectInStore(updated);
                         }
@@ -220,22 +234,26 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
                       onChange={handleChange}
                       onWheel={handleNumberWheel}
                       className="w-10 text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
-                      style={{ MozAppearance: 'textfield', WebkitAppearance: 'none', appearance: 'textfield', height: '16px', lineHeight: '16px' }}
-                      onBlur={() => {
-                        if (project && editValues.rectHeight !== project.rectHeight) {
-                          const updated = { ...project, rectHeight: editValues.rectHeight };
+                      style={{ MozAppearance: 'textfield', WebkitAppearance: 'none', appearance: 'textfield', height: '16px', lineHeight: '16px' }}                      onBlur={() => {
+                        if (project && editValues.rectHeight !== project.scene?.rectHeight) {
+                          const updated = { 
+                            ...project, 
+                            scene: { 
+                              ...project.scene, 
+                              rectHeight: editValues.rectHeight 
+                            } 
+                          };
                           updateProject({
                             documentId: project.documentId,
-                            project: { rectHeight: editValues.rectHeight },
+                            project: updated,
                           });
                           refreshProjectInStore(updated);
                         }
                       }}
                     />
-                  </span>
-                ) : (
+                  </span>                ) : (
                   <span className="flex gap-1 items-center text-xs text-gray-300 text-right">
-                    {project.rectWidth} <span className="mx-0.5 text-gray-500">×</span> {project.rectHeight}
+                    {project.scene?.rectWidth} <span className="mx-0.5 text-gray-500">×</span> {project.scene?.rectHeight}
                   </span>
                 )}
               </div>
@@ -252,27 +270,82 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
                     onChange={handleChange}
                     onWheel={handleNumberWheel}
                     className="w-10 text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
-                    style={{ MozAppearance: 'textfield', WebkitAppearance: 'none', appearance: 'textfield', height: '16px', lineHeight: '16px' }}
-                    onBlur={() => {
-                      if (project && editValues.resolution !== project.resolution) {
-                        const updated = { ...project, resolution: editValues.resolution };
+                    style={{ MozAppearance: 'textfield', WebkitAppearance: 'none', appearance: 'textfield', height: '16px', lineHeight: '16px' }}                    onBlur={() => {
+                      if (project && editValues.resolution !== project.scene?.resolution) {
+                        const updated = { 
+                          ...project, 
+                          scene: { 
+                            ...project.scene, 
+                            resolution: editValues.resolution 
+                          } 
+                        };
                         updateProject({
                           documentId: project.documentId,
-                          project: { resolution: editValues.resolution },
+                          project: updated,
                         });
                         refreshProjectInStore(updated);
                       }
                     }}
-                  />
-                ) : (
-                  <span className="flex-1 text-xs text-gray-300 text-right">{project.resolution}</span>
+                  />                ) : (
+                  <span className="flex-1 text-xs text-gray-300 text-right">{project.scene?.resolution}</span>
                 )}
               </div>
               {/* More properties can be added here in the same style */}
-            </div>
-            {project.description && (
+            </div>            {project.description && (
               <p className="text-sm text-gray-400 text-center">{project.description}</p>
             )}
+            
+            {/* Tab Management Section */}
+            <div className="mt-4 pt-3 border-t border-gray-700">
+              <h3 className="text-sm font-medium text-gray-300 mb-3">Project Tabs</h3>
+              <div className="space-y-2">
+                {/* Code Tab Management */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Code size={16} className="text-gray-400 mr-2" />
+                    <span className="text-sm text-gray-300">Code Editor</span>
+                  </div>
+                  {getActiveProjectSubTabs().some(tab => tab.type === "code") ? (
+                    <button
+                      onClick={() => removeCodeTabFromProject(project.documentId)}
+                      className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => addCodeTabToProject(project.documentId)}
+                      className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                    >
+                      Add
+                    </button>
+                  )}
+                </div>
+                
+                {/* Lattice Tab Management */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Grid3X3 size={16} className="text-gray-400 mr-2" />
+                    <span className="text-sm text-gray-300">Lattice Builder</span>
+                  </div>
+                  {getActiveProjectSubTabs().some(tab => tab.type === "lattice") ? (
+                    <button
+                      onClick={() => removeLatticeTabFromProject(project.documentId)}
+                      className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => addLatticeTabToProject(project.documentId)}
+                      className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                    >
+                      Add
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <p className="text-gray-500">No project selected</p>

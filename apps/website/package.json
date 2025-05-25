@@ -11,7 +11,7 @@
     "build:wasm:watch": "cd wasm && wasm-pack build --target bundler --out-dir ../pkg --dev --watch",
     "clean:wasm-pkg": "rm -rf pkg/*",
     "deploy": "pnpm run build",
-    "dev": "next dev --turbopack",
+    "dev": "CHOKIDAR_USEPOLLING=true next dev --turbopack",
     "serve:out": "serve out -l 3001",
     "start": "next start"
   },

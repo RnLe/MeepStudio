@@ -44,15 +44,16 @@ export default function ProjectExplorer() {
     } else {
       resolution = Math.max(projectSettings.resolution.min, Math.min(projectSettings.resolution.max, Math.floor(Number(newResolution))));
     }
-    try {
-      const project = await createProject({
+    try {      const project = await createProject({
         title,
-        dimension,
-        rectWidth,
-        rectHeight,
-        resolution,
+        scene: {
+          dimension,
+          rectWidth,
+          rectHeight,
+          resolution,
+          geometries: [],
+        },
         description: newDescription.trim(),
-        geometries: [],
       });
       setNewTitle("");
       setNewDescription("");

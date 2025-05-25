@@ -3,8 +3,8 @@ import React from "react";
 import { SubTab } from "../providers/EditorStateStore";
 import { MeepProject } from "../types/meepProjectTypes";
 import TabWindowScene from "./TabWindowScene";
-import LatticeBuilder from "./LatticeBuilder";
-import CodeEditor from "./CodeEditor";
+import TabWindowLattice from "./TabWindowLattice";
+import TabWindowCode from "./TabWindowCode";
 
 interface Props {
   subTab: SubTab;
@@ -18,18 +18,10 @@ const SubTabContent: React.FC<Props> = ({ subTab, project, ghPages }) => {
       return <TabWindowScene project={project} ghPages={ghPages} />;
     
     case "lattice":
-      return (
-        <div className="flex-1 flex flex-col overflow-hidden bg-gray-900">
-          <LatticeBuilder />
-        </div>
-      );
+      return <TabWindowLattice project={project} ghPages={ghPages} />;
     
     case "code":
-      return (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <CodeEditor />
-        </div>
-      );
+      return <TabWindowCode project={project} ghPages={ghPages} />;
     
     default:
       return (

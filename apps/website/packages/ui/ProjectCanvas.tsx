@@ -56,12 +56,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       removeGeometry: s.removeGeometry,
     }),
     shallow
-  );
-
-  // --- Geometry Migration Effect ---
+  );  // --- Geometry Migration Effect ---
   useEffect(() => {
     // Migrate triangles with absolute vertices to relative, and set pos
-    const migratedGeoms = (project.geometries || []).map(g => {
+    const migratedGeoms = (project.scene?.geometries || []).map(g => {
       if (g.kind === "triangle") {
         const tri = g as any;
         if (!tri.pos || (Array.isArray(tri.vertices) && tri.vertices.length === 3 && (
@@ -78,7 +76,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       return g;
     });
     setGeometries(migratedGeoms);
-  }, [project.geometries, setGeometries]);
+  }, [project.scene?.geometries, setGeometries]);
 
   // --- Geometry Selectors ---
   const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
@@ -91,30 +89,39 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     addGeometry(newGeom);
     updateProject({
       documentId: projectId,
-      project: { geometries: [...geometries, newGeom] },
+      project: { 
+        scene: {
+          ...project.scene,
+          geometries: [...geometries, newGeom] 
+        }
+      },
     });
   }, [addGeometry, updateProject, projectId, geometries]);
-
   const handleUpdateGeometry = useCallback((id: string, partial: Partial<any>) => {
     updateGeometry(id, partial);
     updateProject({
       documentId: projectId,
       project: {
-        geometries: geometries.map(g => g.id === id ? { ...g, ...partial } : g),
+        scene: {
+          ...project.scene,
+          geometries: geometries.map(g => g.id === id ? { ...g, ...partial } : g),
+        }
       },
     });
-  }, [updateGeometry, updateProject, projectId, geometries]);
-
+  }, [updateGeometry, updateProject, projectId, geometries, project.scene]);
   const handleRemoveGeometry = useCallback((id: string) => {
     removeGeometry(id);
     updateProject({
       documentId: projectId,
       project: {
-        geometries: geometries.filter(g => g.id !== id),
+        scene: {
+          ...project.scene,
+          geometries: geometries.filter(g => g.id !== id),
+        }
       },
     });
     if (selectedId === id) selectElement(null);
-  }, [removeGeometry, updateProject, projectId, geometries, selectedId, selectElement]);
+  }, [removeGeometry, updateProject, projectId, geometries, selectedId, selectElement, project.scene]);
 
   // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -241,7 +248,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     const lines: React.ReactNode[] = [];
     const useSubgridStyle = onlyResolution;
     // --- Fix: dynamicThickness is fixed for res <= 16 ---
-    let res = project.resolution && project.resolution > 1 ? project.resolution : undefined;
+    let res = project.scene?.resolution && project.scene.resolution > 1 ? project.scene.resolution : undefined;
     let dynamicThickness: number | undefined = undefined;
     if (res) {
       if (res <= 16) {
@@ -286,12 +293,11 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       );
     }
     return lines;
-  }, [showGrid, showResolutionOverlay, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H, project.resolution]);
-
+  }, [showGrid, showResolutionOverlay, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H, project.scene?.resolution]);
   const resolutionLines = useMemo(() => {
-    if (!showResolutionOverlay || !project.resolution || project.resolution < 2) return null;
+    if (!showResolutionOverlay || !project.scene?.resolution || project.scene.resolution < 2) return null;
     const lines: React.ReactNode[] = [];
-    const res = project.resolution;
+    const res = project.scene.resolution;
     const subgridColor = "#7e909c";
     const weightFactor = res > 16 ? 16 / res : 1;
     const baseStroke = 0.5;
@@ -357,7 +363,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       }
     }
     return lines;
-  }, [showResolutionOverlay, showGrid, project.resolution, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
+  }, [showResolutionOverlay, showGrid, project.scene?.resolution, gridWidth, gridHeight, LOGICAL_W, LOGICAL_H]);
 
   // --- Selection Box State ---
   const [selOrigin, setSelOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -369,9 +375,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const snapCanvasPosToGrid = useCallback((canvasPos: { x: number; y: number }) => {
     // Convert canvas (absolute) position to logical grid coordinates
     const logicalX = (canvasPos.x - pos.x) / scale;
-    const logicalY = (canvasPos.y - pos.y) / scale;
-    if (resolutionSnapping && project.resolution && project.resolution > 1) {
-      const res = project.resolution;
+    const logicalY = (canvasPos.y - pos.y) / scale;    if (resolutionSnapping && project.scene?.resolution && project.scene.resolution > 1) {
+      const res = project.scene.resolution;
       const cellW = GRID_PX / res;
       const cellH = GRID_PX / res;
       const snappedLogicalX = Math.round(logicalX / cellW) * cellW;
@@ -390,7 +395,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     } else {
       return canvasPos;
     }
-  }, [pos, scale, resolutionSnapping, gridSnapping, project.resolution]);
+  }, [pos, scale, resolutionSnapping, gridSnapping, project.scene?.resolution]);
 
   // --- Multi-Select Drag State ---
   const [multiDragAnchor, setMultiDragAnchor] = useState<{

@@ -1,5 +1,6 @@
 import React from "react";
 import { Square, RectangleHorizontal, Hexagon, Diamond, Shapes } from "lucide-react";
+import { MeepProject } from "../types/meepProjectTypes";
 
 const latticeTypes = [
   { key: "square", title: "Square", Icon: Square },
@@ -10,7 +11,14 @@ const latticeTypes = [
   { key: "custom", title: "Custom", Icon: Shapes },
 ];
 
-export default function LatticeBuilder() {
+interface Props {
+  project: MeepProject;
+  ghPages: boolean;
+}
+
+export default function LatticeBuilder({ project, ghPages }: Props) {
+  const latticeData = project.lattice;
+  
   return (
     <div className="flex flex-col h-full w-full p-0">
       {/* Panel Content */}

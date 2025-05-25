@@ -7,7 +7,17 @@ module.exports = {
     // the website itself
     './apps/website/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  theme: { extend: {} },
+  theme: { 
+    extend: {
+      colors: {
+        gray: {
+          650: '#4b5563',
+          750: '#374151',
+          850: '#1f2937',
+        }
+      }
+    } 
+  },
   plugins: [
     require('@tailwindcss/forms'),
     require('@tailwindcss/typography'),

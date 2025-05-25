@@ -34,8 +34,17 @@ const TabBar: React.FC<Props> = () => {
     closeSubTab,
     deleteProject,
   } = useEditorStateStore();
-  
-  const activeProjectSubTabs = getActiveProjectSubTabs();
+    const activeProjectSubTabs = getActiveProjectSubTabs();
+
+  // Debug logging
+  console.log("TabBar Debug:", {
+    activeProjectId,
+    activeSubTabId,
+    openProjectsCount: openProjects.length,
+    activeProjectSubTabsCount: activeProjectSubTabs.length,
+    activeProjectSubTabs,
+    shouldShowBottomRow: !!(activeProjectId && activeProjectSubTabs.length > 0)
+  });
 
   const handleContextMenu = (e: React.MouseEvent, tab: MeepProject) => {
     e.preventDefault();
@@ -50,64 +59,78 @@ const TabBar: React.FC<Props> = () => {
       await deleteProject(tab.documentId);
     }
   };
-
   return (
-    <div className="flex flex-col bg-gray-800 border-b border-gray-700">
+    <div className="flex flex-col bg-gray-900 border-b-2 border-gray-600 shadow-lg">
       {/* Top Row - Project Tabs */}
-      <div className="flex items-center h-10 px-2 border-b border-gray-600">
-        <div className="flex space-x-1 overflow-x-auto">
+      <div className="flex items-center h-11 px-3 bg-gradient-to-b from-gray-800 to-gray-850">
+        <div className="flex space-x-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
           {openProjects.map((project) => (
             <div
               key={project.documentId}
               onClick={() => setActiveProject(project.documentId!)}
               onContextMenu={(e) => handleContextMenu(e, project)}
-              className={`flex items-center px-3 py-1 rounded-t cursor-pointer transition-colors ${
+              className={`flex items-center px-4 py-2 rounded-t-lg cursor-pointer transition-all duration-200 group relative ${
                 project.documentId === activeProjectId 
-                  ? "bg-gray-700 text-white border-b-2 border-blue-400" 
-                  : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  ? "bg-gray-700 text-white shadow-lg border-t-2 border-blue-400" 
+                  : "bg-gray-800 hover:bg-gray-750 text-gray-300 hover:text-white"
               }`}
             >
-              <span className="truncate max-w-xs">{project.title}</span>
+              <span className="truncate max-w-32 font-medium text-sm">{project.title}</span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   closeProject(project.documentId!);
                 }}
-                className="ml-2 hover:bg-gray-600 rounded p-0.5"
+                className="ml-2 hover:bg-gray-600 rounded-full p-1 opacity-70 hover:opacity-100 transition-all"
               >
-                <X size={12} className="text-gray-400 hover:text-white" />
+                <X size={12} className="text-gray-400 hover:text-red-400" />
               </button>
+              {/* Active project indicator */}
+              {project.documentId === activeProjectId && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-full"></div>
+              )}
             </div>
           ))}
         </div>
       </div>      {/* Bottom Row - Sub Tabs (only show if there's an active project) */}
       {activeProjectId && activeProjectSubTabs.length > 0 && (
-        <div className="flex items-center h-9 px-2 bg-gray-700">
-          <div className="flex space-x-1 overflow-x-auto">
+        <div className="flex items-center h-10 px-3 bg-gradient-to-b from-gray-750 to-gray-800 border-t border-gray-600">
+          <div className="text-xs text-red-400 mr-2">DEBUG: Sub-tabs found: {activeProjectSubTabs.length}</div>
+          <div className="flex space-x-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
             {activeProjectSubTabs.map((subTab) => {
               const IconComponent = getSubTabIcon(subTab.type);
+              const isActive = subTab.id === activeSubTabId;
               return (
                 <div
                   key={subTab.id}
                   onClick={() => setActiveSubTab(subTab.id)}
-                  className={`flex items-center px-3 py-1 rounded cursor-pointer transition-colors ${
-                    subTab.id === activeSubTabId 
-                      ? "bg-gray-600 text-white" 
-                      : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                  className={`flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 relative ${
+                    isActive 
+                      ? "bg-gray-600 text-white shadow-md border border-gray-500" 
+                      : "bg-gray-750 hover:bg-gray-650 text-gray-300 hover:text-white border border-transparent"
                   }`}
                 >
-                  <IconComponent size={14} className="mr-1.5" />
-                  <span className="text-sm truncate max-w-xs">{subTab.title}</span>
+                  <IconComponent 
+                    size={14} 
+                    className={`mr-2 ${isActive ? 'text-blue-400' : 'text-gray-400'}`} 
+                  />
+                  <span className="text-xs font-medium truncate max-w-24 capitalize">
+                    {subTab.title}
+                  </span>
                   {subTab.type !== "scene" && ( // Don't allow closing the main scene tab
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         closeSubTab(subTab.id);
                       }}
-                      className="ml-1.5 hover:bg-gray-500 rounded p-0.5"
+                      className="ml-2 hover:bg-gray-500 rounded-full p-0.5 opacity-70 hover:opacity-100 transition-all"
                     >
-                      <X size={10} className="text-gray-400 hover:text-white" />
+                      <X size={10} className="text-gray-400 hover:text-red-400" />
                     </button>
+                  )}
+                  {/* Active sub-tab indicator */}
+                  {isActive && (
+                    <div className="absolute -bottom-0.5 left-1 right-1 h-0.5 bg-blue-400 rounded-full"></div>
                   )}
                 </div>
               );
@@ -115,6 +138,11 @@ const TabBar: React.FC<Props> = () => {
           </div>
         </div>
       )}
+
+      {/* Temporary debug info - always shown */}
+      <div className="bg-red-600 text-white text-xs p-1">
+        Debug: activeProjectId={activeProjectId}, subTabs={activeProjectSubTabs.length}
+      </div>
       
       {contextMenu && (
         <ContextMenu

@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { nanoid } from "nanoid";
-import { MeepProject } from "../types/meepProjectTypes";
+import { MeepProject, ProjectScene, ProjectCode, ProjectLattice } from "../types/meepProjectTypes";
 
 /* ---------- Helpers ---------- */
 const nowISO = () => new Date().toISOString();
@@ -16,20 +16,40 @@ type CreatableFields = Omit<
 /** Constructs a fully‑typed MeepProject object from a partial. */
 function buildProject(p: CreatableFields): MeepProject {
   const timestamp = nowISO();
+  
+  // Build default scene
+  const defaultScene: ProjectScene = {
+    dimension: p.scene?.dimension ?? 0,
+    rectWidth: p.scene?.rectWidth ?? 10,
+    rectHeight: p.scene?.rectHeight ?? 10,
+    resolution: p.scene?.resolution ?? 4,
+    geometries: p.scene?.geometries ?? [],
+  };
+
+  // Build default code (optional)
+  const defaultCode: ProjectCode | undefined = p.code ? {
+    pythonCode: p.code.pythonCode ?? "",
+    lastExecution: p.code.lastExecution,
+    lastExecutionConsoleLogs: p.code.lastExecutionConsoleLogs,
+    additionalFiles: p.code.additionalFiles ?? {},
+  } : undefined;
+
+  // Build default lattice (optional)
+  const defaultLattice: ProjectLattice | undefined = p.lattice ? {
+    latticeType: p.lattice.latticeType ?? "square",
+    parameters: p.lattice.parameters ?? {},
+    latticeData: p.lattice.latticeData,
+  } : undefined;
+
   return {
     documentId: nanoid(),
     createdAt: timestamp,
     updatedAt: timestamp,
     title: p.title ?? "",
-    dimension: p.dimension ?? 0,
-    rectWidth: p.rectWidth ?? 10,
-    rectHeight: p.rectHeight ?? 10,
-    resolution: p.resolution ?? 4, // <-- Add default resolution
     description: p.description ?? "",
-    lastExecution: p.lastExecution,
-    lastExecutionConsoleLogs: p.lastExecutionConsoleLogs,
-    pythonCode: p.pythonCode ?? "",
-    geometries: p.geometries ?? [], // <-- Fix: always provide geometries
+    scene: defaultScene,
+    code: defaultCode,
+    lattice: defaultLattice,
   };
 }
 

@@ -1,7 +1,7 @@
 // src/components/layout/StudioLayout.tsx
 "use client";
 
-import React from "react";
+import React, {useEffect} from "react";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
 import TopNavBar from "./TopNavBar";
@@ -27,29 +27,32 @@ const StudioLayout: React.FC<Props> = ({ ghPages }) => {
     setRightSidebarOpen,
     getActiveProject,
   } = useEditorStateStore();
-
   // Initialize the store with projects data and functions
-  React.useEffect(() => {
+  useEffect(() => {
     setGhPages(ghPages);
-  }, [ghPages, setGhPages]);
+  }, [ghPages]);
 
-  React.useEffect(() => {
-    setProjects(projects);
-  }, [projects, setProjects]);
+  useEffect(() => {
+    // Sync projects to editor store once data is loaded to avoid initial empty-loop
+    if (!isLoading) {
+      setProjects(projects);
+    }
+  }, [isLoading, projects, setProjects]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setIsLoading(isLoading);
-  }, [isLoading, setIsLoading]);
+  }, [isLoading]);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    // Initialize project management functions once to avoid infinite update loops
     setProjectManagementFunctions(createProject, deleteProject);
-  }, [createProject, deleteProject, setProjectManagementFunctions]);
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Sync active project with canvas store
-  const activeProject = getActiveProject();
-  React.useEffect(() => {
+  useEffect(() => {
+    const activeProject = getActiveProject();
     setActiveProject(activeProject?.documentId || null);
-  }, [activeProject?.documentId, setActiveProject]);
+  }, [getActiveProject, setActiveProject]);
 
   if (isLoading) return <div className="p-4">Loading …</div>;
 

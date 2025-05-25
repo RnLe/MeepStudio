@@ -136,10 +136,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
   const toggleShowResolutionOverlay = useCanvasStore((s) => s.toggleShowResolutionOverlay);
-  const { updateProject } = useMeepProjects({ ghPages });
-  const projectId = project.documentId;
-  const geometries = project.geometries || [];
-
+  const { updateProject } = useMeepProjects({ ghPages });  const projectId = project.documentId;
+  const geometries = project.scene?.geometries || [];
   const newCylinder = () => {
     const newGeom = {
       kind: "cylinder",
@@ -151,11 +149,13 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     updateProject({
       documentId: projectId,
       project: {
-        geometries: [...geometries, newGeom],
+        scene: {
+          ...project.scene,
+          geometries: [...geometries, newGeom],
+        },
       },
     });
   };
-
   const newRect = () => {
     const newGeom = {
       kind: "rectangle",
@@ -168,11 +168,13 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     updateProject({
       documentId: projectId,
       project: {
-        geometries: [...geometries, newGeom],
+        scene: {
+          ...project.scene,
+          geometries: [...geometries, newGeom],
+        },
       },
     });
   };
-
   const newTriangle = () => {
     const newGeom = {
       kind: "triangle",
@@ -188,7 +190,10 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     updateProject({
       documentId: projectId,
       project: {
-        geometries: [...geometries, newGeom],
+        scene: {
+          ...project.scene,
+          geometries: [...geometries, newGeom],
+        },
       },
     });
   };

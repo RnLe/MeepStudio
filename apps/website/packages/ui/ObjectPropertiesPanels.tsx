@@ -33,14 +33,16 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, 
   const continuousSources = geometries.filter((g) => g.kind === "continuousSource") as ContinuousSource[];
   const gaussianSources = geometries.filter((g) => g.kind === "gaussianSource") as GaussianSource[];
   const pmlBoundaries = geometries.filter((g) => g.kind === "pmlBoundary") as PmlBoundary[];
-
   // Update both local store and project
   const updateGeometry = (id: string, partial: Partial<any>) => {
     updateGeometryStore(id, partial); // update local store for instant UI
     updateProject({
       documentId: project.documentId,
       project: {
-        geometries: geometries.map((g) => (g.id === id ? { ...g, ...partial } : g)),
+        scene: {
+          ...project.scene,
+          geometries: geometries.map((g) => (g.id === id ? { ...g, ...partial } : g)),
+        }
       },
     });
   };

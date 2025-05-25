@@ -1,8 +1,16 @@
 "use client";
 import React from "react";
 import { Code, FileText, Play } from "lucide-react";
+import { MeepProject } from "../types/meepProjectTypes";
 
-export default function CodeEditor() {
+interface Props {
+  project: MeepProject;
+  ghPages: boolean;
+}
+
+export default function CodeEditor({ project, ghPages }: Props) {
+  const codeData = project.code;
+  
   return (
     <div className="flex flex-col h-full w-full bg-gray-900">
       {/* Header */}

@@ -4,42 +4,69 @@
 //
 // A file stored on disk is literally JSON.stringify(MeepProject, null, 2)
 
-export interface MeepStudioCustomData {
-  lastExecution?: string;             // ISO timestamp
-  lastExecutionConsoleLogs?: string[]; // stdout/stderr of last run
-  pythonCode?: string;                // cached code snapshot
+/* ---------- Base Geometry Interface ---------- */
+export interface GeometryObject {
+  id: string;
+  kind: string;
+  // ...geometry-specific fields (e.g., for cylinder, rectangle, etc.)
+  [key: string]: any;
 }
 
-export interface MeepProject extends MeepStudioCustomData {
+/* ---------- Project Scene Interface ---------- */
+export interface ProjectScene {
+  /** Scene dimension (2D/3D) */
+  dimension: number;
+  /** Scene width */
+  rectWidth: number;
+  /** Scene height */
+  rectHeight: number;
+  /** Resolution of the scene/simulation grid. Must be an integer. Default: 4 */
+  resolution: number;
+  /**
+   * All geometry objects for this scene (2D only for now).
+   * Each geometry has at least: id, kind, and geometry-specific fields.
+   */
+  geometries: GeometryObject[];
+}
+
+/* ---------- Project Code Interface ---------- */
+export interface ProjectCode {
+  /** Python code content */
+  pythonCode: string;
+  /** Last execution timestamp (ISO string) */
+  lastExecution?: string;
+  /** Console logs from last execution */
+  lastExecutionConsoleLogs?: string[];
+  /** Additional code files or snippets */
+  additionalFiles?: Record<string, string>;
+}
+
+/* ---------- Project Lattice Interface ---------- */
+export interface ProjectLattice {
+  /** Lattice type (e.g., 'square', 'triangular', 'hexagonal') */
+  latticeType: string;
+  /** Lattice parameters */
+  parameters: Record<string, any>;
+  /** Generated lattice data */
+  latticeData?: any;
+}
+
+/* ---------- Main Project Interface ---------- */
+export interface MeepProject {
   /** Primary key = folder prefix, created with nanoid() */
   documentId: string;
   /** ISO strings for historical sorting */
   createdAt: string;
   updatedAt: string;
 
-  /* Domain-specific fields */
+  /* Metadata */
   title: string;
-  dimension: number;
-  rectWidth: number;
-  rectHeight: number;
   description?: string;
 
-  /**
-   * All geometry objects for this project (2D only for now).
-   * Each geometry has at least: id, kind, and geometry-specific fields.
-   */
-  geometries: Array<{
-    id: string;
-    kind: string;
-    // ...geometry-specific fields (e.g., for cylinder, rectangle, etc.)
-    [key: string]: any;
-  }>;
-
-  /**
-   * Resolution of the project (e.g. grid or simulation resolution).
-   * Must be an integer. Default: 4
-   */
-  resolution: number;
+  /* Sub-components */
+  scene: ProjectScene;
+  code?: ProjectCode;
+  lattice?: ProjectLattice;
 }
 
 /* ---------- (De)serialisers are now trivial ---------- */

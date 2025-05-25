@@ -1,4 +1,5 @@
 "use client";
+
 import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
 import { MeepProject } from "../types/meepProjectTypes";
@@ -37,10 +38,15 @@ type EditorState = {
   openProject: (project: MeepProject) => void;
   closeProject: (projectId: string) => void;
   setActiveProject: (projectId: string) => void;
-  
-  openSubTab: (subTab: SubTab) => void;
+    openSubTab: (subTab: SubTab) => void;
   closeSubTab: (subTabId: string) => void;
   setActiveSubTab: (subTabId: string) => void;
+  
+  // Dynamic sub-tab management
+  addCodeTabToProject: (projectId: string) => void;
+  addLatticeTabToProject: (projectId: string) => void;
+  removeCodeTabFromProject: (projectId: string) => void;
+  removeLatticeTabFromProject: (projectId: string) => void;
   
   setGhPages: (ghPages: boolean) => void;
   setRightSidebarOpen: (open: boolean) => void;
@@ -72,44 +78,97 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     projects: [],
     isLoading: false,
     createProjectFn: null,
-    deleteProjectFn: null,
-    
-    openProject: (project) => {
-      const { openProjects, setActiveProject, setRightSidebarOpen } = get();
+    deleteProjectFn: null,    openProject: (project) => {
+      const { openProjects, subTabs, setRightSidebarOpen } = get();
       const isAlreadyOpen = openProjects.some(p => p.documentId === project.documentId);
+      
+      console.log("🔥 openProject called:", {
+        projectId: project.documentId,
+        projectTitle: project.title,
+        isAlreadyOpen,
+        currentSubTabsCount: subTabs.length,
+        hasCode: !!project.code,
+        hasLattice: !!project.lattice
+      });
       
       if (!isAlreadyOpen) {
         set({ openProjects: [...openProjects, project] });
         
         // Create default sub-tabs for this project
         const defaultSubTabs: SubTab[] = [
+          // Scene tab is always available
           {
             id: `${project.documentId}-scene`,
             type: "scene",
             title: "Scene",
             projectId: project.documentId!,
-          },
-          {
-            id: `${project.documentId}-lattice`,
-            type: "lattice", 
-            title: "Lattice Builder",
-            projectId: project.documentId!,
-          },
-          {
+          }
+        ];
+
+        // Add code tab if project has code data
+        if (project.code) {
+          defaultSubTabs.push({
             id: `${project.documentId}-code`,
             type: "code",
             title: "Code",
             projectId: project.documentId!,
-          },
-        ];
+          });
+        }
+
+        // Add lattice tab if project has lattice data
+        if (project.lattice) {
+          defaultSubTabs.push({
+            id: `${project.documentId}-lattice`,
+            type: "lattice", 
+            title: "Lattice Builder",
+            projectId: project.documentId!,
+          });
+        }
         
-        set(state => ({ 
-          subTabs: [...state.subTabs, ...defaultSubTabs]
-        }));
+        console.log("🔥 Created defaultSubTabs:", defaultSubTabs);
+        
+        // Filter out any existing sub-tabs for this project to avoid duplicates
+        const existingProjectTabIds = subTabs
+          .filter(tab => tab.projectId === project.documentId)
+          .map(tab => tab.id);
+        
+        const newSubTabs = defaultSubTabs.filter(tab => 
+          !existingProjectTabIds.includes(tab.id)
+        );
+        
+        console.log("🔥 After filtering, newSubTabs:", newSubTabs);
+        
+        // Add new sub-tabs and set active project/sub-tab in one update
+        set(state => {
+          const updatedState = { 
+            subTabs: [...state.subTabs, ...newSubTabs],
+            activeProjectId: project.documentId,
+            activeSubTabId: newSubTabs.length > 0 ? newSubTabs[0].id : null
+          };
+          console.log("🔥 Setting new state:", {
+            totalSubTabs: updatedState.subTabs.length,
+            activeProjectId: updatedState.activeProjectId,
+            activeSubTabId: updatedState.activeSubTabId
+          });
+          return updatedState;
+        });
+      } else {
+        // Project is already open, just activate it
+        const projectSubTabs = subTabs.filter(tab => tab.projectId === project.documentId);
+        const newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
+        
+        console.log("🔥 Project already open, activating:", {
+          projectSubTabsCount: projectSubTabs.length,
+          newActiveSubTabId
+        });
+        
+        set({ 
+          activeProjectId: project.documentId,
+          activeSubTabId: newActiveSubTabId,
+        });
       }
       
       setRightSidebarOpen(true);
-      setActiveProject(project.documentId!);
     },
     
     closeProject: (projectId) => {
@@ -174,9 +233,88 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         activeSubTabId: newActiveSubTabId,
       });
     },
-    
-    setActiveSubTab: (subTabId) => {
+      setActiveSubTab: (subTabId) => {
       set({ activeSubTabId: subTabId });
+    },
+    
+    addCodeTabToProject: (projectId) => {
+      const { subTabs, projects } = get();
+      const project = projects.find(p => p.documentId === projectId);
+      if (!project) return;
+      
+      const codeTabId = `${projectId}-code`;
+      const hasCodeTab = subTabs.some(tab => tab.id === codeTabId);
+      
+      if (!hasCodeTab) {
+        const newSubTab: SubTab = {
+          id: codeTabId,
+          type: "code",
+          title: "Code",
+          projectId,
+        };
+        
+        set(state => ({ 
+          subTabs: [...state.subTabs, newSubTab],
+          activeSubTabId: newSubTab.id
+        }));
+      }
+    },
+    
+    addLatticeTabToProject: (projectId) => {
+      const { subTabs, projects } = get();
+      const project = projects.find(p => p.documentId === projectId);
+      if (!project) return;
+      
+      const latticeTabId = `${projectId}-lattice`;
+      const hasLatticeTab = subTabs.some(tab => tab.id === latticeTabId);
+      
+      if (!hasLatticeTab) {
+        const newSubTab: SubTab = {
+          id: latticeTabId,
+          type: "lattice",
+          title: "Lattice Builder",
+          projectId,
+        };
+        
+        set(state => ({ 
+          subTabs: [...state.subTabs, newSubTab],
+          activeSubTabId: newSubTab.id
+        }));
+      }
+    },
+    
+    removeCodeTabFromProject: (projectId) => {
+      const { subTabs, activeSubTabId, activeProjectId } = get();
+      const codeTabId = `${projectId}-code`;
+      const updatedSubTabs = subTabs.filter(tab => tab.id !== codeTabId);
+      
+      let newActiveSubTabId = activeSubTabId;
+      if (activeSubTabId === codeTabId && activeProjectId === projectId) {
+        const remainingProjectSubTabs = updatedSubTabs.filter(tab => tab.projectId === projectId);
+        newActiveSubTabId = remainingProjectSubTabs.length > 0 ? remainingProjectSubTabs[0].id : null;
+      }
+      
+      set({ 
+        subTabs: updatedSubTabs,
+        activeSubTabId: newActiveSubTabId,
+      });
+    },
+    
+    removeLatticeTabFromProject: (projectId) => {
+      const { subTabs, activeSubTabId, activeProjectId } = get();
+      const latticeTabId = `${projectId}-lattice`;
+      const updatedSubTabs = subTabs.filter(tab => tab.id !== latticeTabId);
+      
+      let newActiveSubTabId = activeSubTabId;
+      if (activeSubTabId === latticeTabId && activeProjectId === projectId) {
+        const remainingProjectSubTabs = updatedSubTabs.filter(tab => tab.projectId === projectId);
+        newActiveSubTabId = remainingProjectSubTabs.length > 0 ? remainingProjectSubTabs[0].id : null;
+      }
+      
+      set({ 
+        subTabs: updatedSubTabs,
+        activeSubTabId: newActiveSubTabId,
+      });
     },
     
     setGhPages: (ghPages) => {
@@ -234,10 +372,17 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         throw error;
       }
     },
-    
-    getActiveProjectSubTabs: () => {
+      getActiveProjectSubTabs: () => {
       const { subTabs, activeProjectId } = get();
-      return activeProjectId ? subTabs.filter(tab => tab.projectId === activeProjectId) : [];
+      const result = activeProjectId ? subTabs.filter(tab => tab.projectId === activeProjectId) : [];
+      console.log("🔥 getActiveProjectSubTabs:", {
+        activeProjectId,
+        totalSubTabs: subTabs.length,
+        filteredSubTabs: result.length,
+        allSubTabs: subTabs,
+        filteredResult: result
+      });
+      return result;
     },
     
     getActiveProject: () => {
