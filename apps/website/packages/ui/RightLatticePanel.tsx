@@ -4,6 +4,8 @@ import { useMeepProjects } from "../hooks/useMeepProjects";
 import LatticeVectorDisplay from "./LatticeVectorDisplay";
 import { MathVector, LabeledVector } from "./MathVector";
 import { useLatticeStore } from "../providers/LatticeStore";
+import CustomLucideIcon from "./CustomLucideIcon";
+import { TransformationTooltip, TooltipWrapper } from "./TransformationTooltip";
 
 interface Props {
   lattice: Lattice;
@@ -110,6 +112,43 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
     b: lattice.parameters.b ?? realSpaceParams.b,
     alpha: lattice.parameters.alpha ?? realSpaceParams.alpha  // Changed gamma to alpha
   };
+  
+  // Get transformation matrices from store
+  const transformationMatrices = useLatticeStore((s) => s.transformationMatrices);
+  
+  // Calculate transformation matrices
+  const getTransformationMatrices = () => {
+    if (transformationMatrices) {
+      console.log('Using transformation matrices from store:', transformationMatrices);
+      // Ensure matrices are properly formatted as 3D arrays
+      const formatMatrix = (m: any): number[][] => {
+        if (!m || !Array.isArray(m)) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+        // If it's a 2x2 matrix, expand to 3x3
+        if (m.length === 2 && m[0].length === 2) {
+          return [
+            [m[0][0], m[0][1], 0],
+            [m[1][0], m[1][1], 0],
+            [0, 0, 1]
+          ];
+        }
+        return m;
+      };
+      
+      return {
+        MA: formatMatrix(transformationMatrices.MA),
+        MB: formatMatrix(transformationMatrices.MB),
+        TAB: formatMatrix(transformationMatrices.realToReciprocal),
+        TBA: formatMatrix(transformationMatrices.reciprocalToReal)
+      };
+    }
+    
+    console.log('No transformation matrices found, using identity');
+    // Fallback to identity matrices if not calculated yet
+    const identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    return { MA: identity, MB: identity, TAB: identity, TBA: identity };
+  };
+  
+  const { MA, MB, TAB, TBA } = getTransformationMatrices();
   
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
@@ -263,7 +302,10 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
                   <div className="bg-neutral-700/50 rounded px-2 py-1 flex items-center">
                     <LabeledVector
                       label="a₁"
-                      values={[lattice.meepLattice.basis1.x, lattice.meepLattice.basis1.y]}
+                      values={[
+                        lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x,
+                        lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y
+                      ]}
                       color="text-green-400"
                       size="sm"
                     />
@@ -271,7 +313,10 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
                   <div className="bg-neutral-700/50 rounded px-2 py-1 flex items-center">
                     <LabeledVector
                       label="a₂"
-                      values={[lattice.meepLattice.basis2.x, lattice.meepLattice.basis2.y]}
+                      values={[
+                        lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x,
+                        lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y
+                      ]}
                       color="text-amber-400"
                       size="sm"
                     />
@@ -310,46 +355,93 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
         </div>
       </div>
       
-      {/* Display Options */}
+      {/* Transformations Section */}
       <div className="p-4 pt-0">
-        <h3 className="text-sm font-medium text-gray-300 mb-3">Display Options</h3>
-        <div className="space-y-2">
-          <label className="flex items-center justify-between cursor-pointer bg-neutral-700/30 rounded px-3 py-2 hover:bg-neutral-700/50 transition-colors">
-            <span className="text-xs text-gray-400">Wigner-Seitz Cell</span>
-            <input
-              type="checkbox"
-              checked={displaySettings.showWignerSeitz}
-              onChange={() => handleToggle('showWignerSeitz')}
-              className="rounded bg-neutral-600 border-neutral-500 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
-            />
-          </label>
-          <label className="flex items-center justify-between cursor-pointer bg-neutral-700/30 rounded px-3 py-2 hover:bg-neutral-700/50 transition-colors">
-            <span className="text-xs text-gray-400">Brillouin Zone</span>
-            <input
-              type="checkbox"
-              checked={displaySettings.showBrillouinZone}
-              onChange={() => handleToggle('showBrillouinZone')}
-              className="rounded bg-neutral-600 border-neutral-500 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
-            />
-          </label>
-          <label className="flex items-center justify-between cursor-pointer bg-neutral-700/30 rounded px-3 py-2 hover:bg-neutral-700/50 transition-colors">
-            <span className="text-xs text-gray-400">High Symmetry Points</span>
-            <input
-              type="checkbox"
-              checked={displaySettings.showHighSymmetryPoints}
-              onChange={() => handleToggle('showHighSymmetryPoints')}
-              className="rounded bg-neutral-600 border-neutral-500 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
-            />
-          </label>
-          <label className="flex items-center justify-between cursor-pointer bg-neutral-700/30 rounded px-3 py-2 hover:bg-neutral-700/50 transition-colors">
-            <span className="text-xs text-gray-400">Reciprocal Lattice</span>
-            <input
-              type="checkbox"
-              checked={displaySettings.showReciprocal}
-              onChange={() => handleToggle('showReciprocal')}
-              className="rounded bg-neutral-600 border-neutral-500 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
-            />
-          </label>
+        <h3 className="text-sm font-medium text-gray-300 mb-3">Transformations</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <TooltipWrapper
+            tooltip={
+              <TransformationTooltip
+                title="Matrix A"
+                description="Real space basis vectors as column matrix"
+                iconSrc="/icons/MA_matrix.svg"
+                matrix={MA}
+                matrixMode="3D"
+              />
+            }
+          >
+            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-help flex items-center justify-center h-12">
+              <CustomLucideIcon
+                src="/icons/MA_matrix.svg"
+                size={20}
+                color="currentColor"
+                className="text-gray-300"
+              />
+            </div>
+          </TooltipWrapper>
+          
+          <TooltipWrapper
+            tooltip={
+              <TransformationTooltip
+                title="Matrix B"
+                description="Reciprocal space basis vectors as column matrix"
+                iconSrc="/icons/MB_matrix.svg"
+                matrix={MB}
+                matrixMode="3D"
+              />
+            }
+          >
+            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-help flex items-center justify-center h-12">
+              <CustomLucideIcon
+                src="/icons/MB_matrix.svg"
+                size={20}
+                color="currentColor"
+                className="text-gray-300"
+              />
+            </div>
+          </TooltipWrapper>
+          
+          <TooltipWrapper
+            tooltip={
+              <TransformationTooltip
+                title="Transform A→B"
+                description="M_B^(-1) × M_A transforms real to reciprocal coordinates"
+                iconSrc="/icons/T_AB_matrix.svg"
+                matrix={TAB}
+                matrixMode="3D"
+              />
+            }
+          >
+            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-help flex items-center justify-center h-12">
+              <CustomLucideIcon
+                src="/icons/T_AB_matrix.svg"
+                size={20}
+                color="currentColor"
+                className="text-gray-300"
+              />
+            </div>
+          </TooltipWrapper>
+          
+          <TooltipWrapper
+            tooltip={
+              <TransformationTooltip
+                title="Transform B→A"
+                description="M_A^(-1) × M_B transforms reciprocal to real coordinates"
+                iconSrc="/icons/T_BA_matrix.svg"
+                matrix={TBA}
+                matrixMode="3D"
+              />
+            }
+          >
+            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-help flex items-center justify-center h-12">
+              <CustomLucideIcon
+                src="/icons/T_BA_matrix.svg"
+                size={20}
+                color="currentColor"
+                className="text-gray-300"
+              />
+            </div>
+          </TooltipWrapper>
         </div>
       </div>
       

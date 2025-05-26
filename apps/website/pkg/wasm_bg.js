@@ -4,9 +4,85 @@ export function __wbg_set_wasm(val) {
 }
 
 
+let WASM_VECTOR_LEN = 0;
+
+let cachedUint8ArrayMemory0 = null;
+
+function getUint8ArrayMemory0() {
+    if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
+        cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
+    }
+    return cachedUint8ArrayMemory0;
+}
+
+const lTextEncoder = typeof TextEncoder === 'undefined' ? (0, module.require)('util').TextEncoder : TextEncoder;
+
+let cachedTextEncoder = new lTextEncoder('utf-8');
+
+const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
+    ? function (arg, view) {
+    return cachedTextEncoder.encodeInto(arg, view);
+}
+    : function (arg, view) {
+    const buf = cachedTextEncoder.encode(arg);
+    view.set(buf);
+    return {
+        read: arg.length,
+        written: buf.length
+    };
+});
+
+function passStringToWasm0(arg, malloc, realloc) {
+
+    if (realloc === undefined) {
+        const buf = cachedTextEncoder.encode(arg);
+        const ptr = malloc(buf.length, 1) >>> 0;
+        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
+        WASM_VECTOR_LEN = buf.length;
+        return ptr;
+    }
+
+    let len = arg.length;
+    let ptr = malloc(len, 1) >>> 0;
+
+    const mem = getUint8ArrayMemory0();
+
+    let offset = 0;
+
+    for (; offset < len; offset++) {
+        const code = arg.charCodeAt(offset);
+        if (code > 0x7F) break;
+        mem[ptr + offset] = code;
+    }
+
+    if (offset !== len) {
+        if (offset !== 0) {
+            arg = arg.slice(offset);
+        }
+        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
+        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
+        const ret = encodeString(arg, view);
+
+        offset += ret.written;
+        ptr = realloc(ptr, len, offset, 1) >>> 0;
+    }
+
+    WASM_VECTOR_LEN = offset;
+    return ptr;
+}
+
+let cachedDataViewMemory0 = null;
+
+function getDataViewMemory0() {
+    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
+        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
+    }
+    return cachedDataViewMemory0;
+}
+
 function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();
-    wasm.__wbindgen_export_2.set(idx, obj);
+    wasm.__wbindgen_export_4.set(idx, obj);
     return idx;
 }
 
@@ -82,82 +158,6 @@ function debugString(val) {
     }
     // TODO we could test for more things here, like `Set`s and `Map`s.
     return className;
-}
-
-let WASM_VECTOR_LEN = 0;
-
-let cachedUint8ArrayMemory0 = null;
-
-function getUint8ArrayMemory0() {
-    if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
-        cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
-    }
-    return cachedUint8ArrayMemory0;
-}
-
-const lTextEncoder = typeof TextEncoder === 'undefined' ? (0, module.require)('util').TextEncoder : TextEncoder;
-
-let cachedTextEncoder = new lTextEncoder('utf-8');
-
-const encodeString = (typeof cachedTextEncoder.encodeInto === 'function'
-    ? function (arg, view) {
-    return cachedTextEncoder.encodeInto(arg, view);
-}
-    : function (arg, view) {
-    const buf = cachedTextEncoder.encode(arg);
-    view.set(buf);
-    return {
-        read: arg.length,
-        written: buf.length
-    };
-});
-
-function passStringToWasm0(arg, malloc, realloc) {
-
-    if (realloc === undefined) {
-        const buf = cachedTextEncoder.encode(arg);
-        const ptr = malloc(buf.length, 1) >>> 0;
-        getUint8ArrayMemory0().subarray(ptr, ptr + buf.length).set(buf);
-        WASM_VECTOR_LEN = buf.length;
-        return ptr;
-    }
-
-    let len = arg.length;
-    let ptr = malloc(len, 1) >>> 0;
-
-    const mem = getUint8ArrayMemory0();
-
-    let offset = 0;
-
-    for (; offset < len; offset++) {
-        const code = arg.charCodeAt(offset);
-        if (code > 0x7F) break;
-        mem[ptr + offset] = code;
-    }
-
-    if (offset !== len) {
-        if (offset !== 0) {
-            arg = arg.slice(offset);
-        }
-        ptr = realloc(ptr, len, len = offset + arg.length * 3, 1) >>> 0;
-        const view = getUint8ArrayMemory0().subarray(ptr + offset, ptr + len);
-        const ret = encodeString(arg, view);
-
-        offset += ret.written;
-        ptr = realloc(ptr, len, offset, 1) >>> 0;
-    }
-
-    WASM_VECTOR_LEN = offset;
-    return ptr;
-}
-
-let cachedDataViewMemory0 = null;
-
-function getDataViewMemory0() {
-    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
-        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
-    }
-    return cachedDataViewMemory0;
 }
 
 const lTextDecoder = typeof TextDecoder === 'undefined' ? (0, module.require)('util').TextDecoder : TextDecoder;
@@ -245,8 +245,18 @@ export function calculate_square_lattice_points(b1x, b1y, b2x, b2y, target_count
     return ret;
 }
 
+/**
+ * Advanced separation by computing polygon difference using line intersections.
+ * @param {any} raw
+ * @returns {any}
+ */
+export function separate_brillouin_zones(raw) {
+    const ret = wasm.separate_brillouin_zones(raw);
+    return ret;
+}
+
 function takeFromExternrefTable0(idx) {
-    const value = wasm.__wbindgen_export_2.get(idx);
+    const value = wasm.__wbindgen_export_4.get(idx);
     wasm.__externref_table_dealloc(idx);
     return value;
 }
@@ -279,13 +289,110 @@ export function add(a, b) {
 }
 
 /**
- * Advanced separation by computing polygon difference using line intersections.
- * @param {any} raw
+ * Calculate the inverse of a 2x2 matrix
+ * @param {number} a11
+ * @param {number} a12
+ * @param {number} a21
+ * @param {number} a22
  * @returns {any}
  */
-export function separate_brillouin_zones(raw) {
-    const ret = wasm.separate_brillouin_zones(raw);
-    return ret;
+export function invert_matrix_2x2(a11, a12, a21, a22) {
+    const ret = wasm.invert_matrix_2x2(a11, a12, a21, a22);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Calculate the inverse of a 3x3 matrix
+ * @param {number} a11
+ * @param {number} a12
+ * @param {number} a13
+ * @param {number} a21
+ * @param {number} a22
+ * @param {number} a23
+ * @param {number} a31
+ * @param {number} a32
+ * @param {number} a33
+ * @returns {any}
+ */
+export function invert_matrix_3x3(a11, a12, a13, a21, a22, a23, a31, a32, a33) {
+    const ret = wasm.invert_matrix_3x3(a11, a12, a13, a21, a22, a23, a31, a32, a33);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Multiply two 2x2 matrices
+ * @param {number} a11
+ * @param {number} a12
+ * @param {number} a21
+ * @param {number} a22
+ * @param {number} b11
+ * @param {number} b12
+ * @param {number} b21
+ * @param {number} b22
+ * @returns {any}
+ */
+export function multiply_matrix_2x2(a11, a12, a21, a22, b11, b12, b21, b22) {
+    const ret = wasm.multiply_matrix_2x2(a11, a12, a21, a22, b11, b12, b21, b22);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Multiply two 3x3 matrices
+ * @param {number} a11
+ * @param {number} a12
+ * @param {number} a13
+ * @param {number} a21
+ * @param {number} a22
+ * @param {number} a23
+ * @param {number} a31
+ * @param {number} a32
+ * @param {number} a33
+ * @param {number} b11
+ * @param {number} b12
+ * @param {number} b13
+ * @param {number} b21
+ * @param {number} b22
+ * @param {number} b23
+ * @param {number} b31
+ * @param {number} b32
+ * @param {number} b33
+ * @returns {any}
+ */
+export function multiply_matrix_3x3(a11, a12, a13, a21, a22, a23, a31, a32, a33, b11, b12, b13, b21, b22, b23, b31, b32, b33) {
+    const ret = wasm.multiply_matrix_3x3(a11, a12, a13, a21, a22, a23, a31, a32, a33, b11, b12, b13, b21, b22, b23, b31, b32, b33);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
+ * Calculate transformation matrices for a 2D lattice
+ * @param {number} a1x
+ * @param {number} a1y
+ * @param {number} a2x
+ * @param {number} a2y
+ * @param {number} b1x
+ * @param {number} b1y
+ * @param {number} b2x
+ * @param {number} b2y
+ * @returns {any}
+ */
+export function calculate_lattice_transformations(a1x, a1y, a2x, a2y, b1x, b1y, b2x, b2y) {
+    const ret = wasm.calculate_lattice_transformations(a1x, a1y, a2x, a2y, b1x, b1y, b2x, b2y);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
 }
 
 const BrillouinZonesResultFinalization = (typeof FinalizationRegistry === 'undefined')
@@ -323,6 +430,14 @@ export class BrillouinZonesResult {
         return ret;
     }
 }
+
+export function __wbg_String_8f0eb39a4a4c2f66(arg0, arg1) {
+    const ret = String(arg1);
+    const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+    getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
+};
 
 export function __wbg_buffer_609cc3eee51ed158(arg0) {
     const ret = arg0.buffer;
@@ -463,7 +578,7 @@ export function __wbindgen_in(arg0, arg1) {
 };
 
 export function __wbindgen_init_externref_table() {
-    const table = wasm.__wbindgen_export_2;
+    const table = wasm.__wbindgen_export_4;
     const offset = table.grow(4);
     table.set(0, undefined);
     table.set(offset + 0, undefined);

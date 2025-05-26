@@ -45,14 +45,14 @@ export interface ProjectCode {
 export interface Vector3 {
   x: number;
   y: number;
-  z?: number;
+  z: number;  // Make z required for consistency
 }
 
 export interface MeepLattice {
   /** Basis vectors in real space */
   basis1: Vector3;
   basis2: Vector3;
-  basis3?: Vector3;
+  basis3: Vector3;  // Make basis3 required
   
   /** Size/scale factors for the basis vectors */
   basis_size: Vector3;
@@ -60,12 +60,16 @@ export interface MeepLattice {
   /** Computed reciprocal basis vectors (k-space) */
   reciprocal_basis1?: Vector3;
   reciprocal_basis2?: Vector3;
-  reciprocal_basis3?: Vector3;
+  reciprocal_basis3?: Vector3;  // Add reciprocal_basis3
   
   /** Transformation matrices between real and reciprocal space */
   transformationMatrices?: {
-    realToReciprocal: number[][];
-    reciprocalToReal: number[][];
+    realToReciprocal: number[][];  // 3x3 matrix
+    reciprocalToReal: number[][];  // 3x3 matrix
+    MA: number[][];         // Real space basis matrix [a1, a2, a3] - 3x3
+    MA_inv: number[][];     // Inverse of MA - 3x3
+    MB: number[][];         // Reciprocal space basis matrix [b1, b2, b3] - 3x3
+    MB_inv: number[][];     // Inverse of MB - 3x3
   };
 }
 

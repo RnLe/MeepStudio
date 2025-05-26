@@ -91,6 +91,17 @@ type LatticeState = {
   setRealSpaceZoneCount: (count: number) => void;
   reciprocalSpaceZoneCount: number;
   setReciprocalSpaceZoneCount: (count: number) => void;
+  
+  // Transformation matrices
+  transformationMatrices: {
+    MA: number[][];
+    MA_inv: number[][];
+    MB: number[][];
+    MB_inv: number[][];
+    realToReciprocal: number[][];
+    reciprocalToReal: number[][];
+  } | null;
+  setTransformationMatrices: (matrices: LatticeState['transformationMatrices']) => void;
 };
 
 export const useLatticeStore = createWithEqualityFn<LatticeState>(
@@ -103,7 +114,7 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     spaceMode: 'real',
     setSpaceMode: (mode) => set({ spaceMode: mode }),
     
-    // Voronoi cell toggles (merged)
+    // Voronoi cell toggles (merged) - both default to false
     showVoronoiCell: false,
     toggleShowVoronoiCell: () => set((s) => ({ showVoronoiCell: !s.showVoronoiCell })),
     showVoronoiTiling: false,
@@ -195,6 +206,10 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     setRealSpaceZoneCount: (count) => set({ realSpaceZoneCount: Math.max(1, Math.min(5, count)) }),
     reciprocalSpaceZoneCount: 1,
     setReciprocalSpaceZoneCount: (count) => set({ reciprocalSpaceZoneCount: Math.max(1, Math.min(5, count)) }),
+    
+    // Transformation matrices
+    transformationMatrices: null,
+    setTransformationMatrices: (matrices) => set({ transformationMatrices: matrices }),
   }),
   shallow
 );

@@ -5,6 +5,7 @@ import LatticeCanvas from "./LatticeCanvas";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import { reciprocalBasis, calculateTransformationMatrices } from "../utils/latticeCalculations";
+import { getWasmModule } from "../utils/wasmLoader";
 
 const latticeTypes = [
   { key: "square", title: "Square", Icon: Square },
@@ -38,47 +39,116 @@ export default function LatticeBuilder({ project, ghPages }: Props) {
         meepLattice = {
           basis1: { x: 1, y: 0, z: 0 },
           basis2: { x: 0, y: 1, z: 0 },
+          basis3: { x: 0, y: 0, z: 1 },
           basis_size: { x: 1, y: 1, z: 1 }
         };
-        parameters = { a: 1, b: 1, gamma: 90 };
+        parameters = { a: 1, b: 1, alpha: 90 };
         break;
       case "rectangle":
         meepLattice = {
           basis1: { x: 1, y: 0, z: 0 },
           basis2: { x: 0, y: 1, z: 0 },
+          basis3: { x: 0, y: 0, z: 1 },
           basis_size: { x: 1, y: 0.5, z: 1 }
         };
-        parameters = { a: 1, b: 0.5, gamma: 90 };
+        parameters = { a: 1, b: 0.5, alpha: 90 };
         break;
       case "hexagon":
         meepLattice = {
           basis1: { x: 1, y: 0, z: 0 },
           basis2: { x: 0.5, y: Math.sqrt(3)/2, z: 0 },
+          basis3: { x: 0, y: 0, z: 1 },
           basis_size: { x: 1, y: 1, z: 1 }
         };
-        parameters = { a: 1, b: 1, gamma: 120 };
+        parameters = { a: 1, b: 1, alpha: 120 };
         break;
       default:
         meepLattice = {
           basis1: { x: 1, y: 0, z: 0 },
           basis2: { x: 0, y: 1, z: 0 },
+          basis3: { x: 0, y: 0, z: 1 },
           basis_size: { x: 1, y: 1, z: 1 }
         };
-        parameters = { a: 1, b: 1, gamma: 90 };
+        parameters = { a: 1, b: 1, alpha: 90 };
     }
     
-    // Calculate reciprocal basis vectors
+    // Calculate reciprocal basis vectors using WASM
     try {
-      const { b1, b2 } = reciprocalBasis(meepLattice.basis1, meepLattice.basis2);
-      meepLattice.reciprocal_basis1 = b1;
-      meepLattice.reciprocal_basis2 = b2;
+      const wasm = await getWasmModule();
       
-      // Calculate transformation matrices
-      const transformationMatrices = calculateTransformationMatrices(
-        meepLattice.basis1, 
-        meepLattice.basis2
-      );
-      meepLattice.transformationMatrices = transformationMatrices;
+      // Get scaled basis vectors
+      const a1 = {
+        x: meepLattice.basis1.x * meepLattice.basis_size.x,
+        y: meepLattice.basis1.y * meepLattice.basis_size.y,
+        z: meepLattice.basis1.z * meepLattice.basis_size.z
+      };
+      const a2 = {
+        x: meepLattice.basis2.x * meepLattice.basis_size.x,
+        y: meepLattice.basis2.y * meepLattice.basis_size.y,
+        z: meepLattice.basis2.z * meepLattice.basis_size.z
+      };
+      
+      // For 2D lattices, calculate reciprocal basis manually
+      const det = a1.x * a2.y - a1.y * a2.x;
+      if (Math.abs(det) < 1e-14) {
+        throw new Error("Basis vectors are collinear - cannot build reciprocal lattice.");
+      }
+      
+      const factor = 2 * Math.PI / det;
+      meepLattice.reciprocal_basis1 = { 
+        x: a2.y * factor, 
+        y: -a2.x * factor,
+        z: 0 
+      };
+      meepLattice.reciprocal_basis2 = { 
+        x: -a1.y * factor, 
+        y: a1.x * factor,
+        z: 0 
+      };
+      meepLattice.reciprocal_basis3 = { x: 0, y: 0, z: 2 * Math.PI }; // 2π/1 for z
+      
+      // Calculate transformation matrices (3D)
+      if (wasm.calculate_lattice_transformations_3d) {
+        const matrices = wasm.calculate_lattice_transformations_3d(
+          a1.x, a1.y, a1.z,
+          a2.x, a2.y, a2.z,
+          meepLattice.basis3.x * meepLattice.basis_size.x,
+          meepLattice.basis3.y * meepLattice.basis_size.y,
+          meepLattice.basis3.z * meepLattice.basis_size.z,
+          meepLattice.reciprocal_basis1.x, meepLattice.reciprocal_basis1.y, meepLattice.reciprocal_basis1.z,
+          meepLattice.reciprocal_basis2.x, meepLattice.reciprocal_basis2.y, meepLattice.reciprocal_basis2.z,
+          meepLattice.reciprocal_basis3.x, meepLattice.reciprocal_basis3.y, meepLattice.reciprocal_basis3.z
+        );
+        
+        meepLattice.transformationMatrices = matrices;
+      } else if (wasm.calculate_lattice_transformations) {
+        // Fallback to 2D version
+        const matrices2d = wasm.calculate_lattice_transformations(
+          a1.x, a1.y,
+          a2.x, a2.y,
+          meepLattice.reciprocal_basis1.x, meepLattice.reciprocal_basis1.y,
+          meepLattice.reciprocal_basis2.x, meepLattice.reciprocal_basis2.y
+        );
+        
+        // Convert 2x2 matrices to 3x3
+        const expandMatrix = (m: any): number[][] => {
+          if (!m || !Array.isArray(m)) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+          return [
+            [m[0][0], m[0][1], 0],
+            [m[1][0], m[1][1], 0],
+            [0, 0, 1]
+          ];
+        };
+        
+        meepLattice.transformationMatrices = {
+          MA: expandMatrix(matrices2d.MA),
+          MA_inv: expandMatrix(matrices2d.MA_inv),
+          MB: expandMatrix(matrices2d.MB),
+          MB_inv: expandMatrix(matrices2d.MB_inv),
+          realToReciprocal: expandMatrix(matrices2d.realToReciprocal),
+          reciprocalToReal: expandMatrix(matrices2d.reciprocalToReal)
+        };
+      }
     } catch (error) {
       console.error("Failed to calculate reciprocal lattice:", error);
     }
@@ -146,9 +216,10 @@ export default function LatticeBuilder({ project, ghPages }: Props) {
               meepLattice: project.lattice.latticeData.meepLattice || {
                 basis1: { x: 1, y: 0, z: 0 },
                 basis2: { x: 0, y: 1, z: 0 },
+                basis3: { x: 0, y: 0, z: 1 },
                 basis_size: { x: 1, y: 1, z: 1 }
               },
-              parameters: project.lattice.latticeData.parameters || { a: 1, b: 1, gamma: 90 },
+              parameters: project.lattice.latticeData.parameters || { a: 1, b: 1, alpha: 90 },
               displaySettings: project.lattice.latticeData.displaySettings || {
                 showWignerSeitz: false,
                 showBrillouinZone: false,

@@ -20,6 +20,8 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
   const spaceMode = useLatticeStore((s) => s.spaceMode);
   const realSpaceZoneCount = useLatticeStore((s) => s.realSpaceZoneCount);
   const reciprocalSpaceZoneCount = useLatticeStore((s) => s.reciprocalSpaceZoneCount);
+  const transformationMatrices = useLatticeStore((s) => s.transformationMatrices);
+  const setTransformationMatrices = useLatticeStore((s) => s.setTransformationMatrices);
   
   // Load existing voronoi data when lattice changes
   useEffect(() => {
@@ -29,6 +31,148 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
       setVoronoiData(null);
     }
   }, [lattice?.documentId, lattice?.voronoiData, setVoronoiData]);
+  
+  // Load transformation matrices when lattice changes
+  useEffect(() => {
+    if (lattice?.meepLattice?.transformationMatrices) {
+      setTransformationMatrices(lattice.meepLattice.transformationMatrices);
+    } else {
+      setTransformationMatrices(null);
+    }
+  }, [lattice?.documentId, lattice?.meepLattice?.transformationMatrices, setTransformationMatrices]);
+  
+  // Calculate transformation matrices
+  const calculateTransformationMatrices = useCallback(
+    async () => {
+      if (!lattice?.meepLattice || 
+          !lattice.meepLattice.reciprocal_basis1 || 
+          !lattice.meepLattice.reciprocal_basis2) {
+        return;
+      }
+      
+      try {
+        const wasm = await getWasmModule();
+        
+        // Get scaled basis vectors
+        const a1 = {
+          x: lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x,
+          y: lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y,
+          z: lattice.meepLattice.basis1.z * lattice.meepLattice.basis_size.z
+        };
+        const a2 = {
+          x: lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x,
+          y: lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y,
+          z: lattice.meepLattice.basis2.z * lattice.meepLattice.basis_size.z
+        };
+        const a3 = lattice.meepLattice.basis3 ? {
+          x: lattice.meepLattice.basis3.x * lattice.meepLattice.basis_size.x,
+          y: lattice.meepLattice.basis3.y * lattice.meepLattice.basis_size.y,
+          z: lattice.meepLattice.basis3.z * lattice.meepLattice.basis_size.z
+        } : { x: 0, y: 0, z: 1 };
+        
+        const b1 = lattice.meepLattice.reciprocal_basis1;
+        const b2 = lattice.meepLattice.reciprocal_basis2;
+        const b3 = lattice.meepLattice.reciprocal_basis3 || { x: 0, y: 0, z: 2 * Math.PI };
+        
+        console.log('Calculating transformation matrices with:', {
+          a1, a2, a3, b1, b2, b3
+        });
+        
+        let matrices;
+        
+        // Try 3D calculation first
+        if (wasm.calculate_lattice_transformations_3d) {
+          matrices = wasm.calculate_lattice_transformations_3d(
+            a1.x, a1.y, a1.z,
+            a2.x, a2.y, a2.z,
+            a3.x, a3.y, a3.z,
+            b1.x, b1.y, b1.z,
+            b2.x, b2.y, b2.z,
+            b3.x, b3.y, b3.z
+          );
+        } else if (wasm.calculate_lattice_transformations) {
+          // Fallback to 2D version
+          const matrices2d = wasm.calculate_lattice_transformations(
+            a1.x, a1.y,
+            a2.x, a2.y,
+            b1.x, b1.y,
+            b2.x, b2.y
+          );
+          
+          // Convert 2x2 matrices to 3x3
+          const expandMatrix = (m: any): number[][] => {
+            if (!m || !Array.isArray(m)) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+            return [
+              [m[0][0], m[0][1], 0],
+              [m[1][0], m[1][1], 0],
+              [0, 0, 1]
+            ];
+          };
+          
+          matrices = {
+            MA: expandMatrix(matrices2d.MA),
+            MA_inv: expandMatrix(matrices2d.MA_inv),
+            MB: expandMatrix(matrices2d.MB),
+            MB_inv: expandMatrix(matrices2d.MB_inv),
+            realToReciprocal: expandMatrix(matrices2d.realToReciprocal),
+            reciprocalToReal: expandMatrix(matrices2d.reciprocalToReal)
+          };
+        } else {
+          throw new Error("No WASM transformation calculation function available");
+        }
+        
+        console.log('Calculated matrices:', matrices);
+        
+        setTransformationMatrices(matrices);
+        
+        // Save to lattice
+        const updatedLattice: Lattice = {
+          ...lattice,
+          meepLattice: {
+            ...lattice.meepLattice,
+            transformationMatrices: matrices
+          }
+        };
+        await updateLattice({
+          documentId: lattice.documentId,
+          lattice: updatedLattice
+        });
+        
+      } catch (e) {
+        console.error("Error calculating transformation matrices:", e);
+      }
+    },
+    [lattice, updateLattice, setTransformationMatrices]
+  );
+  
+  // Check and calculate transformation matrices if needed
+  useEffect(() => {
+    if (lattice?.meepLattice && 
+        lattice.meepLattice.reciprocal_basis1 && 
+        lattice.meepLattice.reciprocal_basis2) {
+      // Always recalculate if basis vectors have changed
+      const needsCalculation = !lattice.meepLattice.transformationMatrices ||
+        // Add a check to see if matrices match current vectors
+        !transformationMatrices ||
+        transformationMatrices.MA[0][0] !== lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x ||
+        transformationMatrices.MA[1][0] !== lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y ||
+        transformationMatrices.MA[0][1] !== lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x ||
+        transformationMatrices.MA[1][1] !== lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y;
+        
+      if (needsCalculation) {
+        calculateTransformationMatrices();
+      }
+    }
+  }, [
+    lattice?.meepLattice?.basis1,
+    lattice?.meepLattice?.basis2,
+    lattice?.meepLattice?.basis_size,
+    lattice?.meepLattice?.reciprocal_basis1,
+    lattice?.meepLattice?.reciprocal_basis2,
+    lattice?.meepLattice?.transformationMatrices,
+    transformationMatrices,
+    calculateTransformationMatrices
+  ]);
   
   // --- helper to fetch fresh store data each time ---------------------------
   const getStore = () => useLatticeStore.getState();
@@ -194,6 +338,7 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
     voronoiData,
     isCalculatingVoronoi,
     calculateVoronoiCells,
-    checkAndCalculateVoronoi
+    checkAndCalculateVoronoi,
+    calculateTransformationMatrices
   };
 };

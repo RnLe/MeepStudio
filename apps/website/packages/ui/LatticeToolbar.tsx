@@ -413,7 +413,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                 {group.label}
               </div>
               <div className="grid grid-cols-2 gap-1 w-full justify-items-center min-h-8">
-                {/* First row - Lattice Points alone */}
+                {/* First row - Lattice Points and Grid */}
                 <button
                   key="Lattice Points"
                   title="Lattice Points"
@@ -427,7 +427,19 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                 >
                   <Grip size={18} />
                 </button>
-                <div className="w-8 h-8" /> {/* Empty space */}
+                <button
+                  key="Grid"
+                  title="Grid"
+                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
+                    ${showGrid
+                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
+                      : "hover:bg-neutral-600 active:bg-neutral-600"}
+                  `}
+                  onClick={() => toggleShowGrid()}
+                  aria-label="Grid"
+                >
+                  <Grid3X3 size={18} />
+                </button>
                 
                 {/* Second row - Unit Cell and Unit Tiles with link */}
                 <div className="col-span-2 grid grid-cols-2 gap-[4] relative">
@@ -475,20 +487,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                   <div className="absolute w-3 h-[2px] bg-neutral-400/70 left-1/2 -translate-x-3/5 top-1/2 -translate-y-1/2 z-20" />
                 </div>
                 
-                {/* Third row - Grid and Base Vectors */}
-                <button
-                  key="Grid"
-                  title="Grid"
-                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
-                    ${showGrid
-                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
-                      : "hover:bg-neutral-600 active:bg-neutral-600"}
-                  `}
-                  onClick={() => toggleShowGrid()}
-                  aria-label="Grid"
-                >
-                  <Grid3X3 size={18} />
-                </button>
+                {/* Third row - Base Vectors alone */}
                 <button
                   key="Base Vectors"
                   title="Base Vectors"
@@ -502,6 +501,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                 >
                   <Move3D size={18} />
                 </button>
+                <div className="w-8 h-8" /> {/* Empty space */}
               </div>
             </div>
           ) : (
