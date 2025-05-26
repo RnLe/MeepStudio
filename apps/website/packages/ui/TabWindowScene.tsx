@@ -4,7 +4,6 @@ import React from "react";
 import dynamic from "next/dynamic";
 import CanvasToolbar from "./CanvasToolbar";
 import { MeepProject } from "../types/meepProjectTypes";
-import { useCanvasStore } from "../providers/CanvasStore";
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 10;
@@ -25,14 +24,7 @@ interface Props {
 }
 
 const TabWindowScene: React.FC<Props> = ({ project, ghPages }) => {
-  const setActiveProject = useCanvasStore((s) => s.setActiveProject);
   const scene = project.scene;
-  
-  React.useEffect(() => {
-    if (project?.documentId) {
-      setActiveProject(project.documentId);
-    }
-  }, [project?.documentId, setActiveProject]);
   
   return (
     <div className="flex-1 flex flex-row w-full h-full overflow-hidden">

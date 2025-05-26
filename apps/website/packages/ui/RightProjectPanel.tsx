@@ -36,7 +36,6 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
 
   const { updateProject } = useMeepProjects({ ghPages });
   const setGeometries = useCanvasStore((s) => s.setGeometries);
-  const setActiveProject = useCanvasStore((s) => s.setActiveProject);
   const qc = useQueryClient();
 
   React.useEffect(() => {
@@ -46,9 +45,8 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
       rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
       resolution: project?.scene?.resolution || projectSettings.resolution.default,
     });
-    if (project?.documentId) setActiveProject(project.documentId);
     if (project?.scene?.geometries) setGeometries(project.scene.geometries);
-  }, [project, setActiveProject, setGeometries]);
+  }, [project, setGeometries]);
 
   const handleEditClick = () => setEditing(true);
   
@@ -63,9 +61,8 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
   };
 
   const refreshProjectInStore = React.useCallback((updatedProject: MeepProject) => {
-    setActiveProject(updatedProject.documentId);
     setGeometries(updatedProject.scene?.geometries || []);
-  }, [setActiveProject, setGeometries]);
+  }, [setGeometries]);
 
   const handleSave = async () => {
     setEditing(false);

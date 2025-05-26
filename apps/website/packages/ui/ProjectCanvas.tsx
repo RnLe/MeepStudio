@@ -27,34 +27,38 @@ interface Props {
 const ProjectCanvas: React.FC<Props> = (props) => {
   // --- Props and Store Setup ---
   const { project: propProject, ghPages, maxZoom, gridWidth, gridHeight } = props;
-  // Use zustand to get active projectId
-  const activeProjectId = useCanvasStore((s) => s.activeProjectId);
-  const { projects } = useMeepProjects({ ghPages });
-  // Find the active project from the list, fallback to prop
-  const project = React.useMemo(() => {
-    if (!activeProjectId) return propProject;
-    const found = projects.find((p) => p.documentId === activeProjectId);
-    return found || propProject;
-  }, [activeProjectId, projects, propProject]);
+  
+  // ✅ Simply keep the prop as the project
+  const project = propProject;
   if (!project) return null;
   const projectId = project.documentId;
 
   const { updateProject } = useMeepProjects({ ghPages });
   const {
-    selectedId, selectedIds, selectElement, snapToGrid, geometries, setGeometries,
-    addGeometry, updateGeometry, removeGeometry, removeGeometries
+    selectedGeometryId,
+    selectedGeometryIds,
+    selectGeometry,
+    setSelectedGeometryIds,
+    gridSnapping, // Keep this one from the store
+    geometries,
+    setGeometries,
+    addGeometry,
+    updateGeometry,
+    removeGeometry,
+    removeGeometries
   } = useCanvasStore(
     (s) => ({
-      selectedId: s.selectedId,
-      selectedIds: s.selectedIds,
-      selectElement: s.selectElement,
-      snapToGrid: s.gridSnapping,
+      selectedGeometryId: s.selectedGeometryId,
+      selectedGeometryIds: s.selectedGeometryIds,
+      selectGeometry: s.selectGeometry,
+      setSelectedGeometryIds: s.setSelectedGeometryIds,
+      gridSnapping: s.gridSnapping, // Rename this to avoid conflict
       geometries: s.geometries,
       setGeometries: s.setGeometries,
       addGeometry: s.addGeometry,
       updateGeometry: s.updateGeometry,
       removeGeometry: s.removeGeometry,
-      removeGeometries: s.removeGeometries, // Add this
+      removeGeometries: s.removeGeometries,
     }),
     shallow
   );  // --- Geometry Migration Effect ---
@@ -121,8 +125,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         }
       },
     });
-    if (selectedId === id) selectElement(null);
-  }, [removeGeometry, updateProject, projectId, geometries, selectedId, selectElement, project.scene]);
+    if (selectedGeometryId === id) selectGeometry(null);
+  }, [removeGeometry, updateProject, projectId, geometries, selectedGeometryId, selectGeometry, project.scene]);
 
   // Batch delete handler for multiple geometries
   const handleBatchRemoveGeometries = useCallback((ids: string[]) => {
@@ -393,12 +397,13 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const [selBox, setSelBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // --- Snapping Helpers ---
-  const gridSnapping = useCanvasStore((s) => s.gridSnapping);
   const resolutionSnapping = useCanvasStore((s) => s.resolutionSnapping);
   const snapCanvasPosToGrid = useCallback((canvasPos: { x: number; y: number }) => {
     // Convert canvas (absolute) position to logical grid coordinates
     const logicalX = (canvasPos.x - pos.x) / scale;
-    const logicalY = (canvasPos.y - pos.y) / scale;    if (resolutionSnapping && project.scene?.resolution && project.scene.resolution > 1) {
+    const logicalY = (canvasPos.y - pos.y) / scale;
+
+    if (resolutionSnapping && project.scene?.resolution && project.scene.resolution > 1) {
       const res = project.scene.resolution;
       const cellW = GRID_PX / res;
       const cellH = GRID_PX / res;
@@ -430,14 +435,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   // --- Keyboard Shortcuts ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length > 0) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedGeometryIds.length > 0) {
         e.preventDefault(); // Prevent any default behavior
-        handleBatchRemoveGeometries(selectedIds);
+        handleBatchRemoveGeometries(selectedGeometryIds);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIds, handleBatchRemoveGeometries]);
+  }, [selectedGeometryIds, handleBatchRemoveGeometries]);
 
   // --- Dynamic Border Weight Calculation ---
   const borderWeight = useMemo(() => {
@@ -488,7 +493,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             const y = (abs.y - pos.y) / scale;
             setSelOrigin({ x, y });
             setSelBox({ x, y, width: 0, height: 0 });
-            selectElement(null);
+            selectGeometry(null);
           }
         }}
         onMouseMove={(e) => {
@@ -709,7 +714,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                 }
                 return false;
               }).map(g => g.id);
-              useCanvasStore.getState().setSelectedIds(selected);
+              useCanvasStore.getState().setSelectedGeometryIds(selected);
             }
             setSelOrigin(null);
             setSelBox(null);
@@ -757,7 +762,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             cylinders={cylinders}
             rectangles={rectangles}
             triangles={triangles}
-            selectedIds={selectedIds}
+            selectedIds={selectedGeometryIds}
             gridSnapping={gridSnapping}
             resolutionSnapping={resolutionSnapping}
             snapCanvasPosToGrid={snapCanvasPosToGrid}
@@ -766,7 +771,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             geometries={geometries}
             updateGeometry={updateGeometry}
             handleUpdateGeometry={handleUpdateGeometry}
-            selectElement={selectElement}
+            selectElement={selectGeometry}
             GRID_PX={GRID_PX}
           />
         </Layer>

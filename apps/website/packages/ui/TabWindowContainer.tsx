@@ -1,6 +1,6 @@
 // src/components/layout/TabWindowContainer.tsx
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import TabBar from "./TabBar";
 import SubTabContent from "./SubTabContent";
 import TabWindowLattice from "./TabWindowLattice";
@@ -16,7 +16,14 @@ const TabWindowContainer: React.FC = () => {
     projects,
     activeMainTabType,
     getActiveLattice,
+    clearAllSelections,
   } = useEditorStateStore();
+  
+  // Clear selections when the active main tab type changes
+  useEffect(() => {
+    // We don't need to clear selections here as it's already handled in the store
+    // when switching between projects/lattices/dashboard
+  }, [activeMainTabType]);
   
   // Remap open projects to the latest project objects
   const displayedProjects = React.useMemo(

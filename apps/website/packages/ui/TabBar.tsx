@@ -41,6 +41,7 @@ const TabBar: React.FC<Props> = () => {
     closeSubTab,
     deleteProject,
     deleteLattice,
+    clearAllSelections,
   } = useEditorStateStore();
   const activeProjectSubTabs = getActiveProjectSubTabs();
 
@@ -74,6 +75,21 @@ const TabBar: React.FC<Props> = () => {
     }
   };
   
+  const handleProjectTabClick = (projectId: string) => {
+    setActiveProject(projectId);  // 1) activate
+    clearAllSelections();         // 2) clear stale multi-selection
+  };
+
+  const handleLatticeTabClick = (latticeId: string) => {
+    setActiveLattice(latticeId);
+    clearAllSelections();
+  };
+
+  const handleDashboardTabClick = (dashboardId: string) => {
+    setActiveDashboard(dashboardId);
+    clearAllSelections();
+  };
+  
   return (
     <div className="flex flex-col bg-slate-900 border-b border-slate-700/50 shadow-xl">
       {/* Top Row - Project and Lattice Tabs */}
@@ -83,7 +99,7 @@ const TabBar: React.FC<Props> = () => {
           {openDashboards.map((dashboardId) => (
             <div
               key={dashboardId}
-              onClick={() => setActiveDashboard(dashboardId)}
+              onClick={() => handleDashboardTabClick(dashboardId)}
               className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
                 dashboardId === activeDashboardId 
                   ? "bg-slate-700 text-white" 
@@ -118,7 +134,7 @@ const TabBar: React.FC<Props> = () => {
           {openProjects.map((project) => (
             <div
               key={project.documentId}
-              onClick={() => setActiveProject(project.documentId!)}
+              onClick={() => handleProjectTabClick(project.documentId!)}
               onContextMenu={(e) => handleContextMenu(e, project, 'project')}
               className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
                 project.documentId === activeProjectId 
@@ -154,7 +170,7 @@ const TabBar: React.FC<Props> = () => {
           {openLattices.map((lattice) => (
             <div
               key={lattice.documentId}
-              onClick={() => setActiveLattice(lattice.documentId!)}
+              onClick={() => handleLatticeTabClick(lattice.documentId!)}
               onContextMenu={(e) => handleContextMenu(e, lattice, 'lattice')}
               className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
                 lattice.documentId === activeLatticeId 

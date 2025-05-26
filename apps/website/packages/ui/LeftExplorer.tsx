@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
 import { MoreHorizontal, Plus, ChevronDown, ChevronRight, Layers, Hexagon } from "lucide-react";
 import ContextMenu from "./ContextMenu";
@@ -17,9 +17,17 @@ export default function LeftExplorer() {
     deleteLattice,
     closeProject,
     closeLattice,
-    setLeftSidebarPanel
+    setLeftSidebarPanel,
+    activeProjectId,
+    activeLatticeId,
+    selectedProjectIds,
+    selectedLatticeIds,
+    toggleProjectSelection,
+    toggleLatticeSelection,
+    clearAllSelections
   } = useEditorStateStore();
   
+  const containerRef = useRef<HTMLDivElement>(null);
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
   const [projectsExpanded, setProjectsExpanded] = useState(true);
   const [latticesExpanded, setLatticesExpanded] = useState(true);
@@ -33,6 +41,52 @@ export default function LeftExplorer() {
     | { x: number; y: number; lattice: Lattice }
     | null
   >(null);
+
+  // Sort projects and lattices alphabetically
+  const sortedProjects = [...projects].sort((a, b) => a.title.localeCompare(b.title));
+  const sortedLattices = [...lattices].sort((a, b) => a.title.localeCompare(b.title));
+
+  // Handle focus loss to clear selections
+  useEffect(() => {
+    const handleFocusOut = (e: FocusEvent) => {
+      // Check if the new focus target is outside our container
+      if (containerRef.current && !containerRef.current.contains(e.relatedTarget as Node)) {
+        clearAllSelections();
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('focusout', handleFocusOut);
+      return () => container.removeEventListener('focusout', handleFocusOut);
+    }
+  }, [clearAllSelections]);
+
+  const handleProjectClick = (project: MeepProject, e: React.MouseEvent) => {
+    const isMulti = e.ctrlKey || e.metaKey;
+    const isRange = e.shiftKey;
+    
+    if (isMulti || isRange) {
+      e.preventDefault();
+      toggleProjectSelection(project.documentId, isMulti, isRange);
+    } else {
+      clearAllSelections();
+      openProject(project);
+    }
+  };
+
+  const handleLatticeClick = (lattice: Lattice, e: React.MouseEvent) => {
+    const isMulti = e.ctrlKey || e.metaKey;
+    const isRange = e.shiftKey;
+    
+    if (isMulti || isRange) {
+      e.preventDefault();
+      toggleLatticeSelection(lattice.documentId, isMulti, isRange);
+    } else {
+      clearAllSelections();
+      openLattice(lattice);
+    }
+  };
 
   const handleDeleteProject = async (project: MeepProject) => {
     if (window.confirm(`Are you sure you want to delete the project "${project.title}"? This cannot be undone.`)) {
@@ -50,7 +104,7 @@ export default function LeftExplorer() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col overflow-y-auto">
+      <div ref={containerRef} className="flex-1 flex flex-col overflow-y-auto outline-none" tabIndex={-1}>
         {/* Projects Section */}
         <div className="border-b border-gray-700">
           <div 
@@ -79,47 +133,57 @@ export default function LeftExplorer() {
                 {/* Vertical line */}
                 <div className="absolute left-1 top-0 bottom-0 w-px bg-gray-600"></div>
                 
-                {projects.map((project) => (
-                  <div
-                    key={project.documentId}
-                    className={`flex items-center px-3 py-1 text-sm text-gray-300 transition-colors cursor-pointer truncate group 
-                      ${projectContextMenu && projectContextMenu.project.documentId === project.documentId ? "" : "hover:bg-neutral-600"}`}
-                    style={{
-                      borderRadius: 0,
-                      marginLeft: '-0.5rem',
-                      marginRight: '-0.5rem',
-                      width: 'calc(100% + 1rem)',
-                    }}
-                    onClick={() => openProject(project)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      setProjectContextMenu({
-                        x: e.clientX,
-                        y: e.clientY,
-                        project,
-                      });
-                    }}
-                  >
-                    <Layers size={14} className="mr-2 text-gray-400 flex-shrink-0 ml-3" />
-                    <span className="truncate flex-1">{project.title}</span>
-                    <button
-                      className="ml-2 cursor-pointer project-menu-btn z-10 group/icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                {sortedProjects.map((project) => {
+                  const isActive = activeProjectId === project.documentId;
+                  const isSelected = selectedProjectIds.has(project.documentId);
+                  return (
+                    <div
+                      key={project.documentId}
+                      className={`flex items-center px-3 py-1 text-sm text-gray-300 transition-colors cursor-pointer truncate group select-none
+                        ${projectContextMenu && projectContextMenu.project.documentId === project.documentId ? "" : 
+                          isActive ? "bg-neutral-600" : 
+                          isSelected ? "bg-neutral-700" : "hover:bg-neutral-700"}`}
+                      style={{
+                        borderRadius: 0,
+                        marginLeft: '-0.5rem',
+                        marginRight: '-0.5rem',
+                        width: 'calc(100% + 1rem)',
+                      }}
+                      onClick={(e) => handleProjectClick(project, e)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        // If right-clicking on a selected item, keep selection
+                        if (!selectedProjectIds.has(project.documentId)) {
+                          clearAllSelections();
+                        }
                         setProjectContextMenu({
-                          x: e.currentTarget.getBoundingClientRect().right + window.scrollX,
-                          y: e.currentTarget.getBoundingClientRect().bottom + window.scrollY,
+                          x: e.clientX,
+                          y: e.clientY,
                           project,
                         });
                       }}
                     >
-                      <MoreHorizontal
-                        size={16}
-                        className="text-gray-500 opacity-0 group-hover:opacity-100 group/icon:hover:text-gray-300 transition-all"
-                      />
-                    </button>
-                  </div>
-                ))}
+                      <Layers size={14} className={`mr-2 flex-shrink-0 ml-3 ${isActive ? 'text-blue-400' : isSelected ? 'text-blue-300' : 'text-gray-400'}`} />
+                      <span className={`truncate flex-1 ${isActive ? 'font-medium' : ''}`}>{project.title}</span>
+                      <button
+                        className="ml-2 cursor-pointer project-menu-btn z-10 group/icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectContextMenu({
+                            x: e.currentTarget.getBoundingClientRect().right + window.scrollX,
+                            y: e.currentTarget.getBoundingClientRect().bottom + window.scrollY,
+                            project,
+                          });
+                        }}
+                      >
+                        <MoreHorizontal
+                          size={16}
+                          className="text-gray-400 opacity-0 group-hover:opacity-100 group/icon:hover:text-gray-100 transition-all"
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
                 {projects.length === 0 && (
                   <div className="px-3 py-2 text-xs text-gray-500 italic ml-3">
                     No projects yet
@@ -158,47 +222,57 @@ export default function LeftExplorer() {
                 {/* Vertical line */}
                 <div className="absolute left-1 top-0 bottom-0 w-px bg-gray-600"></div>
                 
-                {lattices.map((lattice) => (
-                  <div
-                    key={lattice.documentId}
-                    className={`flex items-center px-3 py-1 text-sm text-gray-300 transition-colors cursor-pointer truncate group 
-                      ${latticeContextMenu && latticeContextMenu.lattice.documentId === lattice.documentId ? "" : "hover:bg-neutral-600"}`}
-                    style={{
-                      borderRadius: 0,
-                      marginLeft: '-0.5rem',
-                      marginRight: '-0.5rem',
-                      width: 'calc(100% + 1rem)',
-                    }}
-                    onClick={() => openLattice(lattice)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      setLatticeContextMenu({
-                        x: e.clientX,
-                        y: e.clientY,
-                        lattice,
-                      });
-                    }}
-                  >
-                    <Hexagon size={14} className="mr-2 text-gray-400 flex-shrink-0 ml-3" />
-                    <span className="truncate flex-1">{lattice.title}</span>
-                    <button
-                      className="ml-2 cursor-pointer project-menu-btn z-10 group/icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                {sortedLattices.map((lattice) => {
+                  const isActive = activeLatticeId === lattice.documentId;
+                  const isSelected = selectedLatticeIds.has(lattice.documentId);
+                  return (
+                    <div
+                      key={lattice.documentId}
+                      className={`flex items-center px-3 py-1 text-sm text-gray-300 transition-colors cursor-pointer truncate group select-none
+                        ${latticeContextMenu && latticeContextMenu.lattice.documentId === lattice.documentId ? "" : 
+                          isActive ? "bg-neutral-600" : 
+                          isSelected ? "bg-neutral-700" : "hover:bg-neutral-700"}`}
+                      style={{
+                        borderRadius: 0,
+                        marginLeft: '-0.5rem',
+                        marginRight: '-0.5rem',
+                        width: 'calc(100% + 1rem)',
+                      }}
+                      onClick={(e) => handleLatticeClick(lattice, e)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        // If right-clicking on a selected item, keep selection
+                        if (!selectedLatticeIds.has(lattice.documentId)) {
+                          clearAllSelections();
+                        }
                         setLatticeContextMenu({
-                          x: e.currentTarget.getBoundingClientRect().right + window.scrollX,
-                          y: e.currentTarget.getBoundingClientRect().bottom + window.scrollY,
+                          x: e.clientX,
+                          y: e.clientY,
                           lattice,
                         });
                       }}
                     >
-                      <MoreHorizontal
-                        size={16}
-                        className="text-gray-500 opacity-0 group-hover:opacity-100 group/icon:hover:text-gray-300 transition-all"
-                      />
-                    </button>
-                  </div>
-                ))}
+                      <Hexagon size={14} className={`mr-2 flex-shrink-0 ml-3 ${isActive ? 'text-green-400' : isSelected ? 'text-green-300' : 'text-gray-400'}`} />
+                      <span className={`truncate flex-1 ${isActive ? 'font-medium' : ''}`}>{lattice.title}</span>
+                      <button
+                        className="ml-2 cursor-pointer project-menu-btn z-10 group/icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLatticeContextMenu({
+                            x: e.currentTarget.getBoundingClientRect().right + window.scrollX,
+                            y: e.currentTarget.getBoundingClientRect().bottom + window.scrollY,
+                            lattice,
+                          });
+                        }}
+                      >
+                        <MoreHorizontal
+                          size={16}
+                          className="text-gray-400 opacity-0 group-hover:opacity-100 group/icon:hover:text-gray-100 transition-all"
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
                 {lattices.length === 0 && (
                   <div className="px-3 py-2 text-xs text-gray-500 italic ml-3">
                     No lattices yet
@@ -214,24 +288,53 @@ export default function LeftExplorer() {
           <ContextMenu
             x={projectContextMenu.x}
             y={projectContextMenu.y}
-            onClose={() => setProjectContextMenu(null)}
-            entries={[
-              {
-                label: "Open",
-                onClick: () => {
-                  openProject(projectContextMenu.project);
-                  setProjectContextMenu(null);
-                },
-              },
-              {
-                label: "Delete",
-                onClick: () => {
-                  handleDeleteProject(projectContextMenu.project);
-                  setProjectContextMenu(null);
-                },
-                danger: true,
-              },
-            ]}
+            onClose={() => {
+              setProjectContextMenu(null);
+              clearAllSelections();
+            }}
+            entries={
+              selectedProjectIds.size > 1
+                ? [
+                    // Multi-selection entries
+                    {
+                      label: `Remove ${selectedProjectIds.size} Projects`,
+                      onClick: () => {
+                        if (window.confirm(`Are you sure you want to delete ${selectedProjectIds.size} projects? This cannot be undone.`)) {
+                          selectedProjectIds.forEach(id => {
+                            const project = projects.find(p => p.documentId === id);
+                            if (project) {
+                              deleteProject(project.documentId);
+                              closeProject(project.documentId);
+                            }
+                          });
+                        }
+                        setProjectContextMenu(null);
+                        clearAllSelections();
+                      },
+                      danger: true,
+                    },
+                  ]
+                : [
+                    // Single-selection entries
+                    {
+                      label: "Open",
+                      onClick: () => {
+                        openProject(projectContextMenu.project);
+                        setProjectContextMenu(null);
+                        clearAllSelections();
+                      },
+                    },
+                    {
+                      label: "Remove",
+                      onClick: () => {
+                        handleDeleteProject(projectContextMenu.project);
+                        setProjectContextMenu(null);
+                        clearAllSelections();
+                      },
+                      danger: true,
+                    },
+                  ]
+            }
           />
         )}
 
@@ -239,24 +342,53 @@ export default function LeftExplorer() {
           <ContextMenu
             x={latticeContextMenu.x}
             y={latticeContextMenu.y}
-            onClose={() => setLatticeContextMenu(null)}
-            entries={[
-              {
-                label: "Open",
-                onClick: () => {
-                  openLattice(latticeContextMenu.lattice);
-                  setLatticeContextMenu(null);
-                },
-              },
-              {
-                label: "Delete",
-                onClick: () => {
-                  handleDeleteLattice(latticeContextMenu.lattice);
-                  setLatticeContextMenu(null);
-                },
-                danger: true,
-              },
-            ]}
+            onClose={() => {
+              setLatticeContextMenu(null);
+              clearAllSelections();
+            }}
+            entries={
+              selectedLatticeIds.size > 1
+                ? [
+                    // Multi-selection entries
+                    {
+                      label: `Remove ${selectedLatticeIds.size} Lattices`,
+                      onClick: () => {
+                        if (window.confirm(`Are you sure you want to delete ${selectedLatticeIds.size} lattices? This cannot be undone.`)) {
+                          selectedLatticeIds.forEach(id => {
+                            const lattice = lattices.find(l => l.documentId === id);
+                            if (lattice) {
+                              deleteLattice(lattice.documentId);
+                              closeLattice(lattice.documentId);
+                            }
+                          });
+                        }
+                        setLatticeContextMenu(null);
+                        clearAllSelections();
+                      },
+                      danger: true,
+                    },
+                  ]
+                : [
+                    // Single-selection entries
+                    {
+                      label: "Open",
+                      onClick: () => {
+                        openLattice(latticeContextMenu.lattice);
+                        setLatticeContextMenu(null);
+                        clearAllSelections();
+                      },
+                    },
+                    {
+                      label: "Remove",
+                      onClick: () => {
+                        handleDeleteLattice(latticeContextMenu.lattice);
+                        setLatticeContextMenu(null);
+                        clearAllSelections();
+                      },
+                      danger: true,
+                    },
+                  ]
+            }
           />
         )}
       </div>

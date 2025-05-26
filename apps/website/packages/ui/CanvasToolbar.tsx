@@ -136,7 +136,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
   const toggleShowResolutionOverlay = useCanvasStore((s) => s.toggleShowResolutionOverlay);
-  const { updateProject } = useMeepProjects({ ghPages });  const projectId = project.documentId;
+  const { updateProject } = useMeepProjects({ ghPages });
+  const projectId = project.documentId;
   const geometries = project.scene?.geometries || [];
   const newCylinder = () => {
     const newGeom = {

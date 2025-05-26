@@ -7,7 +7,6 @@ import RightSidebar from "./RightSidebar";
 import TopNavBar from "./TopNavBar";
 import TabWindowContainer from "./TabWindowContainer";
 import { useMeepProjects } from "../hooks/useMeepProjects";
-import { useCanvasStore } from "../providers/CanvasStore";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 
 interface Props {
@@ -15,44 +14,43 @@ interface Props {
 }
 
 const StudioLayout: React.FC<Props> = ({ ghPages }) => {
-  const { projects, isLoading, createProject, deleteProject } = useMeepProjects({ ghPages });
-  const setActiveProject = useCanvasStore((s) => s.setActiveProject);
+  const { projects, lattices, isLoading, createProject, deleteProject, createLattice, deleteLattice } = useMeepProjects({ ghPages });
   
   const {
     rightSidebarOpen,
     setGhPages,
     setProjects,
+    setLattices,
     setIsLoading,
     setProjectManagementFunctions,
+    setLatticeManagementFunctions,
     setRightSidebarOpen,
-    getActiveProject,
   } = useEditorStateStore();
-  // Initialize the store with projects data and functions
+  
+  // Initialize the store with ghPages flag
   useEffect(() => {
     setGhPages(ghPages);
-  }, [ghPages]);
+  }, [ghPages, setGhPages]);
 
+  // Sync projects and lattices to editor store once data is loaded
   useEffect(() => {
-    // Sync projects to editor store once data is loaded to avoid initial empty-loop
     if (!isLoading) {
       setProjects(projects);
+      setLattices(lattices);
     }
-  }, [isLoading, projects, setProjects]);
+  }, [isLoading, projects, lattices, setProjects, setLattices]);
 
+  // Sync loading state
   useEffect(() => {
     setIsLoading(isLoading);
-  }, [isLoading]);
+  }, [isLoading, setIsLoading]);
 
+  // Initialize project and lattice management functions once
   useEffect(() => {
-    // Initialize project management functions once to avoid infinite update loops
     setProjectManagementFunctions(createProject, deleteProject);
+    setLatticeManagementFunctions(createLattice, deleteLattice);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Sync active project with canvas store
-  useEffect(() => {
-    const activeProject = getActiveProject();
-    setActiveProject(activeProject?.documentId || null);
-  }, [getActiveProject, setActiveProject]);
 
   if (isLoading) return <div className="p-4">Loading …</div>;
 
@@ -63,7 +61,8 @@ const StudioLayout: React.FC<Props> = ({ ghPages }) => {
         <LeftSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <TabWindowContainer />
-        </div>        {rightSidebarOpen && (
+        </div>
+        {rightSidebarOpen && (
           <RightSidebar 
             onClose={() => setRightSidebarOpen(false)} 
           />

@@ -73,10 +73,10 @@ export const MathMatrix: React.FC<MathMatrixProps> = ({
       <span 
         className={`${bracket} font-extralight leading-none select-none`} 
         style={{ 
-          transform: `scaleY(${is2x2 ? 1.8 : 2.2}) scaleX(0.5)`,
+          transform: `scaleY(${is2x2 ? 1.8 : 2.2}) scaleX(0.7) translateY(-3px)`,
         }}
       >
-        [
+        (
       </span>
       
       {/* Matrix values */}
@@ -96,10 +96,10 @@ export const MathMatrix: React.FC<MathMatrixProps> = ({
       <span 
         className={`${bracket} font-extralight leading-none select-none`} 
         style={{ 
-          transform: `scaleY(${is2x2 ? 1.8 : 2.2}) scaleX(0.5)`,
+          transform: `scaleY(${is2x2 ? 1.8 : 2.2}) scaleX(0.7) translateY(-3px)`,
         }}
       >
-        ]
+        )
       </span>
     </div>
   );
@@ -107,7 +107,7 @@ export const MathMatrix: React.FC<MathMatrixProps> = ({
 
 // Labeled matrix component
 interface LabeledMatrixProps {
-  label: string;
+  label?: string;
   values: number[][];
   color?: string;
   size?: "sm" | "md" | "lg";
@@ -127,11 +127,15 @@ export const LabeledMatrix: React.FC<LabeledMatrixProps> = ({
     lg: "text-base"
   };
   
-  return (
-    <div className="inline-flex items-center gap-1">
-      <span className={`${color} font-bold ${labelSizes[size]}`}>{label}</span>
-      <span className="text-white">:</span>
-      <MathMatrix values={values} color={color} size={size} mode={mode} />
-    </div>
-  );
+  if (label) {
+    return (
+      <div className="inline-flex items-center gap-1">
+        <span className={`${color} font-bold ${labelSizes[size]}`}>{label}</span>
+        <span className="text-white">:</span>
+        <MathMatrix values={values} color={color} size={size} mode={mode} />
+      </div>
+    );
+  }
+  
+  return <MathMatrix values={values} color={color} size={size} mode={mode} />;
 };

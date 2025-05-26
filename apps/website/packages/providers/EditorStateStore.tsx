@@ -91,6 +91,19 @@ type EditorState = {
   getActiveProjectSubTabs: () => SubTab[];
   getActiveProject: () => MeepProject | undefined;
   getActiveLattice: () => Lattice | undefined;
+  
+  // Multi-selection state
+  selectedProjectIds: Set<string>;
+  selectedLatticeIds: Set<string>;
+  lastSelectedProjectId: string | null;
+  lastSelectedLatticeId: string | null;
+  
+  // Multi-selection actions
+  setSelectedProjects: (ids: Set<string>) => void;
+  setSelectedLattices: (ids: Set<string>) => void;
+  clearAllSelections: () => void;
+  toggleProjectSelection: (projectId: string, isMulti: boolean, isRange: boolean) => void;
+  toggleLatticeSelection: (latticeId: string, isMulti: boolean, isRange: boolean) => void;
 };
 
 export const useEditorStateStore = createWithEqualityFn<EditorState>(
@@ -115,9 +128,18 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     createLatticeFn: null,
     deleteLatticeFn: null,
     
+    selectedProjectIds: new Set<string>(),
+    selectedLatticeIds: new Set<string>(),
+    lastSelectedProjectId: null,
+    lastSelectedLatticeId: null,
+    
     openProject: (project) => {
       const { openProjects, subTabs, setRightSidebarOpen } = get();
       const isAlreadyOpen = openProjects.some(p => p.documentId === project.documentId);
+      
+      // Clear lattice selections when opening a project
+      const newProjectSelection = new Set<string>();
+      newProjectSelection.add(project.documentId);
       
       if (!isAlreadyOpen) {
         set({ openProjects: [...openProjects, project] });
@@ -155,7 +177,11 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           activeSubTabId: newSubTabs.length > 0 ? newSubTabs[0].id : null,
           activeMainTabType: "project",
           activeLatticeId: null,
-          activeDashboardId: null  // Clear dashboard when project is active
+          activeDashboardId: null,
+          selectedProjectIds: newProjectSelection,
+          selectedLatticeIds: new Set<string>(), // Clear lattice selections
+          lastSelectedProjectId: project.documentId,
+          lastSelectedLatticeId: null
         }));
       } else {
         const projectSubTabs = subTabs.filter(tab => tab.projectId === project.documentId);
@@ -166,7 +192,11 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
           activeSubTabId: newActiveSubTabId,
           activeMainTabType: "project",
           activeLatticeId: null,
-          activeDashboardId: null  // Clear dashboard when project is active
+          activeDashboardId: null,
+          selectedProjectIds: newProjectSelection,
+          selectedLatticeIds: new Set<string>(), // Clear lattice selections
+          lastSelectedProjectId: project.documentId,
+          lastSelectedLatticeId: null
         });
       }
       
@@ -216,6 +246,10 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       const { openLattices, setRightSidebarOpen } = get();
       const isAlreadyOpen = openLattices.some(l => l.documentId === lattice.documentId);
       
+      // Clear project selections when opening a lattice
+      const newLatticeSelection = new Set<string>();
+      newLatticeSelection.add(lattice.documentId);
+      
       if (!isAlreadyOpen) {
         set({ openLattices: [...openLattices, lattice] });
       }
@@ -225,7 +259,11 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         activeProjectId: null,
         activeSubTabId: null,
         activeMainTabType: "lattice",
-        activeDashboardId: null  // Clear dashboard when lattice is active
+        activeDashboardId: null,
+        selectedLatticeIds: newLatticeSelection,
+        selectedProjectIds: new Set<string>(), // Clear project selections
+        lastSelectedLatticeId: lattice.documentId,
+        lastSelectedProjectId: null
       });
       
       setRightSidebarOpen(true);
@@ -281,10 +319,14 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         activeProjectId: null,
         activeLatticeId: null,
         activeSubTabId: null,
-        activeMainTabType: "dashboard"
+        activeMainTabType: "dashboard",
+        selectedProjectIds: new Set<string>(), // Clear project selections
+        selectedLatticeIds: new Set<string>(), // Clear lattice selections
+        lastSelectedProjectId: null,
+        lastSelectedLatticeId: null
       });
       
-      setRightSidebarOpen(false); // Dashboard has no right sidebar panel
+      setRightSidebarOpen(false);
     },
     
     closeDashboard: (dashboardId) => {
@@ -325,30 +367,46 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     },
     
     setActiveProject: (projectId) => {
-      const { subTabs, setRightSidebarOpen } = get();
+      const { subTabs, setRightSidebarOpen, selectedProjectIds } = get();
       const projectSubTabs = subTabs.filter(tab => tab.projectId === projectId);
       const newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
+      
+      // Add to project selection
+      const newProjectSelection = new Set(selectedProjectIds);
+      newProjectSelection.add(projectId);
       
       setRightSidebarOpen(true);
       set({ 
         activeProjectId: projectId,
         activeLatticeId: null,
-        activeDashboardId: null,  // Clear dashboard when project is active
+        activeDashboardId: null,
         activeSubTabId: newActiveSubTabId,
-        activeMainTabType: "project"
+        activeMainTabType: "project",
+        selectedProjectIds: newProjectSelection,
+        selectedLatticeIds: new Set<string>(), // Clear lattice selections
+        lastSelectedProjectId: projectId,
+        lastSelectedLatticeId: null
       });
     },
     
     setActiveLattice: (latticeId) => {
-      const { setRightSidebarOpen } = get();
+      const { setRightSidebarOpen, selectedLatticeIds } = get();
+      
+      // Add to lattice selection
+      const newLatticeSelection = new Set(selectedLatticeIds);
+      newLatticeSelection.add(latticeId);
       
       setRightSidebarOpen(true);
       set({ 
         activeLatticeId: latticeId,
         activeProjectId: null,
-        activeDashboardId: null,  // Clear dashboard when lattice is active
+        activeDashboardId: null,
         activeSubTabId: null,
-        activeMainTabType: "lattice"
+        activeMainTabType: "lattice",
+        selectedLatticeIds: newLatticeSelection,
+        selectedProjectIds: new Set<string>(), // Clear project selections
+        lastSelectedLatticeId: latticeId,
+        lastSelectedProjectId: null
       });
     },
     
@@ -361,7 +419,11 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         activeProjectId: null,
         activeLatticeId: null,
         activeSubTabId: null,
-        activeMainTabType: "dashboard"
+        activeMainTabType: "dashboard",
+        selectedProjectIds: new Set<string>(), // Clear project selections
+        selectedLatticeIds: new Set<string>(), // Clear lattice selections
+        lastSelectedProjectId: null,
+        lastSelectedLatticeId: null
       });
     },
     
@@ -561,6 +623,129 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     getActiveLattice: () => {
       const { lattices, activeLatticeId } = get();
       return lattices.find(l => l.documentId === activeLatticeId);
+    },
+    
+    setSelectedProjects: (ids) => {
+      set({ selectedProjectIds: ids });
+    },
+    
+    setSelectedLattices: (ids) => {
+      set({ selectedLatticeIds: ids });
+    },
+    
+    clearAllSelections: () => {
+      const { activeProjectId, activeLatticeId } = get();
+      const newProjectSelection = new Set<string>();
+      const newLatticeSelection = new Set<string>();
+      
+      // Keep active items selected
+      if (activeProjectId) {
+        newProjectSelection.add(activeProjectId);
+      }
+      if (activeLatticeId) {
+        newLatticeSelection.add(activeLatticeId);
+      }
+      
+      set({ 
+        selectedProjectIds: newProjectSelection,
+        selectedLatticeIds: newLatticeSelection,
+        lastSelectedProjectId: activeProjectId,
+        lastSelectedLatticeId: activeLatticeId
+      });
+    },
+    
+    toggleProjectSelection: (projectId, isMulti, isRange) => {
+      const { selectedProjectIds, lastSelectedProjectId, projects, activeProjectId } = get();
+      const newSelection = new Set(selectedProjectIds);
+      
+      // Always ensure active project is selected
+      if (activeProjectId && !newSelection.has(activeProjectId)) {
+        newSelection.add(activeProjectId);
+      }
+      
+      if (isRange && lastSelectedProjectId) {
+        // Sort projects alphabetically
+        const sortedProjects = [...projects].sort((a, b) => a.title.localeCompare(b.title));
+        const lastIndex = sortedProjects.findIndex(p => p.documentId === lastSelectedProjectId);
+        const currentIndex = sortedProjects.findIndex(p => p.documentId === projectId);
+        
+        if (lastIndex !== -1 && currentIndex !== -1) {
+          const start = Math.min(lastIndex, currentIndex);
+          const end = Math.max(lastIndex, currentIndex);
+          
+          for (let i = start; i <= end; i++) {
+            newSelection.add(sortedProjects[i].documentId);
+          }
+        }
+      } else if (isMulti) {
+        // Toggle selection - but don't allow deselecting the active project
+        if (newSelection.has(projectId)) {
+          if (projectId !== activeProjectId) {
+            newSelection.delete(projectId);
+          }
+        } else {
+          newSelection.add(projectId);
+        }
+      } else {
+        // Single selection - clear others but keep active
+        newSelection.clear();
+        if (activeProjectId) {
+          newSelection.add(activeProjectId);
+        }
+        newSelection.add(projectId);
+      }
+      
+      set({ 
+        selectedProjectIds: newSelection,
+        lastSelectedProjectId: projectId
+      });
+    },
+    
+    toggleLatticeSelection: (latticeId, isMulti, isRange) => {
+      const { selectedLatticeIds, lastSelectedLatticeId, lattices, activeLatticeId } = get();
+      const newSelection = new Set(selectedLatticeIds);
+      
+      // Always ensure active lattice is selected
+      if (activeLatticeId && !newSelection.has(activeLatticeId)) {
+        newSelection.add(activeLatticeId);
+      }
+      
+      if (isRange && lastSelectedLatticeId) {
+        // Sort lattices alphabetically
+        const sortedLattices = [...lattices].sort((a, b) => a.title.localeCompare(b.title));
+        const lastIndex = sortedLattices.findIndex(l => l.documentId === lastSelectedLatticeId);
+        const currentIndex = sortedLattices.findIndex(l => l.documentId === latticeId);
+        
+        if (lastIndex !== -1 && currentIndex !== -1) {
+          const start = Math.min(lastIndex, currentIndex);
+          const end = Math.max(lastIndex, currentIndex);
+          
+          for (let i = start; i <= end; i++) {
+            newSelection.add(sortedLattices[i].documentId);
+          }
+        }
+      } else if (isMulti) {
+        // Toggle selection - but don't allow deselecting the active lattice
+        if (newSelection.has(latticeId)) {
+          if (latticeId !== activeLatticeId) {
+            newSelection.delete(latticeId);
+          }
+        } else {
+          newSelection.add(latticeId);
+        }
+      } else {
+        // Single selection - clear others but keep active
+        newSelection.clear();
+        if (activeLatticeId) {
+          newSelection.add(activeLatticeId);
+        }
+        newSelection.add(latticeId);
+      }
+      
+      set({ 
+        selectedLatticeIds: newSelection,
+        lastSelectedLatticeId: latticeId
+      });
     },
   }),
   shallow

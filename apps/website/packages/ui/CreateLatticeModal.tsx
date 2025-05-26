@@ -70,6 +70,7 @@ export default function CreateLatticeModal({
         meepLattice: {
           basis1,
           basis2,
+          basis3: { x: 0, y: 0, z: 1 },
           basis_size: { x: parameters.a, y: parameters.b, z: 1 }
         },
         parameters,

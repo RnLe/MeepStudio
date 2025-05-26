@@ -6,6 +6,7 @@ import { MathVector, LabeledVector } from "./MathVector";
 import { useLatticeStore } from "../providers/LatticeStore";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { TransformationTooltip, TooltipWrapper } from "./TransformationTooltip";
+import { Code2, Layers, Download, LucideIcon } from "lucide-react";
 
 interface Props {
   lattice: Lattice;
@@ -150,6 +151,31 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
   
   const { MA, MB, TAB, TBA } = getTransformationMatrices();
   
+  // Define action buttons
+  const actionButtons = [
+    {
+      label: "Code Editor",
+      icon: Code2,
+      onClick: () => {
+        // TODO: Implement code editor functionality
+      }
+    },
+    {
+      label: "Add to Scene",
+      icon: Layers,
+      onClick: () => {
+        // TODO: Implement add to scene functionality
+      }
+    },
+    {
+      label: "Export",
+      icon: Download,
+      onClick: () => {
+        // TODO: Implement export functionality
+      }
+    }
+  ];
+
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
       {/* Title and description */}
@@ -362,60 +388,18 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
           <TooltipWrapper
             tooltip={
               <TransformationTooltip
-                title="Matrix A"
-                description="Real space basis vectors as column matrix"
-                iconSrc="/icons/MA_matrix.svg"
-                matrix={MA}
-                matrixMode="3D"
-              />
-            }
-          >
-            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-help flex items-center justify-center h-12">
-              <CustomLucideIcon
-                src="/icons/MA_matrix.svg"
-                size={20}
-                color="currentColor"
-                className="text-gray-300"
-              />
-            </div>
-          </TooltipWrapper>
-          
-          <TooltipWrapper
-            tooltip={
-              <TransformationTooltip
-                title="Matrix B"
-                description="Reciprocal space basis vectors as column matrix"
-                iconSrc="/icons/MB_matrix.svg"
-                matrix={MB}
-                matrixMode="3D"
-              />
-            }
-          >
-            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-help flex items-center justify-center h-12">
-              <CustomLucideIcon
-                src="/icons/MB_matrix.svg"
-                size={20}
-                color="currentColor"
-                className="text-gray-300"
-              />
-            </div>
-          </TooltipWrapper>
-          
-          <TooltipWrapper
-            tooltip={
-              <TransformationTooltip
-                title="Transform A→B"
-                description="M_B^(-1) × M_A transforms real to reciprocal coordinates"
-                iconSrc="/icons/T_AB_matrix.svg"
+                description="Transforms real to reciprocal coordinates"
+                iconSrc="/icons/T_AB.svg"
                 matrix={TAB}
                 matrixMode="3D"
+                iconSize={60}
               />
             }
           >
-            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-help flex items-center justify-center h-12">
+            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-pointer flex items-center justify-center h-12">
               <CustomLucideIcon
                 src="/icons/T_AB_matrix.svg"
-                size={20}
+                size={150}
                 color="currentColor"
                 className="text-gray-300"
               />
@@ -425,18 +409,18 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
           <TooltipWrapper
             tooltip={
               <TransformationTooltip
-                title="Transform B→A"
-                description="M_A^(-1) × M_B transforms reciprocal to real coordinates"
-                iconSrc="/icons/T_BA_matrix.svg"
+                description="Transforms reciprocal to real coordinates"
+                iconSrc="/icons/T_BA.svg"
                 matrix={TBA}
                 matrixMode="3D"
+                iconSize={60}
               />
             }
           >
-            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-help flex items-center justify-center h-12">
+            <div className="bg-neutral-700/30 rounded p-2 hover:bg-neutral-700/50 transition-colors cursor-pointer flex items-center justify-center h-12">
               <CustomLucideIcon
                 src="/icons/T_BA_matrix.svg"
-                size={20}
+                size={150}
                 color="currentColor"
                 className="text-gray-300"
               />
@@ -448,13 +432,28 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
       {/* Actions */}
       <div className="p-4 pt-0 mt-auto">
         <h3 className="text-sm font-medium text-gray-300 mb-3">Actions</h3>
-        <div className="space-y-2">
-          <button className="w-full text-xs px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-            Convert to Scene
-          </button>
-          <button className="w-full text-xs px-3 py-2 rounded bg-neutral-600 text-white hover:bg-neutral-500 transition-colors">
-            Export Lattice Points
-          </button>
+        <div className="grid grid-cols-2 gap-2">
+          {actionButtons.map((action, index) => {
+            const Icon = action.icon;
+            const isLastAndOdd = index === actionButtons.length - 1 && actionButtons.length % 2 === 1;
+            return (
+              <button
+                key={index}
+                onClick={action.onClick}
+                className={`flex flex-col items-center justify-center p-3 rounded bg-neutral-700/30 hover:bg-neutral-700/50 transition-colors group cursor-pointer ${
+                  isLastAndOdd ? 'col-span-2' : ''
+                }`}
+              >
+                <Icon 
+                  size={20} 
+                  className="text-gray-400 group-hover:text-gray-200 transition-colors mb-1"
+                />
+                <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors text-center">
+                  {action.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

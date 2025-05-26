@@ -16,10 +16,10 @@ interface ObjectsListProps {
 }
 
 const ObjectsList: React.FC<ObjectsListProps> = ({ project }) => {
-  const { selectedIds, setSelectedIds, selectElement, geometries } = useCanvasStore((s) => ({
-    selectedIds: s.selectedIds,
-    setSelectedIds: s.setSelectedIds,
-    selectElement: s.selectElement,
+  const { selectedGeometryIds, setSelectedGeometryIds, selectGeometry, geometries } = useCanvasStore((s) => ({
+    selectedGeometryIds: s.selectedGeometryIds,
+    setSelectedGeometryIds: s.setSelectedGeometryIds,
+    selectGeometry: s.selectGeometry,
     geometries: s.geometries,
   }));
   // Use geometries from store, not from project
@@ -42,9 +42,9 @@ const ObjectsList: React.FC<ObjectsListProps> = ({ project }) => {
   // Multi-select: ctrl/cmd/shift+click toggles, click without modifier selects only that
   const handleClick = (elId: string, e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey) {
-      selectElement(elId, { shift: true });
+      selectGeometry(elId, { shift: true });
     } else {
-      selectElement(elId);
+      selectGeometry(elId);
     }
   };
 
@@ -56,7 +56,7 @@ const ObjectsList: React.FC<ObjectsListProps> = ({ project }) => {
           key={el.id}
           onClick={(e) => handleClick(el.id, e)}
           className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer ${
-            selectedIds.includes(el.id) ? "bg-gray-700" : "hover:bg-gray-800"
+            selectedGeometryIds.includes(el.id) ? "bg-gray-700" : "hover:bg-gray-800"
           }`}
         >
           <span className="truncate text-gray-200 text-xs">
