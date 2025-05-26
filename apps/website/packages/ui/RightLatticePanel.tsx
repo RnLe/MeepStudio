@@ -3,6 +3,7 @@ import { Lattice } from "../types/meepProjectTypes";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import LatticeVectorDisplay from "./LatticeVectorDisplay";
 import { MathVector, LabeledVector } from "./MathVector";
+import { useLatticeStore } from "../providers/LatticeStore";
 
 interface Props {
   lattice: Lattice;
@@ -11,7 +12,19 @@ interface Props {
 
 const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
   const { updateLattice } = useMeepProjects({ ghPages });
-  const [realSpaceMode, setRealSpaceMode] = React.useState(true);
+  // Use local state instead of store
+  const [localSpaceMode, setLocalSpaceMode] = React.useState<'real' | 'reciprocal'>('real');
+  
+  // Get lattice point cache for statistics
+  const latticePointCache = useLatticeStore((s) => s.latticePointCache);
+  
+  // Get zone counts from store
+  const realSpaceZoneCount = useLatticeStore((s) => s.realSpaceZoneCount);
+  const setRealSpaceZoneCount = useLatticeStore((s) => s.setRealSpaceZoneCount);
+  const reciprocalSpaceZoneCount = useLatticeStore((s) => s.reciprocalSpaceZoneCount);
+  const setReciprocalSpaceZoneCount = useLatticeStore((s) => s.setReciprocalSpaceZoneCount);
+  
+  const realSpaceMode = localSpaceMode === 'real';
   
   const displaySettings = lattice.displaySettings || {
     showWignerSeitz: false,
@@ -36,7 +49,7 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
   // Calculate real space parameters
   const calculateRealSpaceParams = () => {
     if (!lattice.meepLattice) {
-      return { a: 0, b: 0, gamma: 0 };
+      return { a: 0, b: 0, alpha: 0 };  // Changed gamma to alpha
     }
     
     const a1 = lattice.meepLattice.basis1;
@@ -48,16 +61,16 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
     
     // Calculate angle between a1 and a2
     const dot = a1.x * a2.x + a1.y * a2.y;
-    const cosGamma = dot / (a * b);
-    const gamma = Math.acos(Math.max(-1, Math.min(1, cosGamma))) * 180 / Math.PI;
+    const cosAlpha = dot / (a * b);  // Changed from cosGamma
+    const alpha = Math.acos(Math.max(-1, Math.min(1, cosAlpha))) * 180 / Math.PI;  // Changed from gamma
     
-    return { a, b, gamma };
+    return { a, b, alpha };  // Changed gamma to alpha
   };
   
   // Calculate reciprocal space parameters
   const calculateReciprocalParams = () => {
     if (!lattice.meepLattice?.reciprocal_basis1 || !lattice.meepLattice?.reciprocal_basis2) {
-      return { c: 0, d: 0, alpha: 0 };
+      return { c: 0, d: 0, beta: 0 };  // Changed alpha to beta
     }
     
     const b1 = lattice.meepLattice.reciprocal_basis1;
@@ -69,10 +82,10 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
     
     // Calculate angle between b1 and b2
     const dot = b1.x * b2.x + b1.y * b2.y;
-    const cosAlpha = dot / (c * d);
-    const alpha = Math.acos(Math.max(-1, Math.min(1, cosAlpha))) * 180 / Math.PI;
+    const cosBeta = dot / (c * d);  // Changed from cosAlpha
+    const beta = Math.acos(Math.max(-1, Math.min(1, cosBeta))) * 180 / Math.PI;  // Changed from alpha
     
-    return { c, d, alpha };
+    return { c, d, beta };  // Changed alpha to beta
   };
   
   const realSpaceParams = calculateRealSpaceParams();
@@ -82,7 +95,7 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
   const displayParams = {
     a: lattice.parameters.a ?? realSpaceParams.a,
     b: lattice.parameters.b ?? realSpaceParams.b,
-    gamma: lattice.parameters.gamma ?? realSpaceParams.gamma
+    alpha: lattice.parameters.alpha ?? realSpaceParams.alpha  // Changed gamma to alpha
   };
   
   return (
@@ -99,7 +112,7 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
       <div className="px-4 pt-4 pb-2">
         <div className="flex w-full gap-1">
           <button
-            onClick={() => setRealSpaceMode(true)}
+            onClick={() => setLocalSpaceMode('real')}
             className={`flex-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
               realSpaceMode 
                 ? "bg-neutral-600 text-white" 
@@ -109,7 +122,7 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
             Real Space
           </button>
           <button
-            onClick={() => setRealSpaceMode(false)}
+            onClick={() => setLocalSpaceMode('reciprocal')}
             className={`flex-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
               !realSpaceMode 
                 ? "bg-neutral-600 text-white" 
@@ -132,10 +145,24 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
             basis1: lattice.meepLattice.reciprocal_basis1,
             basis2: lattice.meepLattice.reciprocal_basis2
           } : undefined)}
-          customAngle={!realSpaceMode ? reciprocalParams.alpha : undefined}
+          customAngle={!realSpaceMode ? reciprocalParams.beta : undefined}
           realSpaceMode={realSpaceMode}
         />
       </div>
+      
+      {/* Calculation Statistics */}
+      {latticePointCache?.stats && (
+        <div className="px-4 pb-2">
+          <div className="bg-neutral-700/30 rounded px-3 py-1">
+            <span className="text-gray-400 text-xs">Stats:</span>{" "}
+            <span className="text-gray-200 font-mono text-xs">
+              {latticePointCache.stats.timeTaken.toFixed(1)} ms •{" "}
+              {latticePointCache.stats.pointCount} pts • 
+              max {latticePointCache.stats.maxDistance.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      )}
       
       {/* Parameters and Vectors in 3-column layout */}
       <div className="p-4">
@@ -155,8 +182,8 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
                     <span className="text-xs text-gray-200 font-mono">{displayParams.b.toFixed(3)}</span>
                   </div>
                   <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
-                    <span className="text-xs text-gray-400">γ</span>
-                    <span className="text-xs text-gray-200 font-mono">{displayParams.gamma.toFixed(1)}°</span>
+                    <span className="text-xs text-gray-400">α</span>
+                    <span className="text-xs text-gray-200 font-mono">{displayParams.alpha.toFixed(1)}°</span>
                   </div>
                 </>
               ) : (
@@ -170,8 +197,8 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
                     <span className="text-xs text-gray-200 font-mono">{reciprocalParams.d.toFixed(3)}</span>
                   </div>
                   <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
-                    <span className="text-xs text-gray-400">α</span>
-                    <span className="text-xs text-gray-200 font-mono">{reciprocalParams.alpha.toFixed(1)}°</span>
+                    <span className="text-xs text-gray-400">β</span>
+                    <span className="text-xs text-gray-200 font-mono">{reciprocalParams.beta.toFixed(1)}°</span>
                   </div>
                 </>
               )}

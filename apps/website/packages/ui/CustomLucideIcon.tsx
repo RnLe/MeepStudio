@@ -16,33 +16,65 @@ const CustomLucideIcon: React.FC<CustomLucideIconProps> = ({
   className = "",
   ...rest
 }) => {
-  const [svgContent, setSvgContent] = useState<string | null>(null);
+  const [svgInfo, setSvgInfo] = useState<{ inner: string; viewBox: string; w: number; h: number } | null>(null);
 
   useEffect(() => {
     fetch(src)
       .then((res) => res.text())
       .then((text) => {
-        // Remove any hardcoded stroke colors and replace with currentColor
+        /* Extract original viewBox so the glyphs are not cropped.
+           MathJax SVGs often have negative coordinates which we must keep. */
+        const viewBoxMatch =
+          text.match(/viewBox="([^"]+)"/i) || text.match(/viewBox='([^']+)'/i);
+        const originalViewBox = viewBoxMatch ? viewBoxMatch[1] : "0 0 24 24";
+
+        const viewBoxParts = originalViewBox.split(/\s+/).map(Number);
+        const [, , w, h] = viewBoxParts.length === 4 ? viewBoxParts : [0, 0, 24, 24];
+
+        // Strip any hard-coded stroke colors, keep fills and map non-none fills to currentColor.
         const cleanedText = text
-          .replace(/stroke="[^"]*"/g, '')
-          .replace(/stroke='[^']*'/g, '')
-          .replace(/fill="[^"]*"/g, 'fill="none"')
-          .replace(/fill='[^']*'/g, "fill='none'");
-        setSvgContent(cleanedText);
+          .replace(/stroke="[^"]*"/gi, "")
+          .replace(/stroke='[^']*'/gi, "")
+          // Only replace fill colors that are actual color values (not none, currentColor, or inherit)
+          .replace(/fill="(#[0-9a-fA-F]{3,6}|rgb[^"]*|[a-z]+)"/gi, (match, color) => {
+            // Preserve special values
+            if (color === 'none' || color === 'currentColor' || color === 'inherit') {
+              return match;
+            }
+            // Replace actual colors with currentColor
+            return 'fill="currentColor"';
+          })
+          .replace(/fill='(#[0-9a-fA-F]{3,6}|rgb[^']*|[a-z]+)'/gi, (match, color) => {
+            // Preserve special values
+            if (color === 'none' || color === 'currentColor' || color === 'inherit') {
+              return match;
+            }
+            // Replace actual colors with currentColor
+            return "fill='currentColor'";
+          });
+
+        // Remove outer <svg> element
+        const inner = cleanedText
+          .replace(/^[\s\S]*?<svg[\s\S]*?>/i, "")
+          .replace(/<\/svg>[\s\S]*$/i, "");
+
+        setSvgInfo({ inner, viewBox: originalViewBox, w, h });
       })
-      .catch(() => setSvgContent(null));
+      .catch(() => setSvgInfo(null));
   }, [src]);
 
-  if (!svgContent) return null;
-
-  // Remove outer <svg> and inject Lucide props
-  const inner = svgContent.replace(/^[\s\S]*?<svg[\s\S]*?>/i, "").replace(/<\/svg>[\s\S]*$/i, "");
+  if (!svgInfo) return null;
+  const { inner, viewBox, w, h } = svgInfo;
+  const scale = typeof size === "number" ? Number(size) : parseFloat(String(size));
+  const longer = Math.max(w, h) || 24;
+  const width  = (w / longer) * scale;
+  const height = (h / longer) * scale;
 
   return (
     <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
+      width={width}
+      height={height}
+      viewBox={viewBox}
       fill="none"
       stroke={color}
       strokeWidth={strokeWidth}

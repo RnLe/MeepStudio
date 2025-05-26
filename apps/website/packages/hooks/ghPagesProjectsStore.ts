@@ -91,7 +91,7 @@ function buildLattice(l: CreatableLatticeFields): Lattice {
     description: l.description,
     latticeType: l.latticeType ?? "square",
     meepLattice,
-    parameters: l.parameters ?? { a: 1, b: 1, gamma: 90 },
+    parameters: l.parameters ?? { a: 1, b: 1, alpha: 90 }, // Changed gamma to alpha
     displaySettings: l.displaySettings ?? {
       showWignerSeitz: false,
       showBrillouinZone: false,

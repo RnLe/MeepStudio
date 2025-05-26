@@ -1,17 +1,35 @@
 "use client";
 import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
+import { VoronoiData } from "../types/meepProjectTypes";
+
+type LatticePoint = {
+  x: number;
+  y: number;
+  i: number;
+  j: number;
+  distance: number;
+};
+
+type LatticePointCache = {
+  points: LatticePoint[];
+  maxDistance: number;
+  cacheKey: string;
+  stats?: {
+    timeTaken: number;
+    pointCount: number;
+    maxDistance: number;
+  };
+};
 
 type LatticeState = {
   // Active lattice tracking
   activeLatticeId: string | null;
   setActiveLattice: (latticeId: string | null) => void;
   
-  // Representation options
-  showRealSpace: boolean;
-  toggleShowRealSpace: () => void;
-  showReciprocalSpace: boolean;
-  toggleShowReciprocalSpace: () => void;
+  // Representation mode - mutually exclusive
+  spaceMode: 'real' | 'reciprocal';
+  setSpaceMode: (mode: 'real' | 'reciprocal') => void;
   
   // Voronoi cell options
   showWignerSeitzCell: boolean;
@@ -32,8 +50,10 @@ type LatticeState = {
   toggleShowLatticePoints: () => void;
   showUnitCell: boolean;
   toggleShowUnitCell: () => void;
-  showAxes: boolean;
-  toggleShowAxes: () => void;
+  showGrid: boolean;
+  toggleShowGrid: () => void;
+  showBaseVectors: boolean;
+  toggleShowBaseVectors: () => void;
   
   // Lattice point selection
   selectedLatticePoints: Array<{i: number, j: number}>;
@@ -45,6 +65,30 @@ type LatticeState = {
   setLatticeScale: (scale: number) => void;
   gridDensity: number;
   setGridDensity: (density: number) => void;
+  
+  // Modes
+  normalizeMode: boolean;
+  toggleNormalizeMode: () => void;
+  
+  // Lattice point cache
+  latticePointCache: LatticePointCache | null;
+  setLatticePointCache: (cache: LatticePointCache | null) => void;
+  
+  // Dynamic zoom limits
+  minScale: number;
+  setMinScale: (scale: number) => void;
+  
+  // Voronoi data cache
+  voronoiData: VoronoiData | null;
+  setVoronoiData: (data: VoronoiData | null) => void;
+  isCalculatingVoronoi: boolean;
+  setIsCalculatingVoronoi: (calculating: boolean) => void;
+  
+  // Voronoi zone counts
+  realSpaceZoneCount: number;
+  setRealSpaceZoneCount: (count: number) => void;
+  reciprocalSpaceZoneCount: number;
+  setReciprocalSpaceZoneCount: (count: number) => void;
 };
 
 export const useLatticeStore = createWithEqualityFn<LatticeState>(
@@ -53,11 +97,9 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     activeLatticeId: null,
     setActiveLattice: (latticeId) => set({ activeLatticeId: latticeId }),
     
-    // Representation toggles
-    showRealSpace: true,
-    toggleShowRealSpace: () => set((s) => ({ showRealSpace: !s.showRealSpace })),
-    showReciprocalSpace: false,
-    toggleShowReciprocalSpace: () => set((s) => ({ showReciprocalSpace: !s.showReciprocalSpace })),
+    // Representation mode - default to real space
+    spaceMode: 'real',
+    setSpaceMode: (mode) => set({ spaceMode: mode }),
     
     // Voronoi cell toggles
     showWignerSeitzCell: false,
@@ -78,8 +120,10 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     toggleShowLatticePoints: () => set((s) => ({ showLatticePoints: !s.showLatticePoints })),
     showUnitCell: true,
     toggleShowUnitCell: () => set((s) => ({ showUnitCell: !s.showUnitCell })),
-    showAxes: true,
-    toggleShowAxes: () => set((s) => ({ showAxes: !s.showAxes })),
+    showGrid: true,
+    toggleShowGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+    showBaseVectors: true,
+    toggleShowBaseVectors: () => set((s) => ({ showBaseVectors: !s.showBaseVectors })),
     
     // Lattice point selection
     selectedLatticePoints: [],
@@ -109,6 +153,30 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     setLatticeScale: (scale) => set({ latticeScale: scale }),
     gridDensity: 8,
     setGridDensity: (density) => set({ gridDensity: density }),
+    
+    // Modes
+    normalizeMode: true,
+    toggleNormalizeMode: () => set((s) => ({ normalizeMode: !s.normalizeMode })),
+    
+    // Lattice point cache
+    latticePointCache: null,
+    setLatticePointCache: (cache) => set({ latticePointCache: cache }),
+    
+    // Dynamic zoom limits
+    minScale: 0.1,
+    setMinScale: (scale) => set({ minScale: scale }),
+    
+    // Voronoi data
+    voronoiData: null,
+    setVoronoiData: (data) => set({ voronoiData: data }),
+    isCalculatingVoronoi: false,
+    setIsCalculatingVoronoi: (calculating) => set({ isCalculatingVoronoi: calculating }),
+    
+    // Voronoi zone counts
+    realSpaceZoneCount: 1,
+    setRealSpaceZoneCount: (count) => set({ realSpaceZoneCount: Math.max(1, Math.min(5, count)) }),
+    reciprocalSpaceZoneCount: 1,
+    setReciprocalSpaceZoneCount: (count) => set({ reciprocalSpaceZoneCount: Math.max(1, Math.min(5, count)) }),
   }),
   shallow
 );

@@ -69,6 +69,27 @@ export interface MeepLattice {
   };
 }
 
+/* ---------- Voronoi Cell Interface ---------- */
+export interface VoronoiCell {
+  vertices: Vector3[];
+  zone: number;
+}
+
+export interface VoronoiData {
+  /** Wigner-Seitz cell (1st Brillouin zone in real space) */
+  wignerSeitzCell?: VoronoiCell;
+  /** Additional real space zones (for multiple Wigner-Seitz cells) */
+  realSpaceZones?: VoronoiCell[];
+  /** Brillouin zones (in reciprocal space) */
+  brillouinZones?: VoronoiCell[];
+  /** Calculation parameters used */
+  calculationParams?: {
+    maxZone: number;
+    searchRange: number;
+    timestamp: string;
+  };
+}
+
 /* ---------- Lattice Interface (standalone) ---------- */
 export interface Lattice {
   /** Primary key = unique identifier */
@@ -92,9 +113,9 @@ export interface Lattice {
     a?: number;      // lattice constant a
     b?: number;      // lattice constant b  
     c?: number;      // lattice constant c (for 3D)
-    alpha?: number;  // angle between b and c
-    beta?: number;   // angle between a and c
-    gamma?: number;  // angle between a and b
+    alpha?: number;  // angle between a and b (real space)
+    beta?: number;   // angle between b1 and b2 (k-space)
+    gamma?: number;  // reserved for future 3D use
   };
   
   /** Display settings */
@@ -107,6 +128,9 @@ export interface Lattice {
   
   /** Generated lattice data */
   latticeData?: any;
+  
+  /** Voronoi cell data (Wigner-Seitz and Brillouin zones) */
+  voronoiData?: VoronoiData;
 }
 
 /* ---------- Project Lattice Interface ---------- */

@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { Stage, Layer, Line, Circle, Text, Arrow, Rect, Group } from "react-konva";
 import { Lattice } from "../types/meepProjectTypes";
+import { useLatticeStore } from "../providers/LatticeStore";
+import { useSpring, animated, config } from "@react-spring/konva";
+import { getWasmModule } from "../utils/wasmLoader";
 
 interface Props {
   lattice: Lattice;
@@ -13,6 +16,29 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+  
+  // Get space mode from store
+  const spaceMode = useLatticeStore((s) => s.spaceMode);
+  const showLatticePoints = useLatticeStore((s) => s.showLatticePoints);
+  const showUnitCell = useLatticeStore((s) => s.showUnitCell);
+  const showGrid = useLatticeStore((s) => s.showGrid);
+  const latticeScale = useLatticeStore((s) => s.latticeScale);
+  const gridDensity = useLatticeStore((s) => s.gridDensity);
+  const normalizeMode = useLatticeStore((s) => s.normalizeMode);
+  const showBaseVectors = useLatticeStore((s) => s.showBaseVectors);
+  
+  // Get lattice point cache from store
+  const latticePointCache = useLatticeStore((s) => s.latticePointCache);
+  const setLatticePointCache = useLatticeStore((s) => s.setLatticePointCache);
+  
+  // Get Voronoi data from store
+  const voronoiData = useLatticeStore((s) => s.voronoiData);
+  const showWignerSeitzCell = useLatticeStore((s) => s.showWignerSeitzCell);
+  const showBrillouinZone = useLatticeStore((s) => s.showBrillouinZone);
+  
+  // Get zone counts from store
+  const realSpaceZoneCount = useLatticeStore((s) => s.realSpaceZoneCount);
+  const reciprocalSpaceZoneCount = useLatticeStore((s) => s.reciprocalSpaceZoneCount);
   
   useEffect(() => {
     const handleResize = () => {
@@ -71,60 +97,159 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     setPos(newPos);
   }, [scale, pos]);
 
+  // Calculate normalization factor
+  const getNormalizationFactor = useCallback(() => {
+    if (!lattice?.meepLattice || !normalizeMode) return 1;
+    
+    const isRealSpace = spaceMode === 'real';
+    let maxLength = 0;
+    
+    if (isRealSpace) {
+      const v1 = lattice.meepLattice.basis1;
+      const v2 = lattice.meepLattice.basis2;
+      const len1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y) * lattice.meepLattice.basis_size.x;
+      const len2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y) * lattice.meepLattice.basis_size.y;
+      maxLength = Math.max(len1, len2);
+    } else {
+      if (lattice.meepLattice.reciprocal_basis1 && lattice.meepLattice.reciprocal_basis2) {
+        const v1 = lattice.meepLattice.reciprocal_basis1;
+        const v2 = lattice.meepLattice.reciprocal_basis2;
+        const len1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+        const len2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+        maxLength = Math.max(len1, len2);
+      }
+    }
+    
+    return maxLength > 0 ? 1 / maxLength : 1;
+  }, [lattice, spaceMode, normalizeMode]);
+
+  const normalizationFactor = getNormalizationFactor();
+  
+  // Check if grid is sparse (for k-space typically)
+  const checkIfSparse = useCallback(() => {
+    if (!lattice?.meepLattice || spaceMode !== 'reciprocal') return false;
+    
+    const b1 = lattice.meepLattice.reciprocal_basis1;
+    const b2 = lattice.meepLattice.reciprocal_basis2;
+    if (!b1 || !b2) return false;
+    
+    const len1 = Math.sqrt(b1.x * b1.x + b1.y * b1.y);
+    const len2 = Math.sqrt(b2.x * b2.x + b2.y * b2.y);
+    
+    return Math.max(len1, len2) >= 2;
+  }, [lattice, spaceMode]);
+
+  const isSparse = checkIfSparse();
+
+  // Animated vectors with spring
+  const getVectorData = useCallback(() => {
+    if (!lattice?.meepLattice) return { v1: { x: 0, y: 0 }, v2: { x: 0, y: 0 } };
+    
+    const isRealSpace = spaceMode === 'real';
+    const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
+    
+    if (isRealSpace) {
+      return {
+        v1: {
+          x: lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x * scale,
+          y: -lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y * scale
+        },
+        v2: {
+          x: lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x * scale,
+          y: -lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y * scale
+        }
+      };
+    } else {
+      return {
+        v1: lattice.meepLattice.reciprocal_basis1 ? {
+          x: lattice.meepLattice.reciprocal_basis1.x * scale,
+          y: -lattice.meepLattice.reciprocal_basis1.y * scale
+        } : { x: 0, y: 0 },
+        v2: lattice.meepLattice.reciprocal_basis2 ? {
+          x: lattice.meepLattice.reciprocal_basis2.x * scale,
+          y: -lattice.meepLattice.reciprocal_basis2.y * scale
+        } : { x: 0, y: 0 }
+      };
+    }
+  }, [lattice, spaceMode, latticeScale, normalizeMode, normalizationFactor]);
+
+  const vectors = getVectorData();
+  
+  // Spring animations for vectors
+  const vectorSpring = useSpring({
+    v1x: vectors.v1.x,
+    v1y: vectors.v1.y,
+    v2x: vectors.v2.x,
+    v2y: vectors.v2.y,
+    config: config.gentle,
+    onChange: () => {
+      // Force re-render when spring values change to animate the arrows
+      setPos(pos => ({ ...pos }));
+    }
+  });
+
   // --- Lattice visualization helpers ---
+  const AnimatedArrow = animated(Arrow);
+  const AnimatedText = animated(Text);
+  const AnimatedLine = animated(Line);
+  const AnimatedCircle = animated(Circle);
+
   const drawLatticeVectors = () => {
-    if (!lattice?.meepLattice) return null;
+    /* draw arrows whenever showBaseVectors is true, even when the unit cell
+       is visible, so they appear on top of the unit-cell outline */
+    if (!lattice?.meepLattice || !showBaseVectors) return null;
     
-    const { basis1, basis2, basis_size } = lattice.meepLattice;
-    const scale = 100; // Display scale factor
+    const isRealSpace = spaceMode === 'real';
     
-    // Scale the vectors by basis_size
-    const v1 = {
-      x: basis1.x * basis_size.x * scale,
-      y: -basis1.y * basis_size.y * scale // Flip Y for canvas coordinates
-    };
-    const v2 = {
-      x: basis2.x * basis_size.x * scale,
-      y: -basis2.y * basis_size.y * scale
-    };
+    // Colors based on mode
+    const v1Color = isRealSpace ? "#10b981" : "#60a5fa";
+    const v2Color = isRealSpace ? "#f59e0b" : "#a78bfa";
+    const v1Label = isRealSpace ? "a₁" : "b₁";
+    const v2Label = isRealSpace ? "a₂" : "b₂";
+
+    // Get current spring values for the arrows
+    const v1x = vectorSpring.v1x.get();
+    const v1y = vectorSpring.v1y.get();
+    const v2x = vectorSpring.v2x.get();
+    const v2y = vectorSpring.v2y.get();
 
     return (
       <>
         {/* Basis vector 1 */}
         <Arrow
-          points={[0, 0, v1.x, v1.y]}
-          stroke="#10b981"
+          points={[0, 0, v1x, v1y]}
+          stroke={v1Color}
           strokeWidth={3}
-          fill="#10b981"
+          fill={v1Color}
           pointerLength={10}
           pointerWidth={10}
         />
         <Text
-          x={v1.x + 15}
-          y={v1.y - 15}
-          text="a₁"
+          x={v1x + 15}
+          y={v1y - 15}
+          text={v1Label}
           fontSize={16}
           fontFamily="system-ui"
-          fill="#10b981"
+          fill={v1Color}
           fontStyle="bold"
         />
         
         {/* Basis vector 2 */}
         <Arrow
-          points={[0, 0, v2.x, v2.y]}
-          stroke="#f59e0b"
+          points={[0, 0, v2x, v2y]}
+          stroke={v2Color}
           strokeWidth={3}
-          fill="#f59e0b"
+          fill={v2Color}
           pointerLength={10}
           pointerWidth={10}
         />
         <Text
-          x={v2.x + 15}
-          y={v2.y - 15}
-          text="a₂"
+          x={v2x + 15}
+          y={v2y - 15}
+          text={v2Label}
           fontSize={16}
           fontFamily="system-ui"
-          fill="#f59e0b"
+          fill={v2Color}
           fontStyle="bold"
         />
         
@@ -141,79 +266,180 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     );
   };
 
-  // Draw lattice points with better styling
-  const drawLatticePoints = () => {
-    if (!lattice?.meepLattice) return null;
+  // Load lattice points using WASM
+  useEffect(() => {
+    if (!lattice?.meepLattice || !showLatticePoints) return;
     
-    const { basis1, basis2, basis_size } = lattice.meepLattice;
-    const scale = 100;
+    const loadPoints = async () => {
+      const startTime = performance.now();
+      const wasm = await getWasmModule();
+      
+      const isRealSpace = spaceMode === 'real';
+      const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
+      
+      // Get appropriate basis vectors
+      const basis = isRealSpace ? {
+        b1: {
+          x: lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x,
+          y: lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y
+        },
+        b2: {
+          x: lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x,
+          y: lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y
+        }
+      } : {
+        b1: lattice.meepLattice.reciprocal_basis1 || { x: 0, y: 0 },
+        b2: lattice.meepLattice.reciprocal_basis2 || { x: 0, y: 0 }
+      };
+      
+      // Create cache key
+      const cacheKey = `${basis.b1.x}-${basis.b1.y}-${basis.b2.x}-${basis.b2.y}-${gridDensity}`;
+      
+      // Check if we already have this in cache
+      if (latticePointCache?.cacheKey === cacheKey) {
+        return;
+      }
+      
+      // Call Rust function to calculate square lattice points
+      const result = wasm.calculate_square_lattice_points(
+        basis.b1.x,
+        basis.b1.y,
+        basis.b2.x,
+        basis.b2.y,
+        gridDensity * 2 // target_count (will create roughly gridDensity x gridDensity points)
+      );
+      
+      const endTime = performance.now();
+      
+      setLatticePointCache({
+        points: result.points,
+        maxDistance: result.max_distance,
+        cacheKey,
+        stats: {
+          timeTaken: endTime - startTime,
+          pointCount: result.points.length,
+          maxDistance: result.max_distance
+        }
+      });
+    };
+    
+    loadPoints();
+  }, [lattice, spaceMode, showLatticePoints, gridDensity, latticeScale, normalizeMode, normalizationFactor, setLatticePointCache, latticePointCache?.cacheKey]);
+
+  // Draw lattice points using cached data from Rust
+  const drawLatticePoints = () => {
+    if (!lattice?.meepLattice || !showLatticePoints || !latticePointCache) return null;
+    
+    const isRealSpace = spaceMode === 'real';
+    const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
     const points: React.ReactNode[] = [];
     
-    // Draw a grid of lattice points
-    const n = 8; // Number of cells in each direction
-    for (let i = -n; i <= n; i++) {
-      for (let j = -n; j <= n; j++) {
-        const x = (i * basis1.x + j * basis2.x) * basis_size.x * scale;
-        const y = -(i * basis1.y + j * basis2.y) * basis_size.y * scale;
-        
-        // Fade points further from origin
-        const distance = Math.sqrt(x * x + y * y);
-        const maxDistance = n * scale * 1.5;
-        const opacity = Math.max(0.2, 1 - (distance / maxDistance));
-        
-        points.push(
-          <Circle
-            key={`${i}-${j}`}
-            x={x}
-            y={y}
-            radius={4}
-            fill="#60a5fa"
-            opacity={opacity}
-            strokeWidth={1}
-            stroke="#1e40af"
-          />
-        );
-      }
-    }
+    const pointColor = isRealSpace ? "#60a5fa" : "#a78bfa";
+    const strokeColor = isRealSpace ? "#1e40af" : "#6d28d9";
+    
+    // Calculate the maximum distance for opacity calculation
+    const maxDistance = latticePointCache.maxDistance * scale;
+    
+    latticePointCache.points.forEach((point: { x: number; y: number; i: number; j: number; distance: number }, idx: number) => {
+      const x = point.x * scale;
+      const y = -point.y * scale; // Flip y for canvas coordinate system
+      
+      // Calculate opacity based on distance
+      const distance = point.distance * scale;
+      const opacity = Math.max(0.2, 1 - (distance / (maxDistance * 1.5)));
+      
+      // Dynamic radius based on distance from origin
+      const baseRadius = 4;
+      // Only apply dynamic scaling when NOT in normalize mode
+      const radius = normalizeMode ? baseRadius : baseRadius * Math.max(1, latticePointCache.maxDistance / 10);
+      
+      points.push(
+        <Circle
+          key={`${point.i}-${point.j}-${idx}`}
+          x={x}
+          y={y}
+          radius={radius}
+          fill={pointColor}
+          opacity={opacity}
+          strokeWidth={1}
+          stroke={strokeColor}
+        />
+      );
+    });
     
     return <>{points}</>;
   };
 
-  // Draw unit cell outline
+  // Draw unit cell outline with animation and fill
   const drawUnitCell = () => {
-    if (!lattice?.meepLattice) return null;
+     if (!lattice?.meepLattice || !showUnitCell) return null;
     
-    const { basis1, basis2, basis_size } = lattice.meepLattice;
-    const scale = 100;
+    const isRealSpace = spaceMode === 'real';
+    const strokeColor = isRealSpace ? "#94a3b8" : "#c4b5fd";
+    const fillColor = isRealSpace ? "rgba(148, 163, 184, 0.08)" : "rgba(196, 181, 253, 0.08)";
     
-    const v1 = {
-      x: basis1.x * basis_size.x * scale,
-      y: -basis1.y * basis_size.y * scale
-    };
-    const v2 = {
-      x: basis2.x * basis_size.x * scale,
-      y: -basis2.y * basis_size.y * scale
-    };
+    // Get current spring values
+    const v1x = vectorSpring.v1x.get();
+    const v1y = vectorSpring.v1y.get();
+    const v2x = vectorSpring.v2x.get();
+    const v2y = vectorSpring.v2y.get();
+    
+    // Vector colors for the dashed lines
+    const v1Color = isRealSpace ? "#10b981" : "#60a5fa";
+    const v2Color = isRealSpace ? "#f59e0b" : "#a78bfa";
+    const v1Label = isRealSpace ? "a₁" : "b₁";
+    const v2Label = isRealSpace ? "a₂" : "b₂";
     
     return (
-      <Line
-        points={[
-          0, 0,
-          v1.x, v1.y,
-          v1.x + v2.x, v1.y + v2.y,
-          v2.x, v2.y,
-          0, 0
-        ]}
-        stroke="#94a3b8"
-        strokeWidth={2}
-        dash={[5, 5]}
-        opacity={0.5}
-      />
+      <>
+        {/* Unit cell fill (drawn first so it's behind everything) */}
+        <Line
+          points={[
+            0, 0,
+            v1x, v1y,
+            v1x + v2x, v1y + v2y,
+            v2x, v2y,
+            0, 0
+          ]}
+          fill={fillColor}
+          closed
+          strokeWidth={0}
+        />
+        
+        {/* No dashed basis lines / labels when base vectors are hidden */}
+        
+        {/* Unit cell outline */}
+        <Line
+          points={[
+            0, 0,
+            v1x, v1y,
+            v1x + v2x, v1y + v2y,
+            v2x, v2y,
+            0, 0
+          ]}
+          stroke={strokeColor}
+          strokeWidth={2}
+          dash={[5, 5]}
+          opacity={0.5}
+        />
+        
+        {/* Origin point (always visible when unit cell is shown) */}
+        <Circle
+          x={0}
+          y={0}
+          radius={5}
+          fill="#fff"
+          stroke="#1f2937"
+          strokeWidth={2}
+        />
+      </>
     );
   };
 
-  // Draw coordinate system
-  const drawCoordinateSystem = () => {
+  // Draw coordinate system with grid
+  const drawGrid = () => {
+    if (!showGrid) return null;
+    
     const axisLength = 2000;
     const tickSpacing = 50;
     const tickLength = 10;
@@ -253,6 +479,81 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
         })}
       </Group>
     );
+  };
+
+  // --- helper : convert "#rrggbb" → "rgba(r,g,b,alpha)" ------------------------
+  const hexToRgba = (hex: string, alpha: number) => {
+    const h = hex.replace("#", "");
+    const bigint = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+  };
+
+  // Draw Voronoi cells (Wigner-Seitz or Brillouin zones)
+  const drawVoronoiCells = () => {
+    if (!voronoiData) return null;
+
+    const isRealSpace = spaceMode === "real";
+    const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
+    const cells: React.ReactNode[] = [];
+
+    // --- common helpers ---
+    const pushCell = (
+      key: string,
+      pts: number[],
+      stroke: string,
+      dashed: boolean = false
+    ) =>
+      cells.push(
+        <Line
+          key={key}
+          points={[...pts, pts[0], pts[1]]}       /* close polygon */
+          stroke={stroke}
+          strokeWidth={1}
+          dash={dashed ? [5, 5] : undefined}
+          fill={hexToRgba(stroke, 0.05)}          /* 5 % opaque fill  */
+          closed
+        />
+      );
+
+    // --- real space : multiple zones ---
+    if (isRealSpace && showWignerSeitzCell) {
+      if (voronoiData.realSpaceZones) {
+        // Use the new multi-zone data
+        const zones = voronoiData.realSpaceZones;
+        const zonesToDraw = Math.min(realSpaceZoneCount, zones.length);
+        const palette = ["#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#3b82f6"];
+
+        zones.slice(0, zonesToDraw).forEach((zone: any, idx: number) => {
+          const verts = Array.isArray(zone) ? zone : zone.vertices;
+          const pts = verts.flatMap((v: any) => [v.x * scale, -v.y * scale]);
+          pushCell(`ws-${idx}`, pts, palette[idx % palette.length], idx > 0);
+        });
+      } else if (voronoiData.wignerSeitzCell) {
+        // Fallback to single zone
+        const verts = Array.isArray(voronoiData.wignerSeitzCell)
+          ? voronoiData.wignerSeitzCell
+          : voronoiData.wignerSeitzCell.vertices;
+        const pts = verts.flatMap((v: any) => [v.x * scale, -v.y * scale]);
+        pushCell("wigner-seitz", pts, "#10b981");
+      }
+    }
+
+    // --- reciprocal space : Brillouin zones ---
+    if (!isRealSpace && showBrillouinZone && voronoiData.brillouinZones) {
+      const zones = voronoiData.brillouinZones as any[];
+      const zonesToDraw = Math.min(reciprocalSpaceZoneCount, zones.length);
+      const palette = ["#60a5fa", "#a78bfa", "#f472b6", "#fb923c", "#fbbf24"];
+
+      zones.slice(0, zonesToDraw).forEach((zone, idx) => {
+        const verts = Array.isArray(zone) ? zone : zone.vertices;
+        const pts = verts.flatMap((v: any) => [v.x * scale, -v.y * scale]);
+        pushCell(`bz-${idx}`, pts, palette[idx % palette.length], idx > 0);
+      });
+    }
+    return <>{cells}</>;
   };
 
   return (
@@ -307,15 +608,18 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           />
           
           {/* Coordinate system and grid */}
-          {drawCoordinateSystem()}
+          {drawGrid()}
           
-          {/* Unit cell outline */}
+          {/* Voronoi cells (drawn before unit cell) */}
+          {drawVoronoiCells()}
+          
+          {/* Unit cell outline and fill */}
           {drawUnitCell()}
           
           {/* Lattice points */}
           {drawLatticePoints()}
           
-          {/* Lattice vectors (drawn last to be on top) */}
+          {/* Lattice vectors (drawn last to be on top, but only if unit cell is not shown) */}
           {drawLatticeVectors()}
         </Layer>
       </Stage>
@@ -326,6 +630,13 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           <div>Scroll: Zoom in/out</div>
           <div>Click + Drag: Pan view</div>
           <div className="text-gray-500">Scale: {scale.toFixed(2)}x</div>
+          <div className="text-gray-500">Mode: {spaceMode === 'real' ? 'Real Space' : 'k-Space'}</div>
+          {normalizeMode && <div className="text-gray-500">Normalized</div>}
+          {voronoiData && (
+            <div className="text-gray-500">
+              Voronoi: {spaceMode === 'real' ? 'Wigner-Seitz' : `${voronoiData.brillouinZones?.length || 0} zones`}
+            </div>
+          )}
         </div>
       </div>
     </div>

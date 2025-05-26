@@ -196,7 +196,7 @@ export default function LatticeVectorDisplay({ latticeType, customVectors, custo
   // Colors based on mode
   const vector1Color = realSpaceMode ? "#10B981" : "#60A5FA"; // green -> blue
   const vector2Color = realSpaceMode ? "#F59E0B" : "#A78BFA"; // amber -> purple
-  const angleLabel = realSpaceMode ? "γ" : "α";
+  const angleLabel = realSpaceMode ? "α" : "β";
   const vector1Label = realSpaceMode ? "a₁" : "b₁";
   const vector2Label = realSpaceMode ? "a₂" : "b₂";
 

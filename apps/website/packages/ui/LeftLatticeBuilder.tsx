@@ -16,31 +16,31 @@ const latticeTypes: { type: LatticeType; name: string; icon: React.ComponentType
     type: 'square', 
     name: 'Square', 
     icon: Square, 
-    description: 'Orthogonal lattice with equal sides (a = b, γ = 90°)' 
+    description: 'Orthogonal lattice with equal sides (a = b, α = 90°)'  // Changed γ to α
   },
   { 
     type: 'rectangular', 
     name: 'Rectangular', 
     icon: RectangleHorizontal, 
-    description: 'Orthogonal lattice with unequal sides (a ≠ b, γ = 90°)' 
+    description: 'Orthogonal lattice with unequal sides (a ≠ b, α = 90°)'  // Changed γ to α
   },
   { 
     type: 'hexagonal', 
     name: 'Hexagonal', 
     icon: Hexagon, 
-    description: 'Six-fold symmetric lattice (a = b, γ = 120°)' 
+    description: 'Six-fold symmetric lattice (a = b, α = 120°)'  // Changed γ to α
   },
   { 
     type: 'rhombic', 
     name: 'Rhombic', 
     icon: Diamond, 
-    description: 'Equal sides with oblique angle (a = b, γ ≠ 90°)' 
+    description: 'Equal sides with oblique angle (a = b, α ≠ 90°)'  // Changed γ to α
   },
   { 
     type: 'oblique', 
     name: 'Oblique', 
     icon: Triangle, 
-    description: 'General case with unequal sides and angle (a ≠ b, γ ≠ 90°)' 
+    description: 'General case with unequal sides and angle (a ≠ b, α ≠ 90°)'  // Changed γ to α
   },
   { 
     type: 'custom', 
@@ -52,12 +52,12 @@ const latticeTypes: { type: LatticeType; name: string; icon: React.ComponentType
 
 // Default values for each lattice type
 const latticeDefaults = {
-  square: { a: 1, b: 1, gamma: 90 },
-  rectangular: { a: 1.5, b: 1, gamma: 90 },
-  hexagonal: { a: 1, b: 1, gamma: 120 },
-  rhombic: { a: 1, b: 1, gamma: 60 },
-  oblique: { a: 1.2, b: 1, gamma: 75 },
-  custom: { a: 1, b: 1, gamma: 90 }
+  square: { a: 1, b: 1, alpha: 90 },  // Changed gamma to alpha
+  rectangular: { a: 1.5, b: 1, alpha: 90 },  // Changed gamma to alpha
+  hexagonal: { a: 1, b: 1, alpha: 120 },  // Changed gamma to alpha
+  rhombic: { a: 1, b: 1, alpha: 60 },  // Changed gamma to alpha
+  oblique: { a: 1.2, b: 1, alpha: 75 },  // Changed gamma to alpha
+  custom: { a: 1, b: 1, alpha: 90 }  // Changed gamma to alpha
 };
 
 // Helper functions for vector calculations
@@ -109,7 +109,7 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
   const [description, setDescription] = useState('');
   const [a, setA] = useState(latticeDefaults.square.a);
   const [b, setB] = useState(latticeDefaults.square.b);
-  const [gamma, setGamma] = useState(latticeDefaults.square.gamma);
+  const [alpha, setAlpha] = useState(latticeDefaults.square.alpha);  // Changed from gamma
   
   // Custom lattice fields
   const [basis1, setBasis1] = useState<Vector3>({ x: 1, y: 0, z: 0 });
@@ -181,7 +181,7 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
     const defaults = latticeDefaults[selectedLatticeType];
     setA(defaults.a);
     setB(defaults.b);
-    setGamma(defaults.gamma);
+    setAlpha(defaults.alpha);  // Changed from setGamma
     
     // Update custom vectors based on new type
     if (selectedLatticeType !== 'custom') {
@@ -204,15 +204,15 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
           break;
         case 'rhombic':
           newBasis2 = { 
-            x: defaults.a * Math.cos(defaults.gamma * Math.PI / 180), 
-            y: defaults.a * Math.sin(defaults.gamma * Math.PI / 180), 
+            x: defaults.a * Math.cos(defaults.alpha * Math.PI / 180),  // Changed from gamma
+            y: defaults.a * Math.sin(defaults.alpha * Math.PI / 180),  // Changed from gamma
             z: 0 
           };
           break;
         case 'oblique':
           newBasis2 = { 
-            x: defaults.b * Math.cos(defaults.gamma * Math.PI / 180), 
-            y: defaults.b * Math.sin(defaults.gamma * Math.PI / 180), 
+            x: defaults.b * Math.cos(defaults.alpha * Math.PI / 180),  // Changed from gamma
+            y: defaults.b * Math.sin(defaults.alpha * Math.PI / 180),  // Changed from gamma
             z: 0 
           };
           break;
@@ -235,9 +235,9 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
       case 'hexagonal':
         return ['a'];
       case 'rhombic':
-        return ['a', 'gamma'];
+        return ['a', 'alpha'];  // Changed from gamma
       case 'oblique':
-        return ['a', 'b', 'gamma'];
+        return ['a', 'b', 'alpha'];  // Changed from gamma
       case 'custom':
         return [];
       default:
@@ -311,15 +311,15 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
           break;
         case 'hexagonal':
           generatedBasis2 = { x: a * Math.cos(120 * Math.PI / 180), y: a * Math.sin(120 * Math.PI / 180), z: 0 };
-          parameters = { a, gamma: 120 };
+          parameters = { a, alpha: 120 };  // Changed gamma to alpha
           break;
         case 'rhombic':
-          generatedBasis2 = { x: a * Math.cos(gamma * Math.PI / 180), y: a * Math.sin(gamma * Math.PI / 180), z: 0 };
-          parameters = { a, gamma };
+          generatedBasis2 = { x: a * Math.cos(alpha * Math.PI / 180), y: a * Math.sin(alpha * Math.PI / 180), z: 0 };  // Changed gamma to alpha
+          parameters = { a, alpha };  // Changed gamma to alpha
           break;
         case 'oblique':
-          generatedBasis2 = { x: b * Math.cos(gamma * Math.PI / 180), y: b * Math.sin(gamma * Math.PI / 180), z: 0 };
-          parameters = { a, b, gamma };
+          generatedBasis2 = { x: b * Math.cos(alpha * Math.PI / 180), y: b * Math.sin(alpha * Math.PI / 180), z: 0 };  // Changed gamma to alpha
+          parameters = { a, b, alpha };  // Changed gamma to alpha
           break;
       }
       
@@ -349,7 +349,7 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
     setDescription('');
     setA(1);
     setB(1);
-    setGamma(90);
+    setAlpha(90);  // Changed from setGamma
     setBasis1({ x: 1, y: 0, z: 0 });
     setBasis2({ x: 0, y: 1, z: 0 });
     setShowAdditionalProperties(false);
@@ -389,15 +389,15 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
         break;
       case 'rhombic':
         currentBasis2 = { 
-          x: a * Math.cos(gamma * Math.PI / 180), 
-          y: a * Math.sin(gamma * Math.PI / 180), 
+          x: a * Math.cos(alpha * Math.PI / 180), 
+          y: a * Math.sin(alpha * Math.PI / 180), 
           z: 0 
         };
         break;
       case 'oblique':
         currentBasis2 = { 
-          x: b * Math.cos(gamma * Math.PI / 180), 
-          y: b * Math.sin(gamma * Math.PI / 180), 
+          x: b * Math.cos(alpha * Math.PI / 180), 
+          y: b * Math.sin(alpha * Math.PI / 180), 
           z: 0 
         };
         break;
@@ -460,7 +460,7 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
               latticeType={selectedLatticeType}
               customVectors={showCreateForm ? getCurrentVectors() : undefined}
               customAngle={showCreateForm && selectedLatticeType !== 'custom' ? 
-                (selectedLatticeType === 'hexagonal' ? 120 : gamma) : undefined}
+                (selectedLatticeType === 'hexagonal' ? 120 : alpha) : undefined}  // Changed gamma to alpha
             />
           </div>
         </animated.div>
@@ -541,7 +541,7 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
               >
                 {useExponentialNotation ? <Superscript size={12} /> : <Hash size={12} />}
               </button>
-              {(requiredFields.includes('gamma') || selectedLatticeType === 'custom') && (
+              {(requiredFields.includes('alpha') || selectedLatticeType === 'custom') && (  // Changed from gamma
                 <button
                   onClick={() => setUseRadians(!useRadians)}
                   className={`p-1 rounded text-xs ${useRadians ? 'bg-gray-700 text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}
@@ -597,15 +597,15 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
                     />
                   </div>
                 )}
-                {requiredFields.includes('gamma') && (
+                {requiredFields.includes('alpha') && (  // Changed from gamma
                   <div className="flex items-center gap-1">
-                    <label className="text-xs text-gray-400 whitespace-nowrap">γ =</label>
+                    <label className="text-xs text-gray-400 whitespace-nowrap">α =</label>
                     <input
                       type="text"
-                      value={formatAngle(gamma)}
+                      value={formatAngle(alpha)}  // Changed from gamma
                       onChange={(e) => {
                         const value = parseAngleInput(e.target.value);
-                        setGamma(clampAngle(value));
+                        setAlpha(clampAngle(value));  // Changed from setGamma
                       }}
                       className="flex-1 px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-xs text-white focus:border-blue-500 focus:outline-none"
                     />
