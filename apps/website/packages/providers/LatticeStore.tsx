@@ -31,11 +31,11 @@ type LatticeState = {
   spaceMode: 'real' | 'reciprocal';
   setSpaceMode: (mode: 'real' | 'reciprocal') => void;
   
-  // Voronoi cell options
-  showWignerSeitzCell: boolean;
-  toggleShowWignerSeitzCell: () => void;
-  showBrillouinZone: boolean;
-  toggleShowBrillouinZone: () => void;
+  // Voronoi cell options (merged)
+  showVoronoiCell: boolean;
+  toggleShowVoronoiCell: () => void;
+  showVoronoiTiling: boolean;
+  toggleShowVoronoiTiling: () => void;
   
   // Symmetry options
   showPointGroup: boolean;
@@ -103,11 +103,18 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     spaceMode: 'real',
     setSpaceMode: (mode) => set({ spaceMode: mode }),
     
-    // Voronoi cell toggles
-    showWignerSeitzCell: false,
-    toggleShowWignerSeitzCell: () => set((s) => ({ showWignerSeitzCell: !s.showWignerSeitzCell })),
-    showBrillouinZone: false,
-    toggleShowBrillouinZone: () => set((s) => ({ showBrillouinZone: !s.showBrillouinZone })),
+    // Voronoi cell toggles (merged)
+    showVoronoiCell: false,
+    toggleShowVoronoiCell: () => set((s) => ({ showVoronoiCell: !s.showVoronoiCell })),
+    showVoronoiTiling: false,
+    toggleShowVoronoiTiling: () => set((s) => {
+      const newShowVoronoiTiling = !s.showVoronoiTiling;
+      // If turning on voronoi tiling, ensure voronoi cell is also on
+      if (newShowVoronoiTiling && !s.showVoronoiCell) {
+        return { showVoronoiTiling: true, showVoronoiCell: true };
+      }
+      return { showVoronoiTiling: newShowVoronoiTiling };
+    }),
     
     // Symmetry toggles
     showPointGroup: false,

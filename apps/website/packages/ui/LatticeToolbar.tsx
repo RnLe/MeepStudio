@@ -9,8 +9,8 @@ import CustomLucideIcon from "./CustomLucideIcon";
 
 const GROUPS = [
   { key: "representation", label: "Representation", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
-  { key: "modes", label: "Modes", color: "#a8c5b1", border: "border-[#a8c5b1]", bg: "bg-[#a8c5b1]/20" },
   { key: "voronoi", label: "Voronoi Cells", color: "#b6a6ca", border: "border-[#b6a6ca]", bg: "bg-[#b6a6ca]/20" },
+  { key: "modes", label: "Modes", color: "#a8c5b1", border: "border-[#a8c5b1]", bg: "bg-[#a8c5b1]/20" },
   { key: "symmetries", label: "Symmetries", color: "#c7bca1", border: "border-[#c7bca1]", bg: "bg-[#c7bca1]/20" },
   { key: "overlays", label: "Overlays", color: "#b1cfc1", border: "border-[#b1cfc1]", bg: "bg-[#b1cfc1]/20" },
 ];
@@ -18,8 +18,8 @@ const GROUPS = [
 // Define group keys as a union type for type safety
 const GROUP_KEYS = [
   "representation",
-  "modes",
-  "voronoi", 
+  "voronoi",
+  "modes", 
   "symmetries",
   "overlays"
 ] as const;
@@ -28,8 +28,8 @@ type GroupKey = typeof GROUP_KEYS[number];
 type ToolbarState = {
   spaceMode: 'real' | 'reciprocal';
   normalizeMode: boolean;
-  showWignerSeitzCell: boolean;
-  showBrillouinZone: boolean;
+  showVoronoiCell: boolean;
+  showVoronoiTiling: boolean;
   showPointGroup: boolean;
   showSpaceGroup: boolean;
   showHighSymmetryPoints: boolean;
@@ -80,18 +80,19 @@ const modeTools: Tool[] = [
 
 const voronoiTools: Tool[] = [
   {
-    label: "Wigner-Seitz Cell",
-    icon: <CustomLucideIcon src="/icons/hexagon_r.svg" size={22} />,
-    onClick: (toggleShowWignerSeitzCell: () => void) => toggleShowWignerSeitzCell(),
-    isActive: (state) => state.showWignerSeitzCell,
-    fnKey: "toggleShowWignerSeitzCell",
+    label: "Voronoi Cell",
+    icon: <Hexagon size={18} />,
+    onClick: (toggleShowVoronoiCell: () => void) => toggleShowVoronoiCell(),
+    isActive: (state) => state.showVoronoiCell,
+    fnKey: "toggleShowVoronoiCell",
   },
   {
-    label: "Brillouin Zone",
-    icon: <CustomLucideIcon src="/icons/hexagon_k.svg" size={22} />,
-    onClick: (toggleShowBrillouinZone: () => void) => toggleShowBrillouinZone(),
-    isActive: (state) => state.showBrillouinZone,
-    fnKey: "toggleShowBrillouinZone",
+    label: "Voronoi Tiling",
+    icon: <CustomLucideIcon src="/icons/hexagon_tiling.svg" size={26} />,
+    onClick: (toggleShowVoronoiTiling: () => void) => toggleShowVoronoiTiling(),
+    isActive: (state) => state.showVoronoiTiling,
+    fnKey: "toggleShowVoronoiTiling",
+    linkedTool: true,
   },
 ];
 
@@ -176,10 +177,10 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
   const setSpaceMode = useLatticeStore((s) => s.setSpaceMode);
   const normalizeMode = useLatticeStore((s) => s.normalizeMode);
   const toggleNormalizeMode = useLatticeStore((s) => s.toggleNormalizeMode);
-  const showWignerSeitzCell = useLatticeStore((s) => s.showWignerSeitzCell);
-  const toggleShowWignerSeitzCell = useLatticeStore((s) => s.toggleShowWignerSeitzCell);
-  const showBrillouinZone = useLatticeStore((s) => s.showBrillouinZone);
-  const toggleShowBrillouinZone = useLatticeStore((s) => s.toggleShowBrillouinZone);
+  const showVoronoiCell = useLatticeStore((s) => s.showVoronoiCell);
+  const toggleShowVoronoiCell = useLatticeStore((s) => s.toggleShowVoronoiCell);
+  const showVoronoiTiling = useLatticeStore((s) => s.showVoronoiTiling);
+  const toggleShowVoronoiTiling = useLatticeStore((s) => s.toggleShowVoronoiTiling);
   const showPointGroup = useLatticeStore((s) => s.showPointGroup);
   const toggleShowPointGroup = useLatticeStore((s) => s.toggleShowPointGroup);
   const showSpaceGroup = useLatticeStore((s) => s.showSpaceGroup);
@@ -210,50 +211,41 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
   const reciprocalSpaceZoneCount = useLatticeStore((s) => s.reciprocalSpaceZoneCount);
   const setReciprocalSpaceZoneCount = useLatticeStore((s) => s.setReciprocalSpaceZoneCount);
   
-  // Modified handlers for Voronoi tools with mutual exclusion and space mode switching
-  const handleWignerSeitzToggle = async () => {
-    const isCurrentlyOff = !showWignerSeitzCell;
-    
-    // If turning on
-    if (isCurrentlyOff) {
-      // Switch to real space if not already there
-      if (spaceMode !== 'real') {
-        setSpaceMode('real');
-      }
-      // Turn off Brillouin zone if it's on
-      if (showBrillouinZone) {
-        useLatticeStore.setState({ showBrillouinZone: false });
-      }
-      // Turn on Wigner-Seitz BEFORE calculating
-      useLatticeStore.setState({ showWignerSeitzCell: true });
-      // Then calculate if needed
-      await checkAndCalculateVoronoi();
+  // Modified handlers for Voronoi tools
+  const handleVoronoiCellToggle = async () => {
+    // If both are active, deactivate both
+    if (showVoronoiCell && showVoronoiTiling) {
+      useLatticeStore.setState({ 
+        showVoronoiCell: false, 
+        showVoronoiTiling: false 
+      });
     } else {
-      // Just turn off
-      toggleShowWignerSeitzCell();
+      const isCurrentlyOff = !showVoronoiCell;
+      if (isCurrentlyOff) {
+        useLatticeStore.setState({ showVoronoiCell: true });
+        await checkAndCalculateVoronoi();
+      } else {
+        toggleShowVoronoiCell();
+      }
     }
   };
-  
-  const handleBrillouinZoneToggle = async () => {
-    const isCurrentlyOff = !showBrillouinZone;
+
+  const handleVoronoiTilingToggle = async () => {
+    const isCurrentlyOff = !showVoronoiTiling;
     
-    // If turning on
     if (isCurrentlyOff) {
-      // Switch to reciprocal space if not already there
-      if (spaceMode !== 'reciprocal') {
-        setSpaceMode('reciprocal');
+      // Reset zone counts to 1 when activating tiling
+      setRealSpaceZoneCount(1);
+      setReciprocalSpaceZoneCount(1);
+      
+      if (!showVoronoiCell) {
+        useLatticeStore.setState({ showVoronoiCell: true, showVoronoiTiling: true });
+        await checkAndCalculateVoronoi();
+      } else {
+        toggleShowVoronoiTiling();
       }
-      // Turn off Wigner-Seitz if it's on
-      if (showWignerSeitzCell) {
-        useLatticeStore.setState({ showWignerSeitzCell: false });
-      }
-      // Turn on Brillouin zone BEFORE calculating
-      useLatticeStore.setState({ showBrillouinZone: true });
-      // Then calculate if needed
-      await checkAndCalculateVoronoi();
     } else {
-      // Just turn off
-      toggleShowBrillouinZone();
+      toggleShowVoronoiTiling();
     }
   };
   
@@ -278,8 +270,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
     setSpaceModeReal: () => setSpaceMode('real'),
     setSpaceModeReciprocal: () => setSpaceMode('reciprocal'),
     toggleNormalizeMode,
-    toggleShowWignerSeitzCell: handleWignerSeitzToggle,
-    toggleShowBrillouinZone: handleBrillouinZoneToggle,
+    toggleShowVoronoiCell: handleVoronoiCellToggle,
     toggleShowPointGroup,
     toggleShowSpaceGroup,
     toggleShowHighSymmetryPoints,
@@ -288,13 +279,14 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
     toggleShowUnitTilesLattice,
     toggleShowGrid,
     toggleShowBaseVectors,
+    toggleShowVoronoiTiling: handleVoronoiTilingToggle,
   };
 
   const toolbarState: ToolbarState = {
     spaceMode,
     normalizeMode,
-    showWignerSeitzCell,
-    showBrillouinZone,
+    showVoronoiCell,
+    showVoronoiTiling,
     showPointGroup,
     showSpaceGroup,
     showHighSymmetryPoints,
@@ -317,56 +309,74 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
       {GROUPS.map((group, idx) => (
         <React.Fragment key={group.key}>
           {group.key === "voronoi" ? (
-            // Custom rendering for Voronoi group with zone count controls
-            <div className="w-full mb-0 flex flex-col items-center py-1 px-1" style={{ minHeight: '84px' }}>
+            // Custom rendering for Voronoi group with linked tools
+            <div className="w-full mb-0 flex flex-col items-center py-1 px-1" style={{ minHeight: '30px' }}>
               <div className="text-[10px] font-semibold opacity-60 mb-1 mt-0.5 w-full text-center tracking-wide select-none">
                 {group.label}
               </div>
               
-              {/* Voronoi cell toggles */}
-              <div className="grid grid-cols-2 gap-1 w-full justify-items-center">
-                <button
-                  title="Wigner-Seitz Cell"
-                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
-                    ${showWignerSeitzCell
-                      ? "bg-[#4a7ec7] hover:bg-[#7aa5d8]"
-                      : "hover:bg-neutral-600 active:bg-neutral-600"}
-                  `}
-                  onClick={handleWignerSeitzToggle}
-                  aria-label="Wigner-Seitz Cell"
-                >
-                  <CustomLucideIcon src="/icons/hexagon_r.svg" size={22} />
-                </button>
-                <button
-                  title="Brillouin Zone"
-                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
-                    ${showBrillouinZone
-                      ? "bg-[#917adb] hover:bg-[#a693e6]"
-                      : "hover:bg-neutral-600 active:bg-neutral-600"}
-                  `}
-                  onClick={handleBrillouinZoneToggle}
-                  aria-label="Brillouin Zone"
-                >
-                  <CustomLucideIcon src="/icons/hexagon_k.svg" size={22} />
-                </button>
+              {/* Voronoi cell and tiling with link */}
+              <div className="w-full">
+                <div className="grid grid-cols-2 gap-[4] relative">
+                  <button
+                    title={spaceMode === 'real' ? "Wigner-Seitz Cell" : "Brillouin Zone"}
+                    className={`flex items-center justify-center w-8 h-8 rounded transition-all relative z-10 justify-self-end -translate-x-px
+                      ${showVoronoiCell
+                        ? (showVoronoiTiling && hoveredTool === "Voronoi Cell") 
+                          ? (spaceMode === 'real' ? "bg-[#7aa5d8]" : "bg-[#a693e6]")
+                          : (spaceMode === 'real' ? "bg-[#4a7ec7] hover:bg-[#7aa5d8]" : "bg-[#917adb] hover:bg-[#a693e6]")
+                        : (!showVoronoiCell && !showVoronoiTiling && hoveredTool === "Voronoi Tiling")
+                          ? "bg-neutral-500"
+                          : "hover:bg-neutral-600 active:bg-neutral-600"}
+                    `}
+                    onClick={handleVoronoiCellToggle}
+                    aria-label={spaceMode === 'real' ? "Wigner-Seitz Cell" : "Brillouin Zone"}
+                    onMouseEnter={() => setHoveredTool("Voronoi Cell")}
+                    onMouseLeave={() => setHoveredTool(null)}
+                  >
+                    <Hexagon size={18} />
+                  </button>
+                  
+                  <button
+                    title="Voronoi Tiling"
+                    className={`flex items-center justify-center w-8 h-8 rounded transition-all relative z-10 justify-self-start
+                      ${showVoronoiTiling
+                        ? (showVoronoiCell && hoveredTool === "Voronoi Cell")
+                          ? (spaceMode === 'real' ? "bg-[#7aa5d8]" : "bg-[#a693e6]")
+                          : (spaceMode === 'real' ? "bg-[#4a7ec7] hover:bg-[#7aa5d8]" : "bg-[#917adb] hover:bg-[#a693e6]")
+                        : (!showVoronoiCell && !showVoronoiTiling && hoveredTool === "Voronoi Tiling")
+                          ? "bg-neutral-500"
+                          : "hover:bg-neutral-600 active:bg-neutral-600"}
+                    `}
+                    onClick={handleVoronoiTilingToggle}
+                    aria-label="Voronoi Tiling"
+                    onMouseEnter={() => setHoveredTool("Voronoi Tiling")}
+                    onMouseLeave={() => setHoveredTool(null)}
+                  >
+                    <CustomLucideIcon src="/icons/hexagon_tiling.svg" size={22} />
+                  </button>
+                  
+                  {/* Link line - positioned absolutely with higher z-index */}
+                  <div className="absolute w-3 h-[2px] bg-neutral-400/70 left-1/2 -translate-x-3/5 top-1/2 -translate-y-1/2 z-20" />
+                </div>
               </div>
               
               {/* Zone count selector - always reserve space but control visibility */}
               <div 
                 className={`flex gap-0.5 mt-1 px-1 transition-all duration-200 ease-in-out ${
-                  (showWignerSeitzCell || showBrillouinZone) 
+                  showVoronoiCell && !showVoronoiTiling
                     ? 'opacity-100' 
                     : 'opacity-0 pointer-events-none'
                 }`}
                 style={{ height: '20px' }} // Fixed height to prevent layout shift
               >
                 {[1, 2, 3, 4, 5].map((count) => {
-                  const isActive = showWignerSeitzCell 
+                  const isActive = spaceMode === 'real'
                     ? realSpaceZoneCount === count 
                     : reciprocalSpaceZoneCount === count;
                   
                   // Different colors for real space vs reciprocal space
-                  const activeColor = showWignerSeitzCell
+                  const activeColor = spaceMode === 'real'
                     ? "bg-[#4a7ec7] hover:bg-[#7aa5d8]" // Real space: blue
                     : "bg-[#917adb] hover:bg-[#a693e6]"; // Reciprocal space: purple
                   
@@ -379,9 +389,9 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                         ${isActive ? activeColor : inactiveColor}
                       `}
                       onClick={() => {
-                        if (showWignerSeitzCell) {
+                        if (spaceMode === 'real') {
                           setRealSpaceZoneCount(count);
-                        } else if (showBrillouinZone) {
+                        } else {
                           setReciprocalSpaceZoneCount(count);
                         }
                       }}
@@ -458,7 +468,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                     onMouseEnter={() => setHoveredTool("Unit Tiles Lattice")}
                     onMouseLeave={() => setHoveredTool(null)}
                   >
-                    <CustomLucideIcon src="/icons/box_tiling.svg" size={22} />
+                    <CustomLucideIcon src="/icons/box_tiling.svg" size={26} />
                   </button>
                   
                   {/* Link line - positioned absolutely with higher z-index */}

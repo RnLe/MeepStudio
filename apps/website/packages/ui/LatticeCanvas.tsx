@@ -32,10 +32,10 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   const latticePointCache = useLatticeStore((s) => s.latticePointCache);
   const setLatticePointCache = useLatticeStore((s) => s.setLatticePointCache);
   
-  // Get Voronoi data from store
+  // Get Voronoi data from store (merged)
+  const showVoronoiCell = useLatticeStore((s) => s.showVoronoiCell);
   const voronoiData = useLatticeStore((s) => s.voronoiData);
-  const showWignerSeitzCell = useLatticeStore((s) => s.showWignerSeitzCell);
-  const showBrillouinZone = useLatticeStore((s) => s.showBrillouinZone);
+  const showVoronoiTiling = useLatticeStore((s) => s.showVoronoiTiling);
   
   // Get zone counts from store
   const realSpaceZoneCount = useLatticeStore((s) => s.realSpaceZoneCount);
@@ -393,19 +393,21 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     
     return (
       <>
-        {/* Unit cell fill (drawn first so it's behind everything) */}
-        <Line
-          points={[
-            0, 0,
-            v1x, v1y,
-            v1x + v2x, v1y + v2y,
-            v2x, v2y,
-            0, 0
-          ]}
-          fill={fillColor}
-          closed
-          strokeWidth={0}
-        />
+        {/* Unit cell fill (drawn first so it's behind everything) - only show if unit tiles are NOT active */}
+        {!showUnitTilesLattice && (
+          <Line
+            points={[
+              0, 0,
+              v1x, v1y,
+              v1x + v2x, v1y + v2y,
+              v2x, v2y,
+              0, 0
+            ]}
+            fill={fillColor}
+            closed
+            strokeWidth={0}
+          />
+        )}
         
         {/* No dashed basis lines / labels when base vectors are hidden */}
         
@@ -544,9 +546,70 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     return `rgba(${r},${g},${b},${alpha})`;
   };
 
+  // Draw Voronoi cell tiling - voronoi cells at each lattice point
+  const drawVoronoiTiling = () => {
+    if (!lattice?.meepLattice || !showVoronoiTiling || !latticePointCache || !voronoiData) return null;
+    
+    const isRealSpace = spaceMode === 'real';
+    const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
+    
+    // Get the first zone data
+    let zoneVertices: any[] = [];
+    if (isRealSpace && voronoiData.realSpaceZones && voronoiData.realSpaceZones.length > 0) {
+      const zone = voronoiData.realSpaceZones[0];
+      zoneVertices = Array.isArray(zone) ? zone : zone.vertices;
+    } else if (!isRealSpace && voronoiData.brillouinZones && voronoiData.brillouinZones.length > 0) {
+      const zone = voronoiData.brillouinZones[0];
+      zoneVertices = Array.isArray(zone) ? zone : zone.vertices;
+    } else if (isRealSpace && voronoiData.wignerSeitzCell) {
+      // Fallback to single zone data
+      zoneVertices = Array.isArray(voronoiData.wignerSeitzCell) 
+        ? voronoiData.wignerSeitzCell 
+        : voronoiData.wignerSeitzCell.vertices;
+    }
+    
+    if (zoneVertices.length === 0) return null;
+    
+    const strokeColor = isRealSpace ? "#10b981" : "#60a5fa";
+    const fillColor = isRealSpace ? "rgba(16, 185, 129, 0.05)" : "rgba(96, 165, 250, 0.05)";
+    
+    const tiles: React.ReactNode[] = [];
+    
+    // Draw a voronoi cell at each lattice point
+    latticePointCache.points.forEach((point: { x: number; y: number; i: number; j: number; distance: number }, idx: number) => {
+      const px = point.x * scale;
+      const py = -point.y * scale; // Flip y for canvas coordinate system
+      
+      // Calculate opacity based on distance (similar to unit cell tiling)
+      const distance = point.distance * scale;
+      const maxDistance = latticePointCache.maxDistance * scale;
+      const opacity = Math.max(0.1, 0.8 - (distance / (maxDistance * 1.5)));
+      
+      // Transform vertices to be centered at the lattice point
+      const pts = zoneVertices.flatMap((v: any) => [
+        px + v.x * scale,
+        py - v.y * scale
+      ]);
+      
+      tiles.push(
+        <Line
+          key={`voronoi-tile-${point.i}-${point.j}-${idx}`}
+          points={[...pts, pts[0], pts[1]]} // Close the polygon
+          stroke={strokeColor}
+          strokeWidth={1}
+          fill={fillColor}
+          closed
+          opacity={opacity}
+        />
+      );
+    });
+    
+    return <>{tiles}</>;
+  };
+
   // Draw Voronoi cells (Wigner-Seitz or Brillouin zones)
   const drawVoronoiCells = () => {
-    if (!voronoiData) return null;
+    if (!voronoiData || !showVoronoiCell || showVoronoiTiling) return null; // Don't draw individual cells when tiling is active
 
     const isRealSpace = spaceMode === "real";
     const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
@@ -571,31 +634,26 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
         />
       );
 
-    // --- real space : multiple zones ---
-    if (isRealSpace && showWignerSeitzCell) {
-      if (voronoiData.realSpaceZones) {
-        // Use the new multi-zone data
-        const zones = voronoiData.realSpaceZones;
-        const zonesToDraw = Math.min(realSpaceZoneCount, zones.length);
-        const palette = ["#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#3b82f6"];
+    // Draw based on current space mode
+    if (isRealSpace && voronoiData.realSpaceZones) {
+      // Use the new multi-zone data
+      const zones = voronoiData.realSpaceZones;
+      const zonesToDraw = Math.min(realSpaceZoneCount, zones.length);
+      const palette = ["#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#3b82f6"];
 
-        zones.slice(0, zonesToDraw).forEach((zone: any, idx: number) => {
-          const verts = Array.isArray(zone) ? zone : zone.vertices;
-          const pts = verts.flatMap((v: any) => [v.x * scale, -v.y * scale]);
-          pushCell(`ws-${idx}`, pts, palette[idx % palette.length], idx > 0);
-        });
-      } else if (voronoiData.wignerSeitzCell) {
-        // Fallback to single zone
-        const verts = Array.isArray(voronoiData.wignerSeitzCell)
-          ? voronoiData.wignerSeitzCell
-          : voronoiData.wignerSeitzCell.vertices;
+      zones.slice(0, zonesToDraw).forEach((zone: any, idx: number) => {
+        const verts = Array.isArray(zone) ? zone : zone.vertices;
         const pts = verts.flatMap((v: any) => [v.x * scale, -v.y * scale]);
-        pushCell("wigner-seitz", pts, "#10b981");
-      }
-    }
-
-    // --- reciprocal space : Brillouin zones ---
-    if (!isRealSpace && showBrillouinZone && voronoiData.brillouinZones) {
+        pushCell(`ws-${idx}`, pts, palette[idx % palette.length], idx > 0);
+      });
+    } else if (isRealSpace && voronoiData.wignerSeitzCell) {
+      // Fallback to single zone
+      const verts = Array.isArray(voronoiData.wignerSeitzCell)
+        ? voronoiData.wignerSeitzCell
+        : voronoiData.wignerSeitzCell.vertices;
+      const pts = verts.flatMap((v: any) => [v.x * scale, -v.y * scale]);
+      pushCell("wigner-seitz", pts, "#10b981");
+    } else if (!isRealSpace && voronoiData.brillouinZones) {
       const zones = voronoiData.brillouinZones as any[];
       const zonesToDraw = Math.min(reciprocalSpaceZoneCount, zones.length);
       const palette = ["#60a5fa", "#a78bfa", "#f472b6", "#fb923c", "#fbbf24"];
@@ -666,6 +724,9 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           {/* Unit cell tiling (drawn before Voronoi cells) */}
           {drawUnitTilesLattice()}
           
+          {/* Voronoi cell tiling */}
+          {drawVoronoiTiling()}
+          
           {/* Voronoi cells (drawn before unit cell) */}
           {drawVoronoiCells()}
           
@@ -688,9 +749,9 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           <div className="text-gray-500">Scale: {scale.toFixed(2)}x</div>
           <div className="text-gray-500">Mode: {spaceMode === 'real' ? 'Real Space' : 'k-Space'}</div>
           {normalizeMode && <div className="text-gray-500">Normalized</div>}
-          {voronoiData && (
+          {voronoiData && showVoronoiCell && (
             <div className="text-gray-500">
-              Voronoi: {spaceMode === 'real' ? 'Wigner-Seitz' : `${voronoiData.brillouinZones?.length || 0} zones`}
+              Voronoi: {spaceMode === 'real' ? 'Wigner-Seitz' : `Brillouin (${voronoiData.brillouinZones?.length || 0} zones)`}
             </div>
           )}
         </div>
