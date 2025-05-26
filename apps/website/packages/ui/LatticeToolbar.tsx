@@ -35,6 +35,7 @@ type ToolbarState = {
   showHighSymmetryPoints: boolean;
   showLatticePoints: boolean;
   showUnitCell: boolean;
+  showUnitTilesLattice: boolean;
   showGrid: boolean;
   showBaseVectors: boolean;
 };
@@ -45,7 +46,8 @@ interface Tool {
   onClick: (handler: any) => void;
   fnKey?: string;
   isActive?: (state: ToolbarState) => boolean;
-  fullRow?: boolean;              // <-- NEW
+  fullRow?: boolean;
+  linkedTool?: boolean;  // NEW: indicates this tool is linked to another
 }
 
 const representationTools: Tool[] = [
@@ -133,6 +135,14 @@ const overlayTools: Tool[] = [
     fnKey: "toggleShowUnitCell",
   },
   {
+    label: "Unit Tiles Lattice",
+    icon: <CustomLucideIcon src="/icons/hexagon_tiling.svg" size={18} />,
+    onClick: (toggleShowUnitTilesLattice: () => void) => toggleShowUnitTilesLattice(),
+    isActive: (state) => state.showUnitTilesLattice,
+    fnKey: "toggleShowUnitTilesLattice",
+    linkedTool: true,
+  },
+  {
     label: "Grid",
     icon: <Grid3X3 size={18} />,
     onClick: (toggleShowGrid: () => void) => toggleShowGrid(),
@@ -180,6 +190,8 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
   const toggleShowLatticePoints = useLatticeStore((s) => s.toggleShowLatticePoints);
   const showUnitCell = useLatticeStore((s) => s.showUnitCell);
   const toggleShowUnitCell = useLatticeStore((s) => s.toggleShowUnitCell);
+  const showUnitTilesLattice = useLatticeStore((s) => s.showUnitTilesLattice);
+  const toggleShowUnitTilesLattice = useLatticeStore((s) => s.toggleShowUnitTilesLattice);
   const showGrid = useLatticeStore((s) => s.showGrid);
   const toggleShowGrid = useLatticeStore((s) => s.toggleShowGrid);
   const showBaseVectors = useLatticeStore((s) => s.showBaseVectors);
@@ -245,6 +257,22 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
     }
   };
   
+  // State for hover effect
+  const [hoveredTool, setHoveredTool] = React.useState<string | null>(null);
+  
+  // Modified handler for unit cell toggle with linked deactivation
+  const handleUnitCellToggle = () => {
+    // If both are active, deactivate both
+    if (showUnitCell && showUnitTilesLattice) {
+      useLatticeStore.setState({ 
+        showUnitCell: false, 
+        showUnitTilesLattice: false 
+      });
+    } else {
+      toggleShowUnitCell();
+    }
+  };
+  
   // Tool handlers for dynamic mapping
   const toolHandlers = {
     setSpaceModeReal: () => setSpaceMode('real'),
@@ -256,7 +284,8 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
     toggleShowSpaceGroup,
     toggleShowHighSymmetryPoints,
     toggleShowLatticePoints,
-    toggleShowUnitCell,
+    toggleShowUnitCell: handleUnitCellToggle,
+    toggleShowUnitTilesLattice,
     toggleShowGrid,
     toggleShowBaseVectors,
   };
@@ -271,6 +300,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
     showHighSymmetryPoints,
     showLatticePoints,
     showUnitCell,
+    showUnitTilesLattice,
     showGrid,
     showBaseVectors,
   };
@@ -299,7 +329,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                   title="Wigner-Seitz Cell"
                   className={`flex items-center justify-center w-8 h-8 rounded transition-all
                     ${showWignerSeitzCell
-                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
+                      ? "bg-[#4a7ec7] hover:bg-[#7aa5d8]"
                       : "hover:bg-neutral-600 active:bg-neutral-600"}
                   `}
                   onClick={handleWignerSeitzToggle}
@@ -311,7 +341,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                   title="Brillouin Zone"
                   className={`flex items-center justify-center w-8 h-8 rounded transition-all
                     ${showBrillouinZone
-                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
+                      ? "bg-[#917adb] hover:bg-[#a693e6]"
                       : "hover:bg-neutral-600 active:bg-neutral-600"}
                   `}
                   onClick={handleBrillouinZoneToggle}
@@ -335,13 +365,18 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                     ? realSpaceZoneCount === count 
                     : reciprocalSpaceZoneCount === count;
                   
+                  // Different colors for real space vs reciprocal space
+                  const activeColor = showWignerSeitzCell
+                    ? "bg-[#4a7ec7] hover:bg-[#7aa5d8]" // Real space: blue
+                    : "bg-[#917adb] hover:bg-[#a693e6]"; // Reciprocal space: purple
+                  
+                  const inactiveColor = "bg-neutral-600/50 hover:bg-neutral-500/70";
+                  
                   return (
                     <button
                       key={count}
-                      className={`w-3 h-5 text-[10px] rounded transition-all duration-150
-                        ${isActive
-                          ? "bg-purple-600/60 hover:bg-purple-500/80 text-white"
-                          : "bg-neutral-600/50 hover:bg-neutral-500/70 text-gray-300"}
+                      className={`w-3 h-5 text-[10px] rounded transition-all duration-150 text-white
+                        ${isActive ? activeColor : inactiveColor}
                       `}
                       onClick={() => {
                         if (showWignerSeitzCell) {
@@ -356,6 +391,107 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          ) : group.key === "overlays" ? (
+            // Custom rendering for overlays group with linked tools
+            <div
+              className={"w-full mb-0 flex flex-col items-center py-1 px-1"}
+              style={{ minHeight: 56 }}
+            >
+              <div className="text-[10px] font-semibold opacity-60 mb-1 mt-0.5 w-full text-center tracking-wide select-none">
+                {group.label}
+              </div>
+              <div className="grid grid-cols-2 gap-1 w-full justify-items-center min-h-8">
+                {/* First row - Lattice Points alone */}
+                <button
+                  key="Lattice Points"
+                  title="Lattice Points"
+                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
+                    ${showLatticePoints
+                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
+                      : "hover:bg-neutral-600 active:bg-neutral-600"}
+                  `}
+                  onClick={() => toggleShowLatticePoints()}
+                  aria-label="Lattice Points"
+                >
+                  <Grip size={18} />
+                </button>
+                <div className="w-8 h-8" /> {/* Empty space */}
+                
+                {/* Second row - Unit Cell and Unit Tiles with link */}
+                <div className="col-span-2 grid grid-cols-2 gap-[4] relative">
+                  <button
+                    key="Unit Cell"
+                    title="Unit Cell"
+                    className={`flex items-center justify-center w-8 h-8 rounded transition-all relative z-10 justify-self-end -translate-x-px
+                      ${showUnitCell
+                        ? (showUnitTilesLattice && hoveredTool === "Unit Cell") 
+                          ? "bg-yellow-500/80"
+                          : "bg-yellow-600/60 hover:bg-yellow-500/80"
+                        : (!showUnitCell && !showUnitTilesLattice && hoveredTool === "Unit Tiles Lattice")
+                          ? "bg-neutral-500"
+                          : "hover:bg-neutral-600 active:bg-neutral-600"}
+                    `}
+                    onClick={() => handleUnitCellToggle()}
+                    aria-label="Unit Cell"
+                    onMouseEnter={() => setHoveredTool("Unit Cell")}
+                    onMouseLeave={() => setHoveredTool(null)}
+                  >
+                    <Box size={18} />
+                  </button>
+                  
+                  <button
+                    key="Unit Tiles Lattice"
+                    title="Unit Tiles Lattice"
+                    className={`flex items-center justify-center w-8 h-8 rounded transition-all relative z-10 justify-self-start
+                      ${showUnitTilesLattice
+                        ? (showUnitCell && hoveredTool === "Unit Cell")
+                          ? "bg-yellow-500/80"
+                          : "bg-yellow-600/60 hover:bg-yellow-500/80"
+                        : (!showUnitCell && !showUnitTilesLattice && hoveredTool === "Unit Tiles Lattice")
+                          ? "bg-neutral-500"
+                          : "hover:bg-neutral-600 active:bg-neutral-600"}
+                    `}
+                    onClick={() => toggleShowUnitTilesLattice()}
+                    aria-label="Unit Tiles Lattice"
+                    onMouseEnter={() => setHoveredTool("Unit Tiles Lattice")}
+                    onMouseLeave={() => setHoveredTool(null)}
+                  >
+                    <CustomLucideIcon src="/icons/box_tiling.svg" size={22} />
+                  </button>
+                  
+                  {/* Link line - positioned absolutely with higher z-index */}
+                  <div className="absolute w-3 h-[2px] bg-neutral-400/70 left-1/2 -translate-x-3/5 top-1/2 -translate-y-1/2 z-20" />
+                </div>
+                
+                {/* Third row - Grid and Base Vectors */}
+                <button
+                  key="Grid"
+                  title="Grid"
+                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
+                    ${showGrid
+                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
+                      : "hover:bg-neutral-600 active:bg-neutral-600"}
+                  `}
+                  onClick={() => toggleShowGrid()}
+                  aria-label="Grid"
+                >
+                  <Grid3X3 size={18} />
+                </button>
+                <button
+                  key="Base Vectors"
+                  title="Base Vectors"
+                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
+                    ${showBaseVectors
+                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
+                      : "hover:bg-neutral-600 active:bg-neutral-600"}
+                  `}
+                  onClick={() => toggleShowBaseVectors()}
+                  aria-label="Base Vectors"
+                >
+                  <Move3D size={18} />
+                </button>
               </div>
             </div>
           ) : (
@@ -386,6 +522,17 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                     }
                   }
 
+                  // Determine active color based on tool
+                  let activeColor = "bg-yellow-600/60 hover:bg-yellow-500/80"; // default
+                  
+                  if (group.key === "representation") {
+                    if (tool.label === "Real Space") {
+                      activeColor = "bg-[#4a7ec7] hover:bg-[#7aa5d8]";
+                    } else if (tool.label === "Reciprocal Space") {
+                      activeColor = "bg-[#917adb] hover:bg-[#a693e6]";
+                    }
+                  }
+
                   return (
                     <button
                       key={tool.label}
@@ -393,7 +540,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                       className={`flex items-center justify-center h-8 rounded transition-all
                         ${tool.fullRow ? "col-span-2 w-full" : "w-8"}
                         ${tool.isActive && tool.isActive(toolbarState)
-                          ? "bg-yellow-600/60 hover:bg-yellow-500/80"
+                          ? activeColor
                           : "hover:bg-neutral-600 active:bg-neutral-600"}
                       `}
                       onClick={() => {

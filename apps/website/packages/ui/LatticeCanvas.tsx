@@ -21,6 +21,7 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   const spaceMode = useLatticeStore((s) => s.spaceMode);
   const showLatticePoints = useLatticeStore((s) => s.showLatticePoints);
   const showUnitCell = useLatticeStore((s) => s.showUnitCell);
+  const showUnitTilesLattice = useLatticeStore((s) => s.showUnitTilesLattice);
   const showGrid = useLatticeStore((s) => s.showGrid);
   const latticeScale = useLatticeStore((s) => s.latticeScale);
   const gridDensity = useLatticeStore((s) => s.gridDensity);
@@ -408,20 +409,22 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
         
         {/* No dashed basis lines / labels when base vectors are hidden */}
         
-        {/* Unit cell outline */}
-        <Line
-          points={[
-            0, 0,
-            v1x, v1y,
-            v1x + v2x, v1y + v2y,
-            v2x, v2y,
-            0, 0
-          ]}
-          stroke={strokeColor}
-          strokeWidth={2}
-          dash={[5, 5]}
-          opacity={0.5}
-        />
+        {/* Unit cell outline - only show if unit tiles are NOT active */}
+        {!showUnitTilesLattice && (
+          <Line
+            points={[
+              0, 0,
+              v1x, v1y,
+              v1x + v2x, v1y + v2y,
+              v2x, v2y,
+              0, 0
+            ]}
+            stroke={strokeColor}
+            strokeWidth={2}
+            dash={[5, 5]}
+            opacity={0.5}
+          />
+        )}
         
         {/* Origin point (always visible when unit cell is shown) */}
         <Circle
@@ -434,6 +437,56 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
         />
       </>
     );
+  };
+
+  // Draw unit cell tiling - unit cells at each lattice point
+  const drawUnitTilesLattice = () => {
+    if (!lattice?.meepLattice || !showUnitTilesLattice || !latticePointCache) return null;
+    
+    const isRealSpace = spaceMode === 'real';
+    const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
+    const strokeColor = isRealSpace ? "#94a3b8" : "#c4b5fd";
+    const fillColor = isRealSpace ? "rgba(148, 163, 184, 0.05)" : "rgba(196, 181, 253, 0.05)"; // More transparent for tiling
+    
+    // Get current spring values for the unit cell shape
+    const v1x = vectorSpring.v1x.get();
+    const v1y = vectorSpring.v1y.get();
+    const v2x = vectorSpring.v2x.get();
+    const v2y = vectorSpring.v2y.get();
+    
+    const tiles: React.ReactNode[] = [];
+    
+    // Draw a unit cell at each lattice point
+    latticePointCache.points.forEach((point: { x: number; y: number; i: number; j: number; distance: number }, idx: number) => {
+      const px = point.x * scale;
+      const py = -point.y * scale; // Flip y for canvas coordinate system
+      
+      // Calculate opacity based on distance (similar to lattice points)
+      const distance = point.distance * scale;
+      const maxDistance = latticePointCache.maxDistance * scale;
+      const opacity = Math.max(0.1, 0.8 - (distance / (maxDistance * 1.5)));
+      
+      tiles.push(
+        <Line
+          key={`tile-${point.i}-${point.j}-${idx}`}
+          points={[
+            px, py,
+            px + v1x, py + v1y,
+            px + v1x + v2x, py + v1y + v2y,
+            px + v2x, py + v2y,
+            px, py
+          ]}
+          stroke={strokeColor}
+          strokeWidth={1}
+          fill={fillColor}
+          closed
+          opacity={opacity}
+          // dash={[3, 3]} // Removed - now using solid lines
+        />
+      );
+    });
+    
+    return <>{tiles}</>;
   };
 
   // Draw coordinate system with grid
@@ -609,6 +662,9 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           
           {/* Coordinate system and grid */}
           {drawGrid()}
+          
+          {/* Unit cell tiling (drawn before Voronoi cells) */}
+          {drawUnitTilesLattice()}
           
           {/* Voronoi cells (drawn before unit cell) */}
           {drawVoronoiCells()}

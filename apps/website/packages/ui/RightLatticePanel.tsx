@@ -15,6 +15,9 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
   // Use local state instead of store
   const [localSpaceMode, setLocalSpaceMode] = React.useState<'real' | 'reciprocal'>('real');
   
+  // Add state for flash effect
+  const [isFlashing, setIsFlashing] = React.useState(false);
+  
   // Get lattice point cache for statistics
   const latticePointCache = useLatticeStore((s) => s.latticePointCache);
   
@@ -44,6 +47,16 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
         }
       }
     });
+  };
+  
+  // Handle space mode change with flash effect
+  const handleSpaceModeChange = (mode: 'real' | 'reciprocal') => {
+    if (mode !== localSpaceMode) {
+      setLocalSpaceMode(mode);
+      setIsFlashing(true);
+      // Remove flash class after animation completes
+      setTimeout(() => setIsFlashing(false), 100);
+    }
   };
   
   // Calculate real space parameters
@@ -112,7 +125,7 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
       <div className="px-4 pt-4 pb-2">
         <div className="flex w-full gap-1">
           <button
-            onClick={() => setLocalSpaceMode('real')}
+            onClick={() => handleSpaceModeChange('real')}
             className={`flex-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
               realSpaceMode 
                 ? "bg-neutral-600 text-white" 
@@ -122,7 +135,7 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
             Real Space
           </button>
           <button
-            onClick={() => setLocalSpaceMode('reciprocal')}
+            onClick={() => handleSpaceModeChange('reciprocal')}
             className={`flex-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
               !realSpaceMode 
                 ? "bg-neutral-600 text-white" 
@@ -173,30 +186,66 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
             <div className="grid grid-rows-3 gap-1.5" style={{ minHeight: '90px' }}>
               {realSpaceMode ? (
                 <>
-                  <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
+                  <div 
+                    className="flex items-center justify-between rounded px-2 py-1"
+                    style={{
+                      backgroundColor: isFlashing ? 'rgba(96, 96, 96, 0.8)' : '#333333',
+                      transition: isFlashing ? 'none' : 'background-color 0.4s ease-out'
+                    }}
+                  >
                     <span className="text-xs text-gray-400">a</span>
                     <span className="text-xs text-gray-200 font-mono">{displayParams.a.toFixed(3)}</span>
                   </div>
-                  <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
+                  <div 
+                    className="flex items-center justify-between rounded px-2 py-1"
+                    style={{
+                      backgroundColor: isFlashing ? 'rgba(96, 96, 96, 0.8)' : '#333333',
+                      transition: isFlashing ? 'none' : 'background-color 0.4s ease-out'
+                    }}
+                  >
                     <span className="text-xs text-gray-400">b</span>
                     <span className="text-xs text-gray-200 font-mono">{displayParams.b.toFixed(3)}</span>
                   </div>
-                  <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
+                  <div 
+                    className="flex items-center justify-between rounded px-2 py-1"
+                    style={{
+                      backgroundColor: isFlashing ? 'rgba(96, 96, 96, 0.8)' : '#333333',
+                      transition: isFlashing ? 'none' : 'background-color 0.4s ease-out'
+                    }}
+                  >
                     <span className="text-xs text-gray-400">α</span>
                     <span className="text-xs text-gray-200 font-mono">{displayParams.alpha.toFixed(1)}°</span>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
+                  <div 
+                    className="flex items-center justify-between rounded px-2 py-1"
+                    style={{
+                      backgroundColor: isFlashing ? 'rgba(96, 96, 96, 0.8)' : '#333333',
+                      transition: isFlashing ? 'none' : 'background-color 0.4s ease-out'
+                    }}
+                  >
                     <span className="text-xs text-gray-400">c</span>
                     <span className="text-xs text-gray-200 font-mono">{reciprocalParams.c.toFixed(3)}</span>
                   </div>
-                  <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
+                  <div 
+                    className="flex items-center justify-between rounded px-2 py-1"
+                    style={{
+                      backgroundColor: isFlashing ? 'rgba(96, 96, 96, 0.8)' : '#333333',
+                      transition: isFlashing ? 'none' : 'background-color 0.4s ease-out'
+                    }}
+                  >
                     <span className="text-xs text-gray-400">d</span>
                     <span className="text-xs text-gray-200 font-mono">{reciprocalParams.d.toFixed(3)}</span>
                   </div>
-                  <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
+                  <div 
+                    className="flex items-center justify-between rounded px-2 py-1"
+                    style={{
+                      backgroundColor: isFlashing ? 'rgba(96, 96, 96, 0.8)' : '#333333',
+                      transition: isFlashing ? 'none' : 'background-color 0.4s ease-out'
+                    }}
+                  >
                     <span className="text-xs text-gray-400">β</span>
                     <span className="text-xs text-gray-200 font-mono">{reciprocalParams.beta.toFixed(1)}°</span>
                   </div>

@@ -50,6 +50,8 @@ type LatticeState = {
   toggleShowLatticePoints: () => void;
   showUnitCell: boolean;
   toggleShowUnitCell: () => void;
+  showUnitTilesLattice: boolean;
+  toggleShowUnitTilesLattice: () => void;
   showGrid: boolean;
   toggleShowGrid: () => void;
   showBaseVectors: boolean;
@@ -120,6 +122,15 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     toggleShowLatticePoints: () => set((s) => ({ showLatticePoints: !s.showLatticePoints })),
     showUnitCell: true,
     toggleShowUnitCell: () => set((s) => ({ showUnitCell: !s.showUnitCell })),
+    showUnitTilesLattice: false,
+    toggleShowUnitTilesLattice: () => set((s) => {
+      const newShowUnitTilesLattice = !s.showUnitTilesLattice;
+      // If turning on unit tiles, ensure unit cell is also on
+      if (newShowUnitTilesLattice && !s.showUnitCell) {
+        return { showUnitTilesLattice: true, showUnitCell: true };
+      }
+      return { showUnitTilesLattice: newShowUnitTilesLattice };
+    }),
     showGrid: true,
     toggleShowGrid: () => set((s) => ({ showGrid: !s.showGrid })),
     showBaseVectors: true,
