@@ -1,10 +1,10 @@
 "use client";
-import React from "react";
+import React, { useCallback } from "react";
 import { useLatticeStore } from "../providers/LatticeStore";
 import { Lattice } from "../types/meepProjectTypes";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useLatticeDataLoader } from "../hooks/useLatticeDataLoader";
-import { Grid3X3, Grid, Hexagon, Box, GitBranch, Sparkles, Eye, Maximize2, Loader2, Grip, Move3D } from "lucide-react";
+import { Grid3X3, Grid, Hexagon, Box, GitBranch, Sparkles, Eye, Maximize2, Loader2, Grip, Move3D, ChevronLeft, ChevronRight } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 
 const GROUPS = [
@@ -12,6 +12,7 @@ const GROUPS = [
   { key: "voronoi", label: "Voronoi Cells", color: "#b6a6ca", border: "border-[#b6a6ca]", bg: "bg-[#b6a6ca]/20" },
   { key: "modes", label: "Modes", color: "#a8c5b1", border: "border-[#a8c5b1]", bg: "bg-[#a8c5b1]/20" },
   { key: "symmetries", label: "Symmetries", color: "#c7bca1", border: "border-[#c7bca1]", bg: "bg-[#c7bca1]/20" },
+  { key: "lattice", label: "Lattice", color: "#a8b5c5", border: "border-[#a8b5c5]", bg: "bg-[#a8b5c5]/20" },
   { key: "overlays", label: "Overlays", color: "#b1cfc1", border: "border-[#b1cfc1]", bg: "bg-[#b1cfc1]/20" },
 ];
 
@@ -21,6 +22,7 @@ const GROUP_KEYS = [
   "voronoi",
   "modes", 
   "symmetries",
+  "lattice",
   "overlays"
 ] as const;
 type GroupKey = typeof GROUP_KEYS[number];
@@ -164,6 +166,7 @@ const groupToolMap: Record<GroupKey, Tool[]> = {
   modes: modeTools,
   voronoi: voronoiTools,
   symmetries: symmetryTools,
+  lattice: [],
   overlays: overlayTools,
 };
 
@@ -249,8 +252,19 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
     }
   };
   
+  // Get lattice multiplier from store
+  const latticeMultiplier = useLatticeStore((s) => s.latticeMultiplier);
+  const setLatticeMultiplier = useLatticeStore((s) => s.setLatticeMultiplier);
+  
   // State for hover effect
   const [hoveredTool, setHoveredTool] = React.useState<string | null>(null);
+  
+  // Handle wheel event for multiplier input
+  const handleMultiplierWheel = useCallback((e: React.WheelEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1 : -1;
+    setLatticeMultiplier(latticeMultiplier + delta);
+  }, [latticeMultiplier, setLatticeMultiplier]);
   
   // Modified handler for unit cell toggle with linked deactivation
   const handleUnitCellToggle = () => {
@@ -308,7 +322,53 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
       
       {GROUPS.map((group, idx) => (
         <React.Fragment key={group.key}>
-          {group.key === "voronoi" ? (
+          {group.key === "lattice" ? (
+            // Custom rendering for Lattice group with multiplier control
+            <div className="w-full mb-0 flex flex-col items-center py-1 px-1" style={{ minHeight: '30px' }}>
+              <div className="text-[10px] font-semibold opacity-60 mb-1 mt-0.5 w-full text-center tracking-wide select-none">
+                {group.label}
+              </div>
+              
+              {/* Multiplier control */}
+              <div className="w-full flex items-center justify-center gap-0.5 h-8">
+                <button
+                  className="p-0.5 hover:bg-neutral-600 rounded transition-all"
+                  onClick={() => setLatticeMultiplier(latticeMultiplier - 1)}
+                  aria-label="Decrease multiplier"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                
+                <input
+                  type="number"
+                  value={latticeMultiplier}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val)) {
+                      setLatticeMultiplier(val);
+                    }
+                  }}
+                  onWheel={handleMultiplierWheel}
+                  className="w-8 h-6 text-center text-xs bg-neutral-600 border border-neutral-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  style={{ textAlign: 'center' }}
+                  min={3}
+                  max={30}
+                />
+                
+                <button
+                  className="p-0.5 hover:bg-neutral-600 rounded transition-all"
+                  onClick={() => setLatticeMultiplier(latticeMultiplier + 1)}
+                  aria-label="Increase multiplier"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+              
+              <div className="text-[9px] opacity-50 mt-0.5">
+                Multiplier
+              </div>
+            </div>
+          ) : group.key === "voronoi" ? (
             // Custom rendering for Voronoi group with linked tools
             <div className="w-full mb-0 flex flex-col items-center py-1 px-1" style={{ minHeight: '30px' }}>
               <div className="text-[10px] font-semibold opacity-60 mb-1 mt-0.5 w-full text-center tracking-wide select-none">

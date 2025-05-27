@@ -23,6 +23,15 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
   const transformationMatrices = useLatticeStore((s) => s.transformationMatrices);
   const setTransformationMatrices = useLatticeStore((s) => s.setTransformationMatrices);
   
+  // Add lattice point related store values
+  const showLatticePoints = useLatticeStore((s) => s.showLatticePoints);
+  const latticeScale = useLatticeStore((s) => s.latticeScale);
+  const gridDensity = useLatticeStore((s) => s.gridDensity);
+  const normalizeMode = useLatticeStore((s) => s.normalizeMode);
+  const latticePointCache = useLatticeStore((s) => s.latticePointCache);
+  const setLatticePointCache = useLatticeStore((s) => s.setLatticePointCache);
+  const latticeMultiplier = useLatticeStore((s) => s.latticeMultiplier);
+  
   // Load existing voronoi data when lattice changes
   useEffect(() => {
     if (lattice?.voronoiData) {
@@ -334,11 +343,113 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
     }
   }, [reciprocalSpaceZoneCount, realSpaceZoneCount, spaceMode, lattice, voronoiData, calculateVoronoiCells]);
   
+  // Calculate normalization factor
+  const getNormalizationFactor = useCallback(() => {
+    if (!lattice?.meepLattice || !normalizeMode) return 1;
+    
+    const isRealSpace = spaceMode === 'real';
+    let maxLength = 0;
+    
+    if (isRealSpace) {
+      const v1 = lattice.meepLattice.basis1;
+      const v2 = lattice.meepLattice.basis2;
+      const len1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y) * lattice.meepLattice.basis_size.x;
+      const len2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y) * lattice.meepLattice.basis_size.y;
+      maxLength = Math.max(len1, len2);
+    } else {
+      if (lattice.meepLattice.reciprocal_basis1 && lattice.meepLattice.reciprocal_basis2) {
+        const v1 = lattice.meepLattice.reciprocal_basis1;
+        const v2 = lattice.meepLattice.reciprocal_basis2;
+        const len1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+        const len2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+        maxLength = Math.max(len1, len2);
+      }
+    }
+    
+    return maxLength > 0 ? 1 / maxLength : 1;
+  }, [lattice, spaceMode, normalizeMode]);
+  
+  // Load lattice points using WASM
+  useEffect(() => {
+    if (!lattice?.meepLattice || !showLatticePoints) return;
+    
+    const loadPoints = async () => {
+      const startTime = performance.now();
+      const wasm = await getWasmModule();
+      
+      const isRealSpace = spaceMode === 'real';
+      const normalizationFactor = getNormalizationFactor();
+      const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
+      
+      // Get appropriate basis vectors
+      const basis = isRealSpace ? {
+        b1: {
+          x: lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x,
+          y: lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y
+        },
+        b2: {
+          x: lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x,
+          y: lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y
+        }
+      } : {
+        b1: lattice.meepLattice.reciprocal_basis1 || { x: 0, y: 0 },
+        b2: lattice.meepLattice.reciprocal_basis2 || { x: 0, y: 0 }
+      };
+      
+      // Create cache key including the multiplier
+      const cacheKey = `${basis.b1.x}-${basis.b1.y}-${basis.b2.x}-${basis.b2.y}-${gridDensity}-${latticeMultiplier}`;
+      
+      // Check if we already have this in cache
+      if (latticePointCache?.cacheKey === cacheKey) {
+        return;
+      }
+      
+      // Call Rust function to calculate square lattice points
+      const result = wasm.calculate_square_lattice_points(
+        basis.b1.x,
+        basis.b1.y,
+        basis.b2.x,
+        basis.b2.y,
+        gridDensity * 2, // target_count (will create roughly gridDensity x gridDensity points)
+        latticeMultiplier // Use the multiplier from store
+      );
+      
+      const endTime = performance.now();
+      
+      setLatticePointCache({
+        points: result.points,
+        maxDistance: result.max_distance,
+        cacheKey,
+        stats: {
+          timeTaken: endTime - startTime,
+          pointCount: result.points.length,
+          maxDistance: result.max_distance
+        }
+      });
+    };
+    
+    loadPoints();
+  }, [
+    lattice, 
+    spaceMode, 
+    showLatticePoints, 
+    gridDensity, 
+    latticeScale, 
+    normalizeMode, 
+    getNormalizationFactor, 
+    setLatticePointCache, 
+    latticePointCache?.cacheKey,
+    latticeMultiplier // Add to dependencies
+  ]);
+  
   return {
     voronoiData,
     isCalculatingVoronoi,
     calculateVoronoiCells,
     checkAndCalculateVoronoi,
-    calculateTransformationMatrices
+    calculateTransformationMatrices,
+    // Add lattice point related exports
+    latticePointCache,
+    getNormalizationFactor
   };
 };

@@ -12,13 +12,13 @@ interface Props {
 }
 
 const TabWindowLattice: React.FC<Props> = ({ lattice, ghPages }) => {
-  // Initialize the data loader
-  useLatticeDataLoader({ lattice, ghPages });
+  // Initialize the data loader and get its results
+  const dataLoader = useLatticeDataLoader({ lattice, ghPages });
 
   return (
     <div className="flex-1 flex h-full overflow-hidden bg-gray-900">
       <LatticeToolbar lattice={lattice} ghPages={ghPages} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 relative min-w-0 min-h-0">
         <LatticeCanvas lattice={lattice} ghPages={ghPages} />
       </div>
     </div>

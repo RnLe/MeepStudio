@@ -62,11 +62,16 @@ const StudioLayout: React.FC<Props> = ({ ghPages }) => {
         <div className="flex-1 flex flex-col overflow-hidden">
           <TabWindowContainer />
         </div>
-        {rightSidebarOpen && (
+        {/* Right sidebar with smooth transition */}
+        <div
+          className={`flex-none bg-neutral-800 border-l border-gray-700 overflow-hidden transition-all duration-200 ${
+            rightSidebarOpen ? "w-80" : "w-0"
+          }`}
+        >
           <RightSidebar 
             onClose={() => setRightSidebarOpen(false)} 
           />
-        )}
+        </div>
       </div>
     </div>
   );

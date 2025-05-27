@@ -11,7 +11,7 @@
     "build:wasm:watch": "cd wasm && wasm-pack build --target bundler --out-dir ../pkg --dev --watch",
     "clean:wasm-pkg": "rm -rf pkg/*",
     "deploy": "pnpm run build",
-    "dev": "CHOKIDAR_USEPOLLING=true next dev --turbopack",
+    "dev": "next dev --turbopack",
     "serve:out": "serve out -l 3001",
     "start": "next start"
   },
@@ -44,7 +44,7 @@
     "date-fns": "^4.1.0",
     "gray-matter": "^4.0.3",
     "konva": "^9.3.20",
-    "lucide-react": "^0.507.0",
+    "lucide-react": "^0.511.0",
     "nanoid": "^5.0.0",
     "next": "^15.3.2",
     "next-mdx-remote": "^5.0.0",

@@ -102,6 +102,10 @@ type LatticeState = {
     reciprocalToReal: number[][];
   } | null;
   setTransformationMatrices: (matrices: LatticeState['transformationMatrices']) => void;
+  
+  // Lattice point calculation
+  latticeMultiplier: number;
+  setLatticeMultiplier: (multiplier: number) => void;
 };
 
 export const useLatticeStore = createWithEqualityFn<LatticeState>(
@@ -210,6 +214,12 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     // Transformation matrices
     transformationMatrices: null,
     setTransformationMatrices: (matrices) => set({ transformationMatrices: matrices }),
+    
+    // Lattice point calculation
+    latticeMultiplier: 30,
+    setLatticeMultiplier: (multiplier) => set({ 
+      latticeMultiplier: Math.max(3, Math.min(30, multiplier)) 
+    }),
   }),
   shallow
 );

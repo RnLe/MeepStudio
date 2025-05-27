@@ -41,9 +41,9 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div className="flex-shrink-0 w-80 bg-neutral-800 border-l border-gray-700 p-0 space-y-4">
+    <div className="w-80 h-full bg-neutral-800 p-0 space-y-4 flex flex-col">
       {/* Top navbar */}
-      <div className="flex items-center h-10 bg-gray-800 border-b border-gray-700 justify-between sticky top-0 z-10" style={{ margin: 0, padding: 0 }}>
+      <div className="flex items-center h-10 bg-gray-800 border-b border-gray-700 justify-between sticky top-0 z-10 flex-shrink-0" style={{ margin: 0, padding: 0 }}>
         <span className="font-semibold text-white pl-2">
           {activeMainTabType === "lattice" ? "Lattice Properties" : 
            activeMainTabType === "dashboard" ? "Dashboard" : 

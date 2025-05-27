@@ -6,6 +6,7 @@ import { Lattice } from "../types/meepProjectTypes";
 import { useLatticeStore } from "../providers/LatticeStore";
 import { useSpring, animated, config } from "@react-spring/konva";
 import { getWasmModule } from "../utils/wasmLoader";
+import { useLatticeDataLoader } from "../hooks/useLatticeDataLoader";
 
 interface Props {
   lattice: Lattice;
@@ -30,7 +31,6 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   
   // Get lattice point cache from store
   const latticePointCache = useLatticeStore((s) => s.latticePointCache);
-  const setLatticePointCache = useLatticeStore((s) => s.setLatticePointCache);
   
   // Get Voronoi data from store (merged)
   const showVoronoiCell = useLatticeStore((s) => s.showVoronoiCell);
@@ -113,32 +113,8 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     setPos(newPos);
   }, [scale, pos]);
 
-  // Calculate normalization factor
-  const getNormalizationFactor = useCallback(() => {
-    if (!lattice?.meepLattice || !normalizeMode) return 1;
-    
-    const isRealSpace = spaceMode === 'real';
-    let maxLength = 0;
-    
-    if (isRealSpace) {
-      const v1 = lattice.meepLattice.basis1;
-      const v2 = lattice.meepLattice.basis2;
-      const len1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y) * lattice.meepLattice.basis_size.x;
-      const len2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y) * lattice.meepLattice.basis_size.y;
-      maxLength = Math.max(len1, len2);
-    } else {
-      if (lattice.meepLattice.reciprocal_basis1 && lattice.meepLattice.reciprocal_basis2) {
-        const v1 = lattice.meepLattice.reciprocal_basis1;
-        const v2 = lattice.meepLattice.reciprocal_basis2;
-        const len1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
-        const len2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
-        maxLength = Math.max(len1, len2);
-      }
-    }
-    
-    return maxLength > 0 ? 1 / maxLength : 1;
-  }, [lattice, spaceMode, normalizeMode]);
-
+  // Get normalization factor from the data loader hook
+  const { getNormalizationFactor } = useLatticeDataLoader({ lattice, ghPages });
   const normalizationFactor = getNormalizationFactor();
   
   // Check if grid is sparse (for k-space typically)
@@ -282,66 +258,6 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     );
   };
 
-  // Load lattice points using WASM
-  useEffect(() => {
-    if (!lattice?.meepLattice || !showLatticePoints) return;
-    
-    const loadPoints = async () => {
-      const startTime = performance.now();
-      const wasm = await getWasmModule();
-      
-      const isRealSpace = spaceMode === 'real';
-      const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
-      
-      // Get appropriate basis vectors
-      const basis = isRealSpace ? {
-        b1: {
-          x: lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x,
-          y: lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y
-        },
-        b2: {
-          x: lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x,
-          y: lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y
-        }
-      } : {
-        b1: lattice.meepLattice.reciprocal_basis1 || { x: 0, y: 0 },
-        b2: lattice.meepLattice.reciprocal_basis2 || { x: 0, y: 0 }
-      };
-      
-      // Create cache key
-      const cacheKey = `${basis.b1.x}-${basis.b1.y}-${basis.b2.x}-${basis.b2.y}-${gridDensity}`;
-      
-      // Check if we already have this in cache
-      if (latticePointCache?.cacheKey === cacheKey) {
-        return;
-      }
-      
-      // Call Rust function to calculate square lattice points
-      const result = wasm.calculate_square_lattice_points(
-        basis.b1.x,
-        basis.b1.y,
-        basis.b2.x,
-        basis.b2.y,
-        gridDensity * 2 // target_count (will create roughly gridDensity x gridDensity points)
-      );
-      
-      const endTime = performance.now();
-      
-      setLatticePointCache({
-        points: result.points,
-        maxDistance: result.max_distance,
-        cacheKey,
-        stats: {
-          timeTaken: endTime - startTime,
-          pointCount: result.points.length,
-          maxDistance: result.max_distance
-        }
-      });
-    };
-    
-    loadPoints();
-  }, [lattice, spaceMode, showLatticePoints, gridDensity, latticeScale, normalizeMode, normalizationFactor, setLatticePointCache, latticePointCache?.cacheKey]);
-
   // Draw lattice points using cached data from Rust
   const drawLatticePoints = () => {
     if (!lattice?.meepLattice || !showLatticePoints || !latticePointCache) return null;
@@ -360,9 +276,11 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
       const x = point.x * scale;
       const y = -point.y * scale; // Flip y for canvas coordinate system
       
-      // Calculate opacity based on distance
+      // Calculate opacity based on distance with non-linear gradient
       const distance = point.distance * scale;
-      const opacity = Math.max(0.2, 1 - (distance / (maxDistance * 1.5)));
+      const normalizedDistance = distance / maxDistance;
+      // Use power function for non-linear gradient (exponent 1.5 for moderate non-linearity)
+      const opacity = Math.max(0.1, 1 - Math.pow(normalizedDistance / 1.2, 1.8));
       
       // Dynamic radius based on distance from origin
       const baseRadius = 4;
@@ -408,7 +326,7 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     
     return (
       <>
-        {/* Unit cell fill (drawn first so it's behind everything) - only show if unit tiles are NOT active */}
+        {/* Unit cell fill (drawn first so it's behind everything) - only show if unit tiles areNOT active */}
         {!showUnitTilesLattice && (
           <Line
             points={[
@@ -472,16 +390,18 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     const v2y = vectorSpring.v2y.get();
     
     const tiles: React.ReactNode[] = [];
+    const maxDistance = latticePointCache.maxDistance * scale;
     
     // Draw a unit cell at each lattice point
     latticePointCache.points.forEach((point: { x: number; y: number; i: number; j: number; distance: number }, idx: number) => {
       const px = point.x * scale;
       const py = -point.y * scale; // Flip y for canvas coordinate system
       
-      // Calculate opacity based on distance (similar to lattice points)
+      // Calculate opacity based on distance with non-linear gradient
       const distance = point.distance * scale;
-      const maxDistance = latticePointCache.maxDistance * scale;
-      const opacity = Math.max(0.1, 0.8 - (distance / (maxDistance * 1.5)));
+      const normalizedDistance = distance / maxDistance;
+      // Use power function for non-linear gradient (exponent 1.8 for stronger fade)
+      const opacity = Math.max(0.05, 0.8 - Math.pow(normalizedDistance / 1.1, 0.8));
       
       tiles.push(
         <Line
@@ -589,16 +509,18 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     const fillColor = isRealSpace ? "rgba(16, 185, 129, 0.05)" : "rgba(96, 165, 250, 0.05)";
     
     const tiles: React.ReactNode[] = [];
+    const maxDistance = latticePointCache.maxDistance * scale;
     
     // Draw a voronoi cell at each lattice point
     latticePointCache.points.forEach((point: { x: number; y: number; i: number; j: number; distance: number }, idx: number) => {
       const px = point.x * scale;
       const py = -point.y * scale; // Flip y for canvas coordinate system
       
-      // Calculate opacity based on distance (similar to unit cell tiling)
+      // Calculate opacity based on distance with non-linear gradient
       const distance = point.distance * scale;
-      const maxDistance = latticePointCache.maxDistance * scale;
-      const opacity = Math.max(0.1, 0.8 - (distance / (maxDistance * 1.5)));
+      const normalizedDistance = distance / maxDistance;
+      // Use power function for non-linear gradient (exponent 1.8 for stronger fade)
+      const opacity = Math.max(0.05, 0.8 - Math.pow(normalizedDistance / 1.1, 0.7));
       
       // Transform vertices to be centered at the lattice point
       const pts = zoneVertices.flatMap((v: any) => [
@@ -685,7 +607,7 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   return (
     <div
       ref={containerRef}
-      className="w-full h-full flex items-center justify-center bg-gray-900 relative"
+      className="absolute inset-0 flex items-center justify-center bg-gray-900"
       onContextMenu={(e) => e.preventDefault()}
     >
       <Stage

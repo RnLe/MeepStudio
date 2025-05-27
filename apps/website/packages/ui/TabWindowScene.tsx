@@ -29,7 +29,7 @@ const TabWindowScene: React.FC<Props> = ({ project, ghPages }) => {
   return (
     <div className="flex-1 flex flex-row w-full h-full overflow-hidden">
       <CanvasToolbar project={project} dimension={scene.dimension} ghPages={ghPages} />
-      <div className="flex-1 flex flex-col w-full h-full">
+      <div className="flex-1 relative min-w-0 min-h-0">
         <ProjectCanvas
           project={project}
           ghPages={ghPages}

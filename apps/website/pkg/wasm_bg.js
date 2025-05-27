@@ -174,86 +174,6 @@ function getStringFromWasm0(ptr, len) {
 function isLikeNone(x) {
     return x === undefined || x === null;
 }
-/**
- * Calculates lattice points within a viewport
- * b1x, b1y: first basis vector
- * b2x, b2y: second basis vector
- * viewport_width, viewport_height: size of the viewport in screen coordinates
- * scale: current zoom scale
- * offset_x, offset_y: pan offset
- * @param {number} b1x
- * @param {number} b1y
- * @param {number} b2x
- * @param {number} b2y
- * @param {number} viewport_width
- * @param {number} viewport_height
- * @param {number} scale
- * @param {number} offset_x
- * @param {number} offset_y
- * @returns {any}
- */
-export function calculate_lattice_points(b1x, b1y, b2x, b2y, viewport_width, viewport_height, scale, offset_x, offset_y) {
-    const ret = wasm.calculate_lattice_points(b1x, b1y, b2x, b2y, viewport_width, viewport_height, scale, offset_x, offset_y);
-    return ret;
-}
-
-/**
- * Calculate the minimum scale needed to show n lattice points
- * Returns the scale factor that would show approximately n points
- * @param {number} b1x
- * @param {number} b1y
- * @param {number} b2x
- * @param {number} b2y
- * @param {number} viewport_width
- * @param {number} viewport_height
- * @param {number} target_points
- * @returns {number}
- */
-export function calculate_min_scale_for_points(b1x, b1y, b2x, b2y, viewport_width, viewport_height, target_points) {
-    const ret = wasm.calculate_min_scale_for_points(b1x, b1y, b2x, b2y, viewport_width, viewport_height, target_points);
-    return ret;
-}
-
-/**
- * Calculate all lattice points that fill a bounding box
- * The number of points is determined by fixing 100 points along the shorter axis
- * @param {number} b1x
- * @param {number} b1y
- * @param {number} b2x
- * @param {number} b2y
- * @returns {any}
- */
-export function calculate_all_lattice_points(b1x, b1y, b2x, b2y) {
-    const ret = wasm.calculate_all_lattice_points(b1x, b1y, b2x, b2y);
-    return ret;
-}
-
-/**
- * Generate a centred square of lattice points:
- * – create a dense ±100×100 grid,
- * – find the distance at which `target_count` distinct x or y columns are reached,
- * – keep every point with |x|,|y| ≤ cutoff (square window).
- * @param {number} b1x
- * @param {number} b1y
- * @param {number} b2x
- * @param {number} b2y
- * @param {number} target_count
- * @returns {any}
- */
-export function calculate_square_lattice_points(b1x, b1y, b2x, b2y, target_count) {
-    const ret = wasm.calculate_square_lattice_points(b1x, b1y, b2x, b2y, target_count);
-    return ret;
-}
-
-/**
- * Advanced separation by computing polygon difference using line intersections.
- * @param {any} raw
- * @returns {any}
- */
-export function separate_brillouin_zones(raw) {
-    const ret = wasm.separate_brillouin_zones(raw);
-    return ret;
-}
 
 function takeFromExternrefTable0(idx) {
     const value = wasm.__wbindgen_export_4.get(idx);
@@ -278,6 +198,41 @@ export function calculate_brillouin_zones(a1_x, a1_y, a2_x, a2_y, max_zone) {
 }
 
 /**
+ * Calculate the minimum scale needed to show n lattice points
+ * Returns the scale factor that would show approximately n points
+ * @param {number} b1x
+ * @param {number} b1y
+ * @param {number} b2x
+ * @param {number} b2y
+ * @param {number} viewport_width
+ * @param {number} viewport_height
+ * @param {number} target_points
+ * @returns {number}
+ */
+export function calculate_min_scale_for_points(b1x, b1y, b2x, b2y, viewport_width, viewport_height, target_points) {
+    const ret = wasm.calculate_min_scale_for_points(b1x, b1y, b2x, b2y, viewport_width, viewport_height, target_points);
+    return ret;
+}
+
+/**
+ * Generate a centred square of lattice points:
+ * – create a dense grid,
+ * – find the distance at which `target_count` distinct x or y columns are reached,
+ * – keep every point with |x|,|y| ≤ cutoff (square window).
+ * @param {number} b1x
+ * @param {number} b1y
+ * @param {number} b2x
+ * @param {number} b2y
+ * @param {number} target_count
+ * @param {number | null} [multiplier]
+ * @returns {any}
+ */
+export function calculate_square_lattice_points(b1x, b1y, b2x, b2y, target_count, multiplier) {
+    const ret = wasm.calculate_square_lattice_points(b1x, b1y, b2x, b2y, target_count, isLikeNone(multiplier) ? 0x100000001 : (multiplier) >> 0);
+    return ret;
+}
+
+/**
  * Adds two 32-bit integers.
  * @param {number} a
  * @param {number} b
@@ -285,6 +240,16 @@ export function calculate_brillouin_zones(a1_x, a1_y, a2_x, a2_y, max_zone) {
  */
 export function add(a, b) {
     const ret = wasm.add(a, b);
+    return ret;
+}
+
+/**
+ * Advanced separation by computing polygon difference using line intersections.
+ * @param {any} raw
+ * @returns {any}
+ */
+export function separate_brillouin_zones(raw) {
+    const ret = wasm.separate_brillouin_zones(raw);
     return ret;
 }
 

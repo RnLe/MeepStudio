@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, CodeXml, Layers, Hexagon } from "lucide-react";
+import { X, CodeXml, Layers, Hexagon, PanelRightOpen } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
 import { useEditorStateStore, Tab } from "../providers/EditorStateStore";
@@ -34,6 +34,8 @@ const TabBar: React.FC = () => {
     deleteProject,
     deleteLattice,
     addCodeTabToProject,
+    rightSidebarOpen,
+    setRightSidebarOpen,
   } = useEditorStateStore();
 
   // Group tabs by their parent relationship
@@ -224,7 +226,7 @@ const TabBar: React.FC = () => {
   
   return (
     /* z-index added so lowered tabs sit above the viewport content below */
-    <div className="min-h-12 px-4 bg-slate-800 border-b border-slate-700/50 shadow-xl flex items-end relative z-30">
+    <div className="min-h-12 bg-slate-800 border-b border-slate-700/50 shadow-xl flex items-end relative z-30">
       <div className="flex overflow-hidden flex-1">
         {/* Render grouped tabs */}
         {Array.from(tabGroups.groups.values()).map(renderTabGroup)}
@@ -260,6 +262,18 @@ const TabBar: React.FC = () => {
           return null;
         })()}
       </div>
+
+      {/* Right sidebar toggle button */}
+      {!rightSidebarOpen && (
+        <button
+          onClick={() => setRightSidebarOpen(true)}
+          className="ml-2 mr-2 p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all duration-200 opacity-100 data-[open=true]:opacity-0 flex items-center justify-center"
+          title="Open properties panel"
+          data-open={rightSidebarOpen}
+        >
+          <PanelRightOpen size={21} />
+        </button>
+      )}
 
       {contextMenu && (
         <ContextMenu

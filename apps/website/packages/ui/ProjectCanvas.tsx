@@ -462,8 +462,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   return (
     <div
       ref={containerRef}
-      className="flex-1 flex items-center justify-center bg-neutral-300 w-full h-full overflow-hidden"
-      style={{ width: "100%", height: "100%" }}
+      className="absolute inset-0 flex items-center justify-center bg-neutral-300"
       onContextMenu={(e) => e.preventDefault()}
     >
       <Stage
