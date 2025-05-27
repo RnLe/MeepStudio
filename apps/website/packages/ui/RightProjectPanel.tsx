@@ -1,5 +1,5 @@
 import React from "react";
-import { Pen, Code, Grid3X3 } from "lucide-react";
+import { Code2, Layers, Download } from "lucide-react";
 import { MeepProject } from "../types/meepProjectTypes";
 import { projectSettings } from "../types/editorSettings";
 import ObjectsList from "./ObjectList";
@@ -19,14 +19,16 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
     deleteProject,
     addCodeTabToProject,
     removeCodeTabFromProject,
-    getActiveProjectSubTabs,
-    activeSubTabId
+    getTabsForProject,
+    getActiveTab,
+    isEditingProject: editing,
+    setIsEditingProject: setEditing
   } = useEditorStateStore();
   
-  const activeSubTab = getActiveProjectSubTabs().find(tab => tab.id === activeSubTabId);
-  const activeSubTabType = activeSubTab?.type || "scene";
+  const activeTab = getActiveTab();
+  const projectTabs = getTabsForProject(project.documentId);
+  const activeTabType = activeTab?.type || "scene";
 
-  const [editing, setEditing] = React.useState(false);
   const [editValues, setEditValues] = React.useState({
     title: project?.title || "",
     rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
@@ -48,8 +50,6 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
     if (project?.scene?.geometries) setGeometries(project.scene.geometries);
   }, [project, setGeometries]);
 
-  const handleEditClick = () => setEditing(true);
-  
   const handleCancel = () => {
     setEditing(false);
     setEditValues({
@@ -109,6 +109,31 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
     setEditValues((prev) => ({ ...prev, [name]: newValue }));
   };
 
+  // Define action buttons
+  const actionButtons = [
+    {
+      label: "Code Editor",
+      icon: Code2,
+      onClick: () => {
+        addCodeTabToProject(project.documentId);
+      }
+    },
+    {
+      label: "Add to Scene",
+      icon: Layers,
+      onClick: () => {
+        // TODO: Implement add to scene functionality
+      }
+    },
+    {
+      label: "Export",
+      icon: Download,
+      onClick: () => {
+        // TODO: Implement export functionality
+      }
+    }
+  ];
+
   return (
     <div className="p-4">
       <style>{`
@@ -135,11 +160,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
             <button className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700" onClick={handleSave}>Save</button>
             <button className="text-xs px-2 py-1 rounded bg-gray-600 text-white hover:bg-gray-700" onClick={handleCancel}>Cancel</button>
           </>
-        ) : (
-          <button className="p-1 rounded hover:bg-gray-700" onClick={handleEditClick} aria-label="Edit project properties">
-            <Pen size={18} className="text-gray-400 hover:text-white" />
-          </button>
-        )}
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -161,7 +182,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
         </div>
 
         {/* Only show project properties for scene tab */}
-        {activeSubTabType === "scene" && (
+        {activeTabType === "scene" && (
           <>
             <div className="flex flex-col gap-1 mt-2">
               <div className="flex flex-row w-full items-center justify-between">
@@ -221,49 +242,66 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
             {project.description && (
               <p className="text-sm text-gray-400 text-center">{project.description}</p>
             )}
-            
-            <div className="mt-4 pt-3 border-t border-gray-700">
-              <h3 className="text-sm font-medium text-gray-300 mb-3">Project Tabs</h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Code size={16} className="text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-300">Code Editor</span>
-                  </div>
-                  {getActiveProjectSubTabs().some(tab => tab.type === "code") ? (
-                    <button
-                      onClick={() => removeCodeTabFromProject(project.documentId)}
-                      className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
-                    >
-                      Remove
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => addCodeTabToProject(project.documentId)}
-                      className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                    >
-                      Add
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
           </>
         )}
 
         <hr className="border-gray-700 my-4" />
 
-        {/* Sub-tab specific content */}
-        {activeSubTabType === "scene" && (
+        {/* Tab-specific content */}
+        {activeTabType === "scene" && (
           <>
             <ObjectsList project={project} />
             <hr className="border-gray-700" />
             <ObjectPropertiesPanel project={project} ghPages={ghPages} />
+            
+            {/* Actions */}
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-300 mb-3">Actions</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {actionButtons.map((action, index) => {
+                  const Icon = action.icon;
+                  const isLastAndOdd = index === actionButtons.length - 1 && actionButtons.length % 2 === 1;
+                  return (
+                    <button
+                      key={index}
+                      onClick={action.onClick}
+                      className={`flex flex-col items-center justify-center p-3 rounded bg-neutral-700/30 hover:bg-neutral-700/50 transition-colors group cursor-pointer ${
+                        isLastAndOdd ? 'col-span-2' : ''
+                      }`}
+                    >
+                      <Icon 
+                        size={20} 
+                        className="text-gray-400 group-hover:text-gray-200 transition-colors mb-1"
+                      />
+                      <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors text-center">
+                        {action.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </>
         )}
         
-        {activeSubTabType === "code" && (
-          <div className="text-gray-400 text-sm">Code editor properties</div>
+        {activeTabType === "code" && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-gray-300">Code Editor Settings</h3>
+            <div className="text-gray-400 text-sm">
+              <div className="flex justify-between">
+                <span>Language:</span>
+                <span className="text-gray-300">Python</span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span>Theme:</span>
+                <span className="text-gray-300">Dark</span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span>Auto-save:</span>
+                <span className="text-green-400">Enabled</span>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -4,29 +4,37 @@ import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
 
-export type SubTabType = "scene" | "code";
+export type TabType = "project" | "lattice" | "dashboard" | "code" | "scene";
 export type MainTabType = "project" | "lattice" | "dashboard";
 
-export interface SubTab {
+export interface Tab {
   id: string;
-  type: SubTabType;
+  type: TabType;
   title: string;
-  projectId: string;
+  parentId?: string; // Optional parent reference (e.g., project ID for code tabs)
+  projectId?: string; // For project and code tabs
+  latticeId?: string; // For lattice tabs
 }
 
+// For backward compatibility - map scene to project
+export type SubTab = Tab;
+export type SubTabType = "scene" | "code";
+
 type EditorState = {
-  // Project-level tabs (top row)
-  openProjects: MeepProject[];
-  openLattices: Lattice[];
-  openDashboards: string[]; // Dashboard IDs
+  // All tabs (flat structure)
+  openTabs: Tab[];
+  activeTabId: string | null;
+  
+  // Computed properties for backward compatibility
   activeProjectId: string | null;
   activeLatticeId: string | null;
   activeDashboardId: string | null;
   activeMainTabType: MainTabType | null;
-  
-  // Sub-tabs for active project (second row)
-  subTabs: SubTab[];
   activeSubTabId: string | null;
+  
+  // Source data
+  projects: MeepProject[];
+  lattices: Lattice[];
   
   // Global flags
   ghPages: boolean;
@@ -36,8 +44,6 @@ type EditorState = {
   leftSidebarPanel: "explorer" | "latticeBuilder" | null;
   
   // Project management functions (from useMeepProjects)
-  projects: MeepProject[];
-  lattices: Lattice[];
   isLoading: boolean;
   createProjectFn: ((p: Partial<Omit<MeepProject, "documentId" | "createdAt" | "updatedAt">>) => Promise<MeepProject>) | null;
   deleteProjectFn: ((id: string) => Promise<void>) | null;
@@ -57,13 +63,12 @@ type EditorState = {
   closeDashboard: (dashboardId: string) => void;
   setActiveDashboard: (dashboardId: string) => void;
   
-  openSubTab: (subTab: SubTab) => void;
-  closeSubTab: (subTabId: string) => void;
-  setActiveSubTab: (subTabId: string) => void;
+  openTab: (tab: Tab) => void;
+  closeTab: (tabId: string) => void;
+  setActiveTab: (tabId: string) => void;
   
-  // Dynamic sub-tab management
+  // Dynamic tab management
   addCodeTabToProject: (projectId: string) => void;
-  removeCodeTabFromProject: (projectId: string) => void;
   
   setGhPages: (ghPages: boolean) => void;
   setRightSidebarOpen: (open: boolean) => void;
@@ -87,8 +92,9 @@ type EditorState = {
   createLattice: (lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) => Promise<Lattice | void>;
   deleteLattice: (id: string) => Promise<void>;
   
-  // Helper to get sub-tabs for active project
-  getActiveProjectSubTabs: () => SubTab[];
+  // Helper methods
+  getTabsForProject: (projectId: string) => Tab[];
+  getActiveTab: () => Tab | undefined;
   getActiveProject: () => MeepProject | undefined;
   getActiveLattice: () => Lattice | undefined;
   
@@ -104,398 +110,230 @@ type EditorState = {
   clearAllSelections: () => void;
   toggleProjectSelection: (projectId: string, isMulti: boolean, isRange: boolean) => void;
   toggleLatticeSelection: (latticeId: string, isMulti: boolean, isRange: boolean) => void;
+  
+  // Additional methods for backward compatibility
+  removeCodeTabFromProject: (projectId: string) => void;
+  getActiveProjectSubTabs: () => Tab[];
+  
+  // Panel editing states
+  isEditingProject: boolean;
+  isEditingLattice: boolean;
+  
+  // Panel editing actions
+  setIsEditingProject: (editing: boolean) => void;
+  setIsEditingLattice: (editing: boolean) => void;
 };
 
 export const useEditorStateStore = createWithEqualityFn<EditorState>(
   (set, get) => ({
-    openProjects: [],
-    openLattices: [],
-    openDashboards: [],
-    activeProjectId: null,
-    activeLatticeId: null,
-    activeDashboardId: null,
-    activeMainTabType: null,
-    subTabs: [],
-    activeSubTabId: null,
+    openTabs: [],
+    activeTabId: null,
     ghPages: false,
     rightSidebarOpen: true,
     leftSidebarPanel: "explorer",
     projects: [],
     lattices: [],
-    isLoading: false,
-    createProjectFn: null,
-    deleteProjectFn: null,
-    createLatticeFn: null,
-    deleteLatticeFn: null,
     
     selectedProjectIds: new Set<string>(),
     selectedLatticeIds: new Set<string>(),
     lastSelectedProjectId: null,
     lastSelectedLatticeId: null,
     
-    openProject: (project) => {
-      const { openProjects, subTabs, setRightSidebarOpen } = get();
-      const isAlreadyOpen = openProjects.some(p => p.documentId === project.documentId);
-      
-      // Clear lattice selections when opening a project
-      const newProjectSelection = new Set<string>();
-      newProjectSelection.add(project.documentId);
+    isLoading: false,
+    createProjectFn: null,
+    deleteProjectFn: null,
+    createLatticeFn: null,
+    deleteLatticeFn: null,
+    
+    isEditingProject: false,
+    isEditingLattice: false,
+    
+    openTab: (tab) => {
+      const { openTabs, setRightSidebarOpen } = get();
+      const isAlreadyOpen = openTabs.some(t => t.id === tab.id);
       
       if (!isAlreadyOpen) {
-        set({ openProjects: [...openProjects, project] });
-        
-        // Create default sub-tabs for this project
-        const defaultSubTabs: SubTab[] = [
-          {
-            id: `${project.documentId}-scene`,
-            type: "scene",
-            title: "Scene",
-            projectId: project.documentId!,
-          }
-        ];
-
-        if (project.code) {
-          defaultSubTabs.push({
-            id: `${project.documentId}-code`,
-            type: "code",
-            title: "Code",
-            projectId: project.documentId!,
-          });
-        }
-        
-        const existingProjectTabIds = subTabs
-          .filter(tab => tab.projectId === project.documentId)
-          .map(tab => tab.id);
-        
-        const newSubTabs = defaultSubTabs.filter(tab => 
-          !existingProjectTabIds.includes(tab.id)
-        );
-        
-        set(state => ({ 
-          subTabs: [...state.subTabs, ...newSubTabs],
-          activeProjectId: project.documentId,
-          activeSubTabId: newSubTabs.length > 0 ? newSubTabs[0].id : null,
-          activeMainTabType: "project",
-          activeLatticeId: null,
-          activeDashboardId: null,
-          selectedProjectIds: newProjectSelection,
-          selectedLatticeIds: new Set<string>(), // Clear lattice selections
-          lastSelectedProjectId: project.documentId,
-          lastSelectedLatticeId: null
-        }));
-      } else {
-        const projectSubTabs = subTabs.filter(tab => tab.projectId === project.documentId);
-        const newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
-        
-        set({ 
-          activeProjectId: project.documentId,
-          activeSubTabId: newActiveSubTabId,
-          activeMainTabType: "project",
-          activeLatticeId: null,
-          activeDashboardId: null,
-          selectedProjectIds: newProjectSelection,
-          selectedLatticeIds: new Set<string>(), // Clear lattice selections
-          lastSelectedProjectId: project.documentId,
-          lastSelectedLatticeId: null
-        });
+        set({ openTabs: [...openTabs, tab] });
       }
       
-      setRightSidebarOpen(true);
+      set({ activeTabId: tab.id });
+      
+      if (tab.type !== "dashboard") {
+        setRightSidebarOpen(true);
+      }
     },
     
-    closeProject: (projectId) => {
-      const { openProjects, activeProjectId, subTabs, openLattices, openDashboards } = get();
-      const updatedProjects = openProjects.filter(p => p.documentId !== projectId);
-      const updatedSubTabs = subTabs.filter(tab => tab.projectId !== projectId);
+    closeTab: (tabId) => {
+      const { openTabs, activeTabId } = get();
+      const updatedTabs = openTabs.filter(t => t.id !== tabId);
       
-      let newActiveProjectId = activeProjectId;
-      let newActiveSubTabId = null;
-      let newActiveMainTabType: MainTabType | null = null;
-      let newActiveLatticeId = null;
-      let newActiveDashboardId = null;
-      
-      if (activeProjectId === projectId) {
-        if (updatedProjects.length > 0) {
-          newActiveProjectId = updatedProjects[0].documentId!;
-          const projectSubTabs = updatedSubTabs.filter(tab => tab.projectId === newActiveProjectId);
-          newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
-          newActiveMainTabType = "project";
-        } else if (openLattices.length > 0) {
-          newActiveProjectId = null;
-          newActiveLatticeId = openLattices[0].documentId;
-          newActiveMainTabType = "lattice";
-        } else if (openDashboards.length > 0) {
-          newActiveProjectId = null;
-          newActiveDashboardId = openDashboards[0];
-          newActiveMainTabType = "dashboard";
+      let newActiveTabId = activeTabId;
+      if (activeTabId === tabId && updatedTabs.length > 0) {
+        // Find the next best tab to activate
+        const tabToClose = openTabs.find(t => t.id === tabId);
+        if (tabToClose?.parentId) {
+          // If closing a child tab, try to activate its parent
+          const parent = updatedTabs.find(t => t.id === tabToClose.parentId);
+          newActiveTabId = parent?.id || updatedTabs[0].id;
+        } else {
+          // Otherwise activate the first remaining tab
+          newActiveTabId = updatedTabs[0].id;
         }
+      } else if (updatedTabs.length === 0) {
+        newActiveTabId = null;
       }
       
       set({ 
-        openProjects: updatedProjects,
-        activeProjectId: newActiveProjectId,
-        activeLatticeId: newActiveLatticeId,
-        activeDashboardId: newActiveDashboardId,
-        activeMainTabType: newActiveMainTabType,
-        subTabs: updatedSubTabs,
-        activeSubTabId: newActiveSubTabId,
+        openTabs: updatedTabs,
+        activeTabId: newActiveTabId,
+      });
+    },
+    
+    setActiveTab: (tabId) => {
+      const { setRightSidebarOpen, openTabs } = get();
+      const tab = openTabs.find(t => t.id === tabId);
+      
+      if (tab) {
+        set({ activeTabId: tabId });
+        
+        if (tab.type === "dashboard") {
+          setRightSidebarOpen(false);
+        } else {
+          setRightSidebarOpen(true);
+        }
+        
+        // Clear selections when switching tabs
+        get().clearAllSelections();
+      }
+    },
+    
+    openProject: (project) => {
+      const { openTab } = get();
+      
+      // Open the main project tab as a "scene" tab for backward compatibility
+      openTab({
+        id: `project-${project.documentId}`,
+        type: "scene", // Changed from "project" to "scene"
+        title: project.title,
+        projectId: project.documentId,
+      });
+      
+      // Clear selections and select this project
+      const newProjectSelection = new Set<string>();
+      newProjectSelection.add(project.documentId);
+      set({ 
+        selectedProjectIds: newProjectSelection,
+        selectedLatticeIds: new Set<string>(),
+        lastSelectedProjectId: project.documentId,
+        lastSelectedLatticeId: null
       });
     },
     
     openLattice: (lattice) => {
-      const { openLattices, setRightSidebarOpen } = get();
-      const isAlreadyOpen = openLattices.some(l => l.documentId === lattice.documentId);
+      const { openTab } = get();
       
-      // Clear project selections when opening a lattice
-      const newLatticeSelection = new Set<string>();
-      newLatticeSelection.add(lattice.documentId);
-      
-      if (!isAlreadyOpen) {
-        set({ openLattices: [...openLattices, lattice] });
-      }
-      
-      set({ 
-        activeLatticeId: lattice.documentId,
-        activeProjectId: null,
-        activeSubTabId: null,
-        activeMainTabType: "lattice",
-        activeDashboardId: null,
-        selectedLatticeIds: newLatticeSelection,
-        selectedProjectIds: new Set<string>(), // Clear project selections
-        lastSelectedLatticeId: lattice.documentId,
-        lastSelectedProjectId: null
+      openTab({
+        id: `lattice-${lattice.documentId}`,
+        type: "lattice",
+        title: lattice.title,
+        latticeId: lattice.documentId,
       });
       
-      setRightSidebarOpen(true);
-    },
-    
-    closeLattice: (latticeId) => {
-      const { openLattices, activeLatticeId, openProjects, subTabs, openDashboards } = get();
-      const updatedLattices = openLattices.filter(l => l.documentId !== latticeId);
-      
-      let newActiveLatticeId = activeLatticeId;
-      let newActiveProjectId: string | null = null;
-      let newActiveSubTabId: string | null = null;
-      let newActiveDashboardId: string | null = null;
-      let newActiveMainTabType: MainTabType | null = null;
-      
-      if (activeLatticeId === latticeId) {
-        if (updatedLattices.length > 0) {
-          newActiveLatticeId = updatedLattices[0].documentId!;
-          newActiveMainTabType = "lattice";
-        } else if (openProjects.length > 0) {
-          newActiveLatticeId = null;
-          newActiveProjectId = openProjects[0].documentId;
-          const projectSubTabs = subTabs.filter(tab => tab.projectId === newActiveProjectId);
-          newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
-          newActiveMainTabType = "project";
-        } else if (openDashboards.length > 0) {
-          newActiveLatticeId = null;
-          newActiveDashboardId = openDashboards[0];
-          newActiveMainTabType = "dashboard";
-        }
-      }
-      
+      // Clear selections and select this lattice
+      const newLatticeSelection = new Set<string>();
+      newLatticeSelection.add(lattice.documentId);
       set({ 
-        openLattices: updatedLattices,
-        activeLatticeId: newActiveLatticeId,
-        activeProjectId: newActiveProjectId,
-        activeDashboardId: newActiveDashboardId,
-        activeSubTabId: newActiveSubTabId,
-        activeMainTabType: newActiveMainTabType
+        selectedLatticeIds: newLatticeSelection,
+        selectedProjectIds: new Set<string>(),
+        lastSelectedLatticeId: lattice.documentId,
+        lastSelectedProjectId: null
       });
     },
     
     openDashboard: (dashboardId = 'main') => {
-      const { openDashboards, setRightSidebarOpen } = get();
-      const isAlreadyOpen = openDashboards.includes(dashboardId);
+      const { openTab } = get();
       
-      if (!isAlreadyOpen) {
-        set({ openDashboards: [...openDashboards, dashboardId] });
-      }
-      
-      set({ 
-        activeDashboardId: dashboardId,
-        activeProjectId: null,
-        activeLatticeId: null,
-        activeSubTabId: null,
-        activeMainTabType: "dashboard",
-        selectedProjectIds: new Set<string>(), // Clear project selections
-        selectedLatticeIds: new Set<string>(), // Clear lattice selections
-        lastSelectedProjectId: null,
-        lastSelectedLatticeId: null
+      openTab({
+        id: `dashboard-${dashboardId}`,
+        type: "dashboard",
+        title: "Dashboard",
       });
       
-      setRightSidebarOpen(false);
-    },
-    
-    closeDashboard: (dashboardId) => {
-      const { openDashboards, activeDashboardId, openProjects, openLattices, subTabs } = get();
-      const updatedDashboards = openDashboards.filter(id => id !== dashboardId);
-      
-      let newActiveDashboardId = activeDashboardId;
-      let newActiveProjectId: string | null = null;
-      let newActiveLatticeId: string | null = null;
-      let newActiveSubTabId: string | null = null;
-      let newActiveMainTabType: MainTabType | null = null;
-      
-      if (activeDashboardId === dashboardId) {
-        if (updatedDashboards.length > 0) {
-          newActiveDashboardId = updatedDashboards[0];
-          newActiveMainTabType = "dashboard";
-        } else if (openProjects.length > 0) {
-          newActiveDashboardId = null;
-          newActiveProjectId = openProjects[0].documentId;
-          const projectSubTabs = subTabs.filter(tab => tab.projectId === newActiveProjectId);
-          newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
-          newActiveMainTabType = "project";
-        } else if (openLattices.length > 0) {
-          newActiveDashboardId = null;
-          newActiveLatticeId = openLattices[0].documentId;
-          newActiveMainTabType = "lattice";
-        }
-      }
-      
+      // Clear all selections
       set({ 
-        openDashboards: updatedDashboards,
-        activeDashboardId: newActiveDashboardId,
-        activeProjectId: newActiveProjectId,
-        activeLatticeId: newActiveLatticeId,
-        activeSubTabId: newActiveSubTabId,
-        activeMainTabType: newActiveMainTabType
-      });
-    },
-    
-    setActiveProject: (projectId) => {
-      const { subTabs, setRightSidebarOpen, selectedProjectIds } = get();
-      const projectSubTabs = subTabs.filter(tab => tab.projectId === projectId);
-      const newActiveSubTabId = projectSubTabs.length > 0 ? projectSubTabs[0].id : null;
-      
-      // Add to project selection
-      const newProjectSelection = new Set(selectedProjectIds);
-      newProjectSelection.add(projectId);
-      
-      setRightSidebarOpen(true);
-      set({ 
-        activeProjectId: projectId,
-        activeLatticeId: null,
-        activeDashboardId: null,
-        activeSubTabId: newActiveSubTabId,
-        activeMainTabType: "project",
-        selectedProjectIds: newProjectSelection,
-        selectedLatticeIds: new Set<string>(), // Clear lattice selections
-        lastSelectedProjectId: projectId,
-        lastSelectedLatticeId: null
-      });
-    },
-    
-    setActiveLattice: (latticeId) => {
-      const { setRightSidebarOpen, selectedLatticeIds } = get();
-      
-      // Add to lattice selection
-      const newLatticeSelection = new Set(selectedLatticeIds);
-      newLatticeSelection.add(latticeId);
-      
-      setRightSidebarOpen(true);
-      set({ 
-        activeLatticeId: latticeId,
-        activeProjectId: null,
-        activeDashboardId: null,
-        activeSubTabId: null,
-        activeMainTabType: "lattice",
-        selectedLatticeIds: newLatticeSelection,
-        selectedProjectIds: new Set<string>(), // Clear project selections
-        lastSelectedLatticeId: latticeId,
-        lastSelectedProjectId: null
-      });
-    },
-    
-    setActiveDashboard: (dashboardId) => {
-      const { setRightSidebarOpen } = get();
-      
-      setRightSidebarOpen(false);
-      set({ 
-        activeDashboardId: dashboardId,
-        activeProjectId: null,
-        activeLatticeId: null,
-        activeSubTabId: null,
-        activeMainTabType: "dashboard",
-        selectedProjectIds: new Set<string>(), // Clear project selections
-        selectedLatticeIds: new Set<string>(), // Clear lattice selections
+        selectedProjectIds: new Set<string>(),
+        selectedLatticeIds: new Set<string>(),
         lastSelectedProjectId: null,
         lastSelectedLatticeId: null
       });
     },
     
-    openSubTab: (subTab) => {
-      const { subTabs } = get();
-      const isAlreadyOpen = subTabs.some(tab => tab.id === subTab.id);
-      
-      if (!isAlreadyOpen) {
-        set({ subTabs: [...subTabs, subTab] });
-      }
-      
-      set({ activeSubTabId: subTab.id });
-    },
-    
-    closeSubTab: (subTabId) => {
-      const { subTabs, activeSubTabId, activeProjectId } = get();
-      const updatedSubTabs = subTabs.filter(tab => tab.id !== subTabId);
-      
-      let newActiveSubTabId = activeSubTabId;
-      if (activeSubTabId === subTabId && activeProjectId) {
-        const remainingProjectSubTabs = updatedSubTabs.filter(tab => tab.projectId === activeProjectId);
-        newActiveSubTabId = remainingProjectSubTabs.length > 0 ? remainingProjectSubTabs[0].id : null;
-      }
-      
-      set({ 
-        subTabs: updatedSubTabs,
-        activeSubTabId: newActiveSubTabId,
-      });
-    },
-    
-    setActiveSubTab: (subTabId) => {
-      set({ activeSubTabId: subTabId });
-    },
-    
+    // Add code tab to project
     addCodeTabToProject: (projectId) => {
-      const { subTabs, projects } = get();
+      const { openTab, projects } = get();
       const project = projects.find(p => p.documentId === projectId);
       if (!project) return;
       
-      const codeTabId = `${projectId}-code`;
-      const hasCodeTab = subTabs.some(tab => tab.id === codeTabId);
-      
-      if (!hasCodeTab) {
-        const newSubTab: SubTab = {
-          id: codeTabId,
-          type: "code",
-          title: "Code",
-          projectId,
-        };
-        
-        set(state => ({ 
-          subTabs: [...state.subTabs, newSubTab],
-          activeSubTabId: newSubTab.id
-        }));
+      openTab({
+        id: `code-${projectId}`,
+        type: "code",
+        title: "Code",
+        parentId: `project-${projectId}`,
+        projectId: projectId,
+      });
+    },
+    
+    getTabsForProject: (projectId) => {
+      const { openTabs } = get();
+      return openTabs.filter(tab => tab.projectId === projectId);
+    },
+    
+    getActiveTab: () => {
+      const { openTabs, activeTabId } = get();
+      return openTabs.find(t => t.id === activeTabId);
+    },
+    
+    getActiveProject: () => {
+      const { projects, activeTabId, openTabs } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
+      if (activeTab?.projectId) {
+        return projects.find(p => p.documentId === activeTab.projectId);
+      }
+      return undefined;
+    },
+    
+    getActiveLattice: () => {
+      const { lattices, activeTabId, openTabs } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
+      if (activeTab?.latticeId) {
+        return lattices.find(l => l.documentId === activeTab.latticeId);
+      }
+      return undefined;
+    },
+    
+    // Update close methods to use new tab system
+    closeProject: (projectId) => {
+      const { closeTab, openTabs } = get();
+      const projectTab = openTabs.find(t => t.id === `project-${projectId}`);
+      if (projectTab) {
+        closeTab(projectTab.id);
       }
     },
     
-    removeCodeTabFromProject: (projectId) => {
-      const { subTabs, activeSubTabId, activeProjectId } = get();
-      const codeTabId = `${projectId}-code`;
-      const updatedSubTabs = subTabs.filter(tab => tab.id !== codeTabId);
-      
-      let newActiveSubTabId = activeSubTabId;
-      if (activeSubTabId === codeTabId && activeProjectId === projectId) {
-        const remainingProjectSubTabs = updatedSubTabs.filter(tab => tab.projectId === projectId);
-        newActiveSubTabId = remainingProjectSubTabs.length > 0 ? remainingProjectSubTabs[0].id : null;
+    closeLattice: (latticeId) => {
+      const { closeTab, openTabs } = get();
+      const latticeTab = openTabs.find(t => t.id === `lattice-${latticeId}`);
+      if (latticeTab) {
+        closeTab(latticeTab.id);
       }
-      
-      set({ 
-        subTabs: updatedSubTabs,
-        activeSubTabId: newActiveSubTabId,
-      });
+    },
+    
+    closeDashboard: (dashboardId) => {
+      const { closeTab, openTabs } = get();
+      const dashboardTab = openTabs.find(t => t.id === `dashboard-${dashboardId}`);
+      if (dashboardTab) {
+        closeTab(dashboardTab.id);
+      }
     },
     
     setGhPages: (ghPages) => {
@@ -534,6 +372,14 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         createLatticeFn: createFn,
         deleteLatticeFn: deleteFn,
       });
+    },
+    
+    setIsEditingProject: (editing) => {
+      set({ isEditingProject: editing });
+    },
+    
+    setIsEditingLattice: (editing) => {
+      set({ isEditingLattice: editing });
     },
     
     createProject: async (project) => {
@@ -602,27 +448,78 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       }
     },
     
-    getActiveProjectSubTabs: () => {
-      const { subTabs, activeProjectId } = get();
-      const result = activeProjectId ? subTabs.filter(tab => tab.projectId === activeProjectId) : [];
-      console.log("🔥 getActiveProjectSubTabs:", {
-        activeProjectId,
-        totalSubTabs: subTabs.length,
-        filteredSubTabs: result.length,
-        allSubTabs: subTabs,
-        filteredResult: result
+    setActiveProject: (projectId) => {
+      const { openTabs, setRightSidebarOpen, selectedProjectIds, projects } = get();
+      const projectTab = openTabs.find(t => t.id === `project-${projectId}`);
+      
+      if (projectTab) {
+        get().setActiveTab(projectTab.id);
+      } else {
+        // If tab doesn't exist, open the project
+        const project = projects.find(p => p.documentId === projectId);
+        if (project) {
+          get().openProject(project);
+        }
+      }
+      
+      // Add to project selection
+      const newProjectSelection = new Set(selectedProjectIds);
+      newProjectSelection.add(projectId);
+      
+      setRightSidebarOpen(true);
+      set({ 
+        selectedProjectIds: newProjectSelection,
+        selectedLatticeIds: new Set<string>(),
+        lastSelectedProjectId: projectId,
+        lastSelectedLatticeId: null
       });
-      return result;
     },
     
-    getActiveProject: () => {
-      const { projects, activeProjectId } = get();
-      return projects.find(p => p.documentId === activeProjectId);
+    setActiveLattice: (latticeId) => {
+      const { openTabs, setRightSidebarOpen, selectedLatticeIds, lattices } = get();
+      const latticeTab = openTabs.find(t => t.id === `lattice-${latticeId}`);
+      
+      if (latticeTab) {
+        get().setActiveTab(latticeTab.id);
+      } else {
+        // If tab doesn't exist, open the lattice
+        const lattice = lattices.find(l => l.documentId === latticeId);
+        if (lattice) {
+          get().openLattice(lattice);
+        }
+      }
+      
+      // Add to lattice selection
+      const newLatticeSelection = new Set(selectedLatticeIds);
+      newLatticeSelection.add(latticeId);
+      
+      setRightSidebarOpen(true);
+      set({ 
+        selectedLatticeIds: newLatticeSelection,
+        selectedProjectIds: new Set<string>(),
+        lastSelectedLatticeId: latticeId,
+        lastSelectedProjectId: null
+      });
     },
     
-    getActiveLattice: () => {
-      const { lattices, activeLatticeId } = get();
-      return lattices.find(l => l.documentId === activeLatticeId);
+    setActiveDashboard: (dashboardId) => {
+      const { openTabs, setRightSidebarOpen } = get();
+      const dashboardTab = openTabs.find(t => t.id === `dashboard-${dashboardId}`);
+      
+      if (dashboardTab) {
+        get().setActiveTab(dashboardTab.id);
+      } else {
+        // If tab doesn't exist, open the dashboard
+        get().openDashboard(dashboardId);
+      }
+      
+      setRightSidebarOpen(false);
+      set({ 
+        selectedProjectIds: new Set<string>(),
+        selectedLatticeIds: new Set<string>(),
+        lastSelectedProjectId: null,
+        lastSelectedLatticeId: null
+      });
     },
     
     setSelectedProjects: (ids) => {
@@ -634,33 +531,35 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     },
     
     clearAllSelections: () => {
-      const { activeProjectId, activeLatticeId } = get();
+      const { activeTabId, openTabs } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
       const newProjectSelection = new Set<string>();
       const newLatticeSelection = new Set<string>();
       
       // Keep active items selected
-      if (activeProjectId) {
-        newProjectSelection.add(activeProjectId);
+      if (activeTab?.projectId) {
+        newProjectSelection.add(activeTab.projectId);
       }
-      if (activeLatticeId) {
-        newLatticeSelection.add(activeLatticeId);
+      if (activeTab?.latticeId) {
+        newLatticeSelection.add(activeTab.latticeId);
       }
       
       set({ 
         selectedProjectIds: newProjectSelection,
         selectedLatticeIds: newLatticeSelection,
-        lastSelectedProjectId: activeProjectId,
-        lastSelectedLatticeId: activeLatticeId
+        lastSelectedProjectId: activeTab?.projectId || null,
+        lastSelectedLatticeId: activeTab?.latticeId || null
       });
     },
     
     toggleProjectSelection: (projectId, isMulti, isRange) => {
-      const { selectedProjectIds, lastSelectedProjectId, projects, activeProjectId } = get();
+      const { selectedProjectIds, lastSelectedProjectId, projects, activeTabId, openTabs } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
       const newSelection = new Set(selectedProjectIds);
       
       // Always ensure active project is selected
-      if (activeProjectId && !newSelection.has(activeProjectId)) {
-        newSelection.add(activeProjectId);
+      if (activeTab?.projectId && !newSelection.has(activeTab.projectId)) {
+        newSelection.add(activeTab.projectId);
       }
       
       if (isRange && lastSelectedProjectId) {
@@ -680,7 +579,7 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       } else if (isMulti) {
         // Toggle selection - but don't allow deselecting the active project
         if (newSelection.has(projectId)) {
-          if (projectId !== activeProjectId) {
+          if (projectId !== activeTab?.projectId) {
             newSelection.delete(projectId);
           }
         } else {
@@ -689,8 +588,8 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       } else {
         // Single selection - clear others but keep active
         newSelection.clear();
-        if (activeProjectId) {
-          newSelection.add(activeProjectId);
+        if (activeTab?.projectId) {
+          newSelection.add(activeTab.projectId);
         }
         newSelection.add(projectId);
       }
@@ -702,12 +601,13 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     },
     
     toggleLatticeSelection: (latticeId, isMulti, isRange) => {
-      const { selectedLatticeIds, lastSelectedLatticeId, lattices, activeLatticeId } = get();
+      const { selectedLatticeIds, lastSelectedLatticeId, lattices, activeTabId, openTabs } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
       const newSelection = new Set(selectedLatticeIds);
       
       // Always ensure active lattice is selected
-      if (activeLatticeId && !newSelection.has(activeLatticeId)) {
-        newSelection.add(activeLatticeId);
+      if (activeTab?.latticeId && !newSelection.has(activeTab.latticeId)) {
+        newSelection.add(activeTab.latticeId);
       }
       
       if (isRange && lastSelectedLatticeId) {
@@ -727,7 +627,7 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       } else if (isMulti) {
         // Toggle selection - but don't allow deselecting the active lattice
         if (newSelection.has(latticeId)) {
-          if (latticeId !== activeLatticeId) {
+          if (latticeId !== activeTab?.latticeId) {
             newSelection.delete(latticeId);
           }
         } else {
@@ -736,8 +636,8 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       } else {
         // Single selection - clear others but keep active
         newSelection.clear();
-        if (activeLatticeId) {
-          newSelection.add(activeLatticeId);
+        if (activeTab?.latticeId) {
+          newSelection.add(activeTab.latticeId);
         }
         newSelection.add(latticeId);
       }
@@ -746,6 +646,69 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         selectedLatticeIds: newSelection,
         lastSelectedLatticeId: latticeId
       });
+    },
+    
+    // Computed getters for backward compatibility
+    get activeProjectId() {
+      const { openTabs, activeTabId } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
+      return activeTab?.projectId || null;
+    },
+    
+    get activeLatticeId() {
+      const { openTabs, activeTabId } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
+      return activeTab?.latticeId || null;
+    },
+    
+    get activeDashboardId() {
+      const { openTabs, activeTabId } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
+      if (activeTab?.type === "dashboard") {
+        return activeTab.id.replace("dashboard-", "");
+      }
+      return null;
+    },
+    
+    get activeMainTabType() {
+      const { openTabs, activeTabId } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
+      if (!activeTab) return null;
+      
+      switch (activeTab.type) {
+        case "project":
+        case "scene": // Add scene type
+        case "code":
+          return "project" as MainTabType;
+        case "lattice":
+          return "lattice" as MainTabType;
+        case "dashboard":
+          return "dashboard" as MainTabType;
+        default:
+          return null;
+      }
+    },
+    
+    get activeSubTabId() {
+      const { activeTabId } = get();
+      return activeTabId;
+    },
+    
+    removeCodeTabFromProject: (projectId) => {
+      const { closeTab, openTabs } = get();
+      const codeTab = openTabs.find(t => t.id === `code-${projectId}`);
+      if (codeTab) {
+        closeTab(codeTab.id);
+      }
+    },
+    
+    getActiveProjectSubTabs: () => {
+      const { openTabs, activeTabId } = get();
+      const activeTab = openTabs.find(t => t.id === activeTabId);
+      if (activeTab?.projectId) {
+        return openTabs.filter(tab => tab.projectId === activeTab.projectId);
+      }
+      return [];
     },
   }),
   shallow

@@ -27,6 +27,11 @@ const nextConfig: NextConfig = {
     assetPrefix: base ? `${base}/` : '',
     trailingSlash: true,         // output /about/index.html instead of about.html
     
+    // Make base path available to client-side code
+    env: {
+        NEXT_PUBLIC_BASE_PATH: base,
+    },
+    
     // FUNCTIONALITY RELATED CONFIG
     // GitHub Pages requires static export and serves from /MeepStudio, so we need Next to emit all HTML/CSS/JS under that path.
     transpilePackages: [],

@@ -2,7 +2,7 @@
 "use client";
 import React from "react";
 import { MeepProject } from "../types/meepProjectTypes";
-import CodeEditor from "./CodeEditor";
+import CodeEditor from "./CodeEditorScene";
 
 interface Props {
   project: MeepProject;

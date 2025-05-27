@@ -1,13 +1,13 @@
 "use client";
 import React from "react";
-import { SubTab } from "../providers/EditorStateStore";
+import { Tab } from "../providers/EditorStateStore";
 import { MeepProject } from "../types/meepProjectTypes";
 import TabWindowScene from "./TabWindowScene";
 import TabWindowLattice from "./TabWindowLattice";
 import TabWindowCode from "./TabWindowCode";
 
 interface Props {
-  subTab: SubTab;
+  subTab: Tab;
   project: MeepProject;
   ghPages: boolean;
 }

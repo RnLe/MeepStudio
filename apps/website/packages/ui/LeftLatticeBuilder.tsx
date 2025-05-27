@@ -292,6 +292,7 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
       meepLattice = {
         basis1,
         basis2,
+        basis3: { x: 0, y: 0, z: 1 }, // Add the missing basis3
         basis_size: { x: 1, y: 1, z: 1 }
       };
       parameters = {};
@@ -326,6 +327,7 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
       meepLattice = {
         basis1: generatedBasis1,
         basis2: generatedBasis2,
+        basis3: { x: 0, y: 0, z: 1 }, // Add the missing basis3
         basis_size: { x: 1, y: 1, z: 1 }
       };
     }

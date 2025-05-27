@@ -1,68 +1,87 @@
 import React, { useState } from "react";
-import { X, Code, Grid3X3, Layers, Hexagon } from "lucide-react";
+import { X, CodeXml, Layers, Hexagon } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
-import { useEditorStateStore, SubTab, SubTabType } from "../providers/EditorStateStore";
+import { useEditorStateStore, Tab } from "../providers/EditorStateStore";
 import CustomLucideIcon from "./CustomLucideIcon";
 
-interface Props {
-}
-
-const getSubTabIcon = (type: SubTabType) => {
+const getTabIcon = (type: Tab["type"]) => {
   switch (type) {
+    case "project":
     case "scene":
       return Layers;
     case "code":
-      return Code;
+      return CodeXml;
+    case "lattice":
+      return Hexagon;
     default:
       return Layers;
   }
 };
 
-const TabBar: React.FC<Props> = () => {
+const TabBar: React.FC = () => {
   const [contextMenu, setContextMenu] = useState<null | { x: number; y: number; item: MeepProject | Lattice; type: 'project' | 'lattice' }>(null);
+  const [detachedTabs, setDetachedTabs] = useState<Set<string>>(new Set());
+  const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   
   const {
-    openProjects,
-    openLattices,
-    openDashboards,
-    activeProjectId,
-    activeLatticeId,
-    activeDashboardId,
-    getActiveProjectSubTabs,
-    activeSubTabId,
-    setActiveProject,
-    setActiveLattice,
-    setActiveDashboard,
-    closeProject,
-    closeLattice,
-    closeDashboard,
-    setActiveSubTab,
-    closeSubTab,
+    openTabs,
+    activeTabId,
+    projects,
+    lattices,
+    setActiveTab,
+    closeTab,
     deleteProject,
     deleteLattice,
-    clearAllSelections,
+    addCodeTabToProject,
   } = useEditorStateStore();
-  const activeProjectSubTabs = getActiveProjectSubTabs();
 
-  // Debug logging
-  console.log("TabBar Debug:", {
-    activeProjectId,
-    activeSubTabId,
-    openProjectsCount: openProjects.length,
-    activeProjectSubTabsCount: activeProjectSubTabs.length,
-    activeProjectSubTabs,
-    shouldShowBottomRow: !!(activeProjectId && activeProjectSubTabs.length > 0)
-  });
-
-  const handleContextMenu = (e: React.MouseEvent, item: MeepProject | Lattice, type: 'project' | 'lattice') => {
-    e.preventDefault();
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      item,
-      type,
+  // Group tabs by their parent relationship
+  const tabGroups = React.useMemo(() => {
+    const groups: Map<string, Tab[]> = new Map();
+    const standalone: Tab[] = [];
+    const processed = new Set<string>();
+    
+    // First pass: identify all parent tabs
+    openTabs.forEach(tab => {
+      if (!tab.parentId && !detachedTabs.has(tab.id)) {
+        // This is a parent tab, check if it has children
+        const children = openTabs.filter(t => 
+          t.parentId === tab.id && 
+          !detachedTabs.has(t.id) && 
+          openTabs.some(p => p.id === tab.id) // Parent still exists
+        );
+        if (children.length > 0) {
+          groups.set(tab.id, [tab, ...children]);
+          processed.add(tab.id);
+          children.forEach(child => processed.add(child.id));
+        }
+      }
     });
+    
+    // Second pass: add standalone tabs
+    openTabs.forEach(tab => {
+      if (!processed.has(tab.id) || detachedTabs.has(tab.id)) {
+        standalone.push(tab);
+      }
+    });
+    
+    return { groups, standalone };
+  }, [openTabs, detachedTabs]);
+
+  const handleContextMenu = (e: React.MouseEvent, tab: Tab) => {
+    e.preventDefault();
+    if ((tab.type === "project" || tab.type === "scene") && tab.projectId) {
+      const project = projects.find(p => p.documentId === tab.projectId);
+      if (project) {
+        setContextMenu({ x: e.clientX, y: e.clientY, item: project, type: 'project' });
+      }
+    } else if (tab.type === "lattice" && tab.latticeId) {
+      const lattice = lattices.find(l => l.documentId === tab.latticeId);
+      if (lattice) {
+        setContextMenu({ x: e.clientX, y: e.clientY, item: lattice, type: 'lattice' });
+      }
+    }
   };
   
   const handleRemove = async (item: MeepProject | Lattice, type: 'project' | 'lattice') => {
@@ -74,195 +93,183 @@ const TabBar: React.FC<Props> = () => {
       }
     }
   };
-  
-  const handleProjectTabClick = (projectId: string) => {
-    setActiveProject(projectId);  // 1) activate
-    clearAllSelections();         // 2) clear stale multi-selection
+
+  const renderTab = (tab: Tab, isAttached: boolean = false, isLastInGroup: boolean = false, groupId?: string) => {
+    const IconComponent = getTabIcon(tab.type);
+    const isActive = tab.id === activeTabId;
+    
+    // Check if any tab in the group is active
+    const parentId = groupId || tab.parentId || tab.id;
+    const groupTabs = tabGroups.groups.get(parentId) || [];
+    const isInActiveGroup = groupTabs.some(t => t.id === activeTabId);
+    const isSiblingActive = isInActiveGroup && !isActive;
+    
+    // Check if a sibling is being hovered
+    const siblingHovered = groupTabs.some(t => t.id === hoveredTab && t.id !== tab.id);
+    const isHovered = hoveredTab === tab.id;
+    
+    // Hide detached sub tabs whose parent still exists
+    if (detachedTabs.has(tab.id) && tab.parentId && openTabs.some(t => t.id === tab.parentId)) {
+      return null;
+    }
+    
+    return (
+      <div
+        key={tab.id}
+        onClick={() => {
+          setActiveTab(tab.id);
+          // Re-attach sub tab when parent is activated
+          if (tab.type === "project" || tab.type === "scene") {
+            const childTabs = openTabs.filter(t => t.parentId === tab.id);
+            childTabs.forEach(child => {
+              setDetachedTabs(prev => {
+                const next = new Set(prev);
+                next.delete(child.id);
+                return next;
+              });
+            });
+          }
+        }}
+        onMouseEnter={() => setHoveredTab(tab.id)}
+        onMouseLeave={() => setHoveredTab(null)}
+        onContextMenu={(e) => handleContextMenu(e, tab)}
+        className={`group flex items-center cursor-pointer transition-all duration-300 ease-out relative ${
+          isActive
+            ? "bg-slate-700 text-white z-10"
+            : isSiblingActive
+              ? isHovered
+                ? "bg-slate-700/95 text-white z-10"   // increased brightness on hover
+                : "bg-slate-700/60 text-white/90 z-10" // lowered brightness when inactive
+              : isHovered
+                ? "bg-slate-700/85 text-white z-10"
+                : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
+        } ${isAttached ? "-ml-px pl-3 pr-10" : "px-4"} ${!isLastInGroup && isAttached ? "" : ""}`}
+        style={{
+          paddingTop: "10px",
+          paddingBottom: "10px",
+          clipPath: isAttached && !isLastInGroup ? "polygon(0 0, calc(100% - 8px) 0, 100% 100%, 0 100%)" : undefined
+        }}
+      >
+        <IconComponent size={isAttached ? 18 : 14} className={`${isAttached ? "mr-2" : "mr-2"} text-slate-400`} />
+        {!isAttached && <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">{tab.title}</span>}
+        
+        {/* Show close button for all tabs */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isAttached && groupTabs.length > 1) {
+              // Detach all sub tabs when closing parent
+              groupTabs.slice(1).forEach(child => {
+                setDetachedTabs(prev => new Set([...prev, child.id]));
+              });
+            }
+            closeTab(tab.id);
+          }}
+          className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
+            isActive
+              ? "opacity-60 hover:opacity-100" 
+              : isHovered
+                ? "opacity-60 hover:opacity-100"
+                : "opacity-0 group-hover:opacity-60 group-hover:hover:opacity-100"
+          }`}
+        >
+          <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
+        </button>
+        
+        {/* Active indicator */}
+        {isActive && (
+          <>
+            <div className={`absolute -top-0.5 left-0 right-0 h-1 ${
+              tab.type === "dashboard" ? "bg-purple-400" : 
+              tab.type === "lattice" ? "bg-green-400" : 
+              "bg-blue-400"
+            } rounded-full shadow-md`}></div>
+            <div className={`absolute -top-0.5 left-0 right-0 h-1 ${
+              tab.type === "dashboard" ? "bg-purple-400" : 
+              tab.type === "lattice" ? "bg-green-400" : 
+              "bg-blue-400"
+            } rounded-full animate-pulse opacity-60`}></div>
+          </>
+        )}
+        
+        {/* Sibling active indicator - thin line that moves with tab */}
+        {isSiblingActive && (
+          <div
+            className={`absolute top-0 left-0 right-0 h-0.5 ${
+              tab.type === "dashboard"
+                ? "bg-purple-400/60"
+                : tab.type === "lattice"
+                  ? "bg-green-400/60"
+                  : "bg-blue-400/60"
+            } rounded-full`}
+          />
+        )}
+      </div>
+    );
   };
 
-  const handleLatticeTabClick = (latticeId: string) => {
-    setActiveLattice(latticeId);
-    clearAllSelections();
-  };
-
-  const handleDashboardTabClick = (dashboardId: string) => {
-    setActiveDashboard(dashboardId);
-    clearAllSelections();
+  const renderTabGroup = (tabs: Tab[]) => {
+    const groupId = tabs[0].id;
+    return (
+      <div
+        key={groupId}              // <- unique key for list items
+        className="flex"
+      >
+        {tabs.map((tab, index) =>
+          renderTab(tab, index > 0, index === tabs.length - 1, groupId)
+        )}
+      </div>
+    );
   };
   
   return (
-    <div className="flex flex-col bg-slate-900 border-b border-slate-700/50 shadow-xl">
-      {/* Top Row - Project and Lattice Tabs */}
-      <div className="flex items-center h-12 px-4 bg-slate-800">
-        <div className="flex overflow-hidden">
-          {/* Dashboard tabs */}
-          {openDashboards.map((dashboardId) => (
-            <div
-              key={dashboardId}
-              onClick={() => handleDashboardTabClick(dashboardId)}
-              className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
-                dashboardId === activeDashboardId 
-                  ? "bg-slate-700 text-white" 
-                  : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
-              }`}
-            >
-              <CustomLucideIcon src="/icons/dashboard.svg" size={14} className="mr-2 text-slate-400" />
-              <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">Dashboard</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeDashboard(dashboardId);
-                }}
-                className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
-                  dashboardId === activeDashboardId 
-                    ? "opacity-100" 
-                    : "opacity-0 group-hover:opacity-100"
-                }`}
-              >
-                <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
-              </button>
-              {dashboardId === activeDashboardId && (
-                <>
-                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-purple-400 rounded-full shadow-md"></div>
-                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-purple-400 rounded-full animate-pulse opacity-60"></div>
-                </>
-              )}
-            </div>
-          ))}
-          
-          {/* Project tabs */}
-          {openProjects.map((project) => (
-            <div
-              key={project.documentId}
-              onClick={() => handleProjectTabClick(project.documentId!)}
-              onContextMenu={(e) => handleContextMenu(e, project, 'project')}
-              className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
-                project.documentId === activeProjectId 
-                  ? "bg-slate-700 text-white" 
-                  : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
-              }`}
-            >
-              <Layers size={14} className="mr-2 text-slate-400" />
-              <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">{project.title}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeProject(project.documentId!);
-                }}
-                className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
-                  project.documentId === activeProjectId 
-                    ? "opacity-100" 
-                    : "opacity-0 group-hover:opacity-100"
-                }`}
-              >
-                <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
-              </button>
-              {project.documentId === activeProjectId && (
-                <>
-                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-blue-400 rounded-full shadow-md"></div>
-                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-blue-400 rounded-full animate-pulse opacity-60"></div>
-                </>
-              )}
-            </div>
-          ))}
-          
-          {/* Lattice tabs */}
-          {openLattices.map((lattice) => (
-            <div
-              key={lattice.documentId}
-              onClick={() => handleLatticeTabClick(lattice.documentId!)}
-              onContextMenu={(e) => handleContextMenu(e, lattice, 'lattice')}
-              className={`group flex items-center py-2.5 pl-5 pr-3 cursor-pointer transition-all duration-300 ease-out relative min-w-fit flex-shrink-0 ${
-                lattice.documentId === activeLatticeId 
-                  ? "bg-slate-700 text-white" 
-                  : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
-              }`}
-            >
-              <Hexagon size={14} className="mr-2 text-slate-400" />
-              <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">{lattice.title}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeLattice(lattice.documentId!);
-                }}
-                className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
-                  lattice.documentId === activeLatticeId 
-                    ? "opacity-100" 
-                    : "opacity-0 group-hover:opacity-100"
-                }`}
-              >
-                <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
-              </button>
-              {lattice.documentId === activeLatticeId && (
-                <>
-                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-green-400 rounded-full shadow-md"></div>
-                  <div className="absolute -top-0.5 left-0 right-0 h-1 bg-green-400 rounded-full animate-pulse opacity-60"></div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
+    /* z-index added so lowered tabs sit above the viewport content below */
+    <div className="min-h-12 px-4 bg-slate-800 border-b border-slate-700/50 shadow-xl flex items-end relative z-30">
+      <div className="flex overflow-hidden flex-1">
+        {/* Render grouped tabs */}
+        {Array.from(tabGroups.groups.values()).map(renderTabGroup)}
+
+        {/* Render standalone tabs */}
+        {tabGroups.standalone.map(tab => renderTab(tab))}
+
+        {/* Add code tab button for active project */}
+        {(() => {
+          const activeTab = openTabs.find(t => t.id === activeTabId);
+          if (
+            (activeTab?.type === "project" || activeTab?.type === "scene") &&
+            activeTab.projectId
+          ) {
+            const hasCodeTab = openTabs.some(
+              t => t.id === `code-${activeTab.projectId}`
+            );
+            const project = projects.find(
+              p => p.documentId === activeTab.projectId
+            );
+            if (project?.code && !hasCodeTab) {
+              return (
+                <button
+                  onClick={() => addCodeTabToProject(activeTab.projectId!)}
+                  className="ml-2 p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+                  title="Add code tab"
+                >
+                  <CodeXml size={16}/>
+                </button>
+              );
+            }
+          }
+          return null;
+        })()}
       </div>
 
-      {/* Bottom Row - Sub Tabs (only show if there's an active project) */}
-      {activeProjectId && activeProjectSubTabs.length > 0 && (
-        <div className="flex items-center h-11 px-4 bg-slate-700 -mt-1">
-          <div className="flex space-x-1.5 overflow-hidden">
-            {activeProjectSubTabs.map((subTab) => {
-              const IconComponent = getSubTabIcon(subTab.type);
-              const isActive = subTab.id === activeSubTabId;
-              return (
-                <div
-                  key={subTab.id}
-                  onClick={() => setActiveSubTab(subTab.id)}
-                  className={`group flex items-center py-2 pl-4 pr-3 rounded-md cursor-pointer transition-all duration-200 ease-out relative min-w-fit flex-shrink-0 ${
-                    isActive 
-                      ? "bg-slate-600 text-white shadow-lg" 
-                      : "bg-slate-700/50 hover:bg-slate-600/70 text-slate-300 hover:text-white"
-                  }`}
-                >
-                  <IconComponent 
-                    size={16} 
-                    className={`mr-2.5 transition-colors ${
-                      isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-300'
-                    }`} 
-                  />
-                  <span className="text-xs font-medium truncate max-w-28 capitalize tracking-wide mr-6">
-                    {subTab.title}
-                  </span>
-                  {subTab.type !== "scene" && ( // Don't allow closing the main scene tab
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeSubTab(subTab.id);
-                      }}
-                      className={`absolute right-2 p-1 transition-all duration-200 hover:bg-slate-500/50 rounded cursor-pointer ${
-                        isActive 
-                          ? "opacity-100" 
-                          : "opacity-0 group-hover:opacity-100"
-                      }`}
-                    >
-                      <X size={11} className="text-slate-400 hover:text-slate-200 transition-colors" />
-                    </button>
-                  )}
-                  {/* Active sub-tab indicator at top */}
-                  {isActive && (
-                    <div className="absolute -top-0.5 left-0 right-0 h-0.5 bg-blue-400 rounded-full shadow-sm"></div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           entries={[
             {
-              label: `Remove ${contextMenu.type === 'project' ? 'Project' : 'Lattice'}`,
+              label: `Remove ${
+                contextMenu.type === "project" ? "Project" : "Lattice"
+              }`,
               danger: true,
               onClick: () => handleRemove(contextMenu.item, contextMenu.type),
             },

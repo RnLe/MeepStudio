@@ -1,70 +1,45 @@
 // src/components/layout/TabWindowContainer.tsx
 "use client";
-import React, { useEffect } from "react";
+import React from "react";
 import TabBar from "./TabBar";
-import SubTabContent from "./SubTabContent";
 import TabWindowLattice from "./TabWindowLattice";
+import TabWindowScene from "./TabWindowScene";
+import CodeEditor from "./CodeEditorScene";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 
 const TabWindowContainer: React.FC = () => {
   const {
-    openProjects,
-    activeProjectId,
-    activeSubTabId,
-    subTabs,
-    ghPages,
-    projects,
-    activeMainTabType,
+    getActiveTab,
+    getActiveProject,
     getActiveLattice,
-    clearAllSelections,
+    ghPages,
   } = useEditorStateStore();
   
-  // Clear selections when the active main tab type changes
-  useEffect(() => {
-    // We don't need to clear selections here as it's already handled in the store
-    // when switching between projects/lattices/dashboard
-  }, [activeMainTabType]);
-  
-  // Remap open projects to the latest project objects
-  const displayedProjects = React.useMemo(
-    () => openProjects.map(project => 
-      projects.find(p => p.documentId === project.documentId) || project
-    ),
-    [openProjects, projects]
-  );
-  
-  // Find the active project and sub-tab
-  const activeProject = displayedProjects.find(project => project.documentId === activeProjectId);
-  const activeSubTab = subTabs.find(tab => tab.id === activeSubTabId);
+  const activeTab = getActiveTab();
+  const activeProject = getActiveProject();
   const activeLattice = getActiveLattice();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <TabBar />
       
-      {activeMainTabType === "lattice" && activeLattice ? (
-        <TabWindowLattice lattice={activeLattice} ghPages={ghPages} />
-      ) : activeMainTabType === "project" && activeProject && activeSubTab ? (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <SubTabContent 
-            subTab={activeSubTab}
-            project={activeProject}
-            ghPages={ghPages}
-          />
-        </div>
-      ) : activeMainTabType === "project" && activeProject ? (
-        <div className="flex-1 flex items-center justify-center text-gray-500">
-          No sub-tab selected for project "{activeProject.title}"
-        </div>
-      ) : activeMainTabType === "dashboard" ? (
-        <div className="flex-1 flex items-center justify-center text-gray-500">
-          Dashboard view (not implemented)
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center text-gray-500">
-          No tab selected
-        </div>
-      )}
+      <div className="flex-1 overflow-hidden">
+        {activeTab?.type === "lattice" && activeLattice ? (
+          <TabWindowLattice lattice={activeLattice} ghPages={ghPages} />
+        ) : activeTab?.type === "scene" && activeProject ? (
+          <TabWindowScene project={activeProject} ghPages={ghPages} />
+        ) : activeTab?.type === "code" && activeProject ? (
+          <CodeEditor project={activeProject} ghPages={ghPages} />
+        ) : activeTab?.type === "dashboard" ? (
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            Dashboard view (not implemented)
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            No tab selected
+          </div>
+        )}
+      </div>
     </div>
   );
 };

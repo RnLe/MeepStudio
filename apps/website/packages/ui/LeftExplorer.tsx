@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
-import { MoreHorizontal, Plus, ChevronDown, ChevronRight, Layers, Hexagon } from "lucide-react";
+import { MoreHorizontal, Plus, ChevronDown, ChevronRight, Layers, Hexagon, CodeXml } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import CreateProjectModal from "./CreateProjectModal";
@@ -24,7 +24,10 @@ export default function LeftExplorer() {
     selectedLatticeIds,
     toggleProjectSelection,
     toggleLatticeSelection,
-    clearAllSelections
+    clearAllSelections,
+    addCodeTabToProject,
+    openTabs,
+    activeTabId
   } = useEditorStateStore();
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,12 +139,15 @@ export default function LeftExplorer() {
                 {sortedProjects.map((project) => {
                   const isActive = activeProjectId === project.documentId;
                   const isSelected = selectedProjectIds.has(project.documentId);
+                  const hasCodeTab = openTabs.some(t => t.id === `code-${project.documentId}`);
+                  const isCodeTabActive = activeTabId === `code-${project.documentId}`;
+                  
                   return (
                     <div
                       key={project.documentId}
                       className={`flex items-center px-3 py-1 text-sm text-gray-300 transition-colors cursor-pointer truncate group select-none
                         ${projectContextMenu && projectContextMenu.project.documentId === project.documentId ? "" : 
-                          isActive ? "bg-neutral-600" : 
+                          isActive || isCodeTabActive ? "bg-neutral-600" : 
                           isSelected ? "bg-neutral-700" : "hover:bg-neutral-700"}`}
                       style={{
                         borderRadius: 0,
@@ -163,10 +169,33 @@ export default function LeftExplorer() {
                         });
                       }}
                     >
-                      <Layers size={14} className={`mr-2 flex-shrink-0 ml-3 ${isActive ? 'text-blue-400' : isSelected ? 'text-blue-300' : 'text-gray-400'}`} />
-                      <span className={`truncate flex-1 ${isActive ? 'font-medium' : ''}`}>{project.title}</span>
+                      <Layers size={14} className={`mr-2 flex-shrink-0 ml-3 ${isActive || isCodeTabActive ? 'text-blue-400' : isSelected ? 'text-blue-300' : 'text-gray-400'}`} />
+                      <span className={`truncate flex-1 ${isActive || isCodeTabActive ? 'font-medium' : ''}`}>{project.title}</span>
+                      
+                      {/* Code icon - always shown */}
                       <button
-                        className="ml-2 cursor-pointer project-menu-btn z-10 group/icon"
+                        className="p-0.5 mr-1 rounded hover:bg-neutral-600 transition-colors group/code"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearAllSelections(); // Clear selections when opening code tab
+                          addCodeTabToProject(project.documentId);
+                        }}
+                        title="Open code editor"
+                      >
+                        <CodeXml
+                          size={16}
+                          className={`${
+                            isCodeTabActive 
+                              ? 'text-blue-400' 
+                              : hasCodeTab 
+                                ? 'text-blue-300' 
+                                : 'text-gray-400 group-hover/code:text-gray-200'
+                          } transition-colors`}
+                        />
+                      </button>
+                      
+                      <button
+                        className="ml-1 cursor-pointer project-menu-btn z-10 group/icon"
                         onClick={(e) => {
                           e.stopPropagation();
                           setProjectContextMenu({

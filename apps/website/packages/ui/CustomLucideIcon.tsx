@@ -8,6 +8,20 @@ export interface CustomLucideIconProps extends React.SVGProps<SVGSVGElement> {
   className?: string;
 }
 
+// Helper function to get the correct asset path with base path support
+const getAssetPath = (src: string): string => {
+  // Get the base path from the Next.js configuration
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || process.env.__NEXT_ROUTER_BASEPATH || '';
+  
+  // If src already starts with the base path, return as-is
+  if (basePath && src.startsWith(basePath)) {
+    return src;
+  }
+  
+  // Add base path if it exists
+  return basePath ? `${basePath}${src}` : src;
+};
+
 const CustomLucideIcon: React.FC<CustomLucideIconProps> = ({
   src,
   size = 24,
@@ -19,7 +33,8 @@ const CustomLucideIcon: React.FC<CustomLucideIconProps> = ({
   const [svgInfo, setSvgInfo] = useState<{ inner: string; viewBox: string; w: number; h: number } | null>(null);
 
   useEffect(() => {
-    fetch(src)
+    const fullPath = getAssetPath(src);
+    fetch(fullPath)
       .then((res) => res.text())
       .then((text) => {
         /* Extract original viewBox so the glyphs are not cropped.

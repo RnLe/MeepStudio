@@ -715,7 +715,7 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
             y={-10000}
             width={20000}
             height={20000}
-            fill="#111827"
+            fill="#181818"
           />
           
           {/* Coordinate system and grid */}
