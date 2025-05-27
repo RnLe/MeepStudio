@@ -44,15 +44,30 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
         setContainerSize({
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight,
+          width: rect.width,
+          height: rect.height,
         });
       }
     };
+    
+    // Initial size
     handleResize();
+    
+    // Add resize observer for more reliable size detection
+    const resizeObserver = new ResizeObserver(handleResize);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    
+    // Also listen to window resize as fallback
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   // --- Zoom & Pan State ---
@@ -670,7 +685,7 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   return (
     <div
       ref={containerRef}
-      className="flex-1 flex items-center justify-center bg-gray-900 w-full h-full overflow-hidden"
+      className="w-full h-full flex items-center justify-center bg-gray-900 relative"
       onContextMenu={(e) => e.preventDefault()}
     >
       <Stage

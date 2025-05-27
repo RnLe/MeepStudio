@@ -16,7 +16,7 @@ const TabWindowLattice: React.FC<Props> = ({ lattice, ghPages }) => {
   useLatticeDataLoader({ lattice, ghPages });
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-gray-900">
+    <div className="flex-1 flex h-full overflow-hidden bg-gray-900">
       <LatticeToolbar lattice={lattice} ghPages={ghPages} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <LatticeCanvas lattice={lattice} ghPages={ghPages} />
