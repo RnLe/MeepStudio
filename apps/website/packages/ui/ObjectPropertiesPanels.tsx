@@ -38,12 +38,16 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, 
   // Update both local store and project
   const updateGeometry = (id: string, partial: Partial<any>) => {
     updateGeometryStore(id, partial); // update local store for instant UI
+    
+    // Get the updated geometries from the store after the update
+    const updatedGeometries = useCanvasStore.getState().geometries;
+    
     updateProject({
       documentId: project.documentId,
       project: {
         scene: {
           ...project.scene,
-          geometries: geometries.map((g) => (g.id === id ? { ...g, ...partial } : g)),
+          geometries: updatedGeometries,
         }
       },
     });
@@ -80,6 +84,10 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, 
                   <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
                     <span className="text-xs text-gray-400">Radius</span>
                     <span className="text-xs text-gray-200 font-mono">{cyl.radius.toFixed(3)}</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
+                    <span className="text-xs text-gray-400">Rotation</span>
+                    <span className="text-xs text-gray-200 font-mono">{((cyl.orientation || 0) * 180 / Math.PI).toFixed(1)}°</span>
                   </div>
                   <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
                     <span className="text-xs text-gray-400">Material</span>
@@ -134,7 +142,7 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
                     <span className="text-xs text-gray-400">Rot</span>
-                    <span className="text-xs text-gray-200 font-mono">{(rect.rotation || 0).toFixed(1)}°</span>
+                    <span className="text-xs text-gray-200 font-mono">{((rect.orientation || 0) * 180 / Math.PI).toFixed(1)}°</span>
                   </div>
                   <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
                     <span className="text-xs text-gray-400">Mat</span>
@@ -189,10 +197,18 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ project, 
               <div className="space-y-3">
                 <div>
                   <h4 className="text-xs font-medium text-gray-400 mb-2">Properties</h4>
-                  <div className="bg-neutral-700/50 rounded px-2 py-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">Material</span>
-                      <span className="text-xs text-gray-200">{tri.material || "air"}</span>
+                  <div className="space-y-1.5">
+                    <div className="bg-neutral-700/50 rounded px-2 py-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400">Rotation</span>
+                        <span className="text-xs text-gray-200 font-mono">{((tri.orientation || 0) * 180 / Math.PI).toFixed(1)}°</span>
+                      </div>
+                    </div>
+                    <div className="bg-neutral-700/50 rounded px-2 py-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400">Material</span>
+                        <span className="text-xs text-gray-200">{tri.material || "air"}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

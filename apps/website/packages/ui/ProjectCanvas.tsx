@@ -65,6 +65,11 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   useEffect(() => {
     // Migrate triangles with absolute vertices to relative, and set pos
     const migratedGeoms = (project.scene?.geometries || []).map(g => {
+      // Ensure all geometries have orientation (default to 0)
+      if (g.orientation === undefined) {
+        g = { ...g, orientation: 0 };
+      }
+      
       if (g.kind === "triangle") {
         const tri = g as any;
         if (!tri.pos || (Array.isArray(tri.vertices) && tri.vertices.length === 3 && (
@@ -90,7 +95,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
 
   // --- Geometry Actions ---
   const handleAddGeometry = useCallback((geom: any) => {
-    const newGeom = { ...geom, id: nanoid() };
+    const newGeom = { ...geom, id: nanoid(), orientation: geom.orientation || 0 };
     addGeometry(newGeom);
     updateProject({
       documentId: projectId,
@@ -103,17 +108,23 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     });
   }, [addGeometry, updateProject, projectId, geometries]);
   const handleUpdateGeometry = useCallback((id: string, partial: Partial<any>) => {
+    // First update the store
     updateGeometry(id, partial);
+    
+    // Get the updated geometries from the store after the update
+    const updatedGeometries = useCanvasStore.getState().geometries;
+    
+    // Then update the project with the current state
     updateProject({
       documentId: projectId,
       project: {
         scene: {
           ...project.scene,
-          geometries: geometries.map(g => g.id === id ? { ...g, ...partial } : g),
+          geometries: updatedGeometries,
         }
       },
     });
-  }, [updateGeometry, updateProject, projectId, geometries, project.scene]);
+  }, [updateGeometry, updateProject, projectId, project.scene]);
   const handleRemoveGeometry = useCallback((id: string) => {
     removeGeometry(id);
     updateProject({

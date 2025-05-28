@@ -8,6 +8,8 @@
 export interface GeometryObject {
   id: string;
   kind: string;
+  /** orientation in radians (0 to 2π, ccw positive) */
+  orientation?: number; // Optional for backward compatibility during migration
   // ...geometry-specific fields (e.g., for cylinder, rectangle, etc.)
   [key: string]: any;
 }

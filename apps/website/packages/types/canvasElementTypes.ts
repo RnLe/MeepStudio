@@ -19,8 +19,8 @@ interface BaseElement {
   type: ElementType;
   /** centre position in lattice units (a = 1) */
   pos: Vector2d;
-  /** rotation in radians (may stay 0 for now) */
-  rotation?: number;
+  /** orientation in radians (0 to 2π, ccw positive) */
+  orientation: number;
   /** true ⇢ highlighted in UI (selection logic lives in context) */
   selected?: boolean;
 }

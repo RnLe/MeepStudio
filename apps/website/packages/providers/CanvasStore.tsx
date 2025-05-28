@@ -79,7 +79,9 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
     // Geometry state and actions
     geometries: [],
     setGeometries: (geoms) => set({ geometries: geoms }),
-    addGeometry: (geom) => set((s) => ({ geometries: [...s.geometries, geom] })),
+    addGeometry: (geom) => set((s) => ({ 
+      geometries: [...s.geometries, { ...geom, orientation: geom.orientation || 0 }] 
+    })),
     updateGeometry: (id, partial) => set((s) => ({
       geometries: s.geometries.map(g => g.id === id ? { ...g, ...partial } : g),
     })),

@@ -31,6 +31,25 @@ export function GeometryLayer({
   toggleShowGrid,
   toggleShowResolutionOverlay
 }: any) {
+  // Track dragging state for all rectangles
+  const [draggingRectangles, setDraggingRectangles] = React.useState<Set<string>>(new Set());
+  
+  // Helper function to check if a rectangle is dragging
+  const isRectangleDragging = (id: string) => draggingRectangles.has(id);
+  
+  // Helper function to set dragging state for a rectangle
+  const setRectangleDragging = (id: string, isDragging: boolean) => {
+    setDraggingRectangles(prev => {
+      const next = new Set(prev);
+      if (isDragging) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
   // Helper function to snap values to grid
   const snapToGrid = React.useCallback((value: number, forceGrid?: boolean, forceResolution?: boolean) => {
     // If ctrl is pressed, force resolution snapping
@@ -66,6 +85,7 @@ export function GeometryLayer({
               x={c.pos.x * GRID_PX}
               y={c.pos.y * GRID_PX}
               radius={c.radius * GRID_PX}
+              rotation={(c.orientation || 0) * 180 / Math.PI} // Convert radians to degrees
               fill="rgba(59,130,246,0.25)"
               stroke={isSel ? "#3b82f6" : "transparent"}
               strokeWidth={isSel ? 1 / scale : 0}
@@ -143,8 +163,7 @@ export function GeometryLayer({
         const isSel = selectedGeometryIds.includes(el.id);
         if (el.kind === "rectangle") {
           const r = el as RectEl;
-          // Track dragging state for this rectangle
-          const [isDragging, setIsDragging] = React.useState(false);
+          const isDragging = isRectangleDragging(r.id);
           
           return (
             <React.Fragment key={r.id}>
@@ -158,7 +177,7 @@ export function GeometryLayer({
                 strokeWidth={isSel ? 1 / scale : 0}
                 shadowBlur={isSel ? 8 : 0}
                 draggable
-                rotation={r.rotation ?? 0}
+                rotation={(r.orientation || 0) * 180 / Math.PI} // Convert radians to degrees
                 offsetX={(r.width * GRID_PX) / 2}  // Set offset to center
                 offsetY={(r.height * GRID_PX) / 2}
                 {...((gridSnapping || resolutionSnapping)
@@ -168,7 +187,7 @@ export function GeometryLayer({
                   : {}
                 )}
                 onDragStart={(evt) => {
-                  setIsDragging(true);
+                  setRectangleDragging(r.id, true);
                   if (isSel && selectedGeometryIds.length > 1) {
                     setMultiDragAnchor({
                       id: r.id,
@@ -205,7 +224,7 @@ export function GeometryLayer({
                   }
                 }}
                 onDragEnd={(evt) => {
-                  setIsDragging(false);
+                  setRectangleDragging(r.id, false);
                   if (multiDragAnchor && isSel && selectedGeometryIds.length > 1 && multiDragAnchor.id === r.id) {
                     const newX = evt.target.x() / GRID_PX;
                     const newY = evt.target.y() / GRID_PX;
@@ -231,6 +250,15 @@ export function GeometryLayer({
                   }
                 }}
                 onClick={(evt) => selectGeometry(r.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
+                onTransformEnd={(evt) => {
+                  // Handle rotation updates
+                  const node = evt.target;
+                  const rotation = node.rotation(); // in degrees
+                  const orientationRad = (rotation * Math.PI / 180) % (2 * Math.PI);
+                  // Normalize to [0, 2π)
+                  const normalizedOrientation = orientationRad < 0 ? orientationRad + 2 * Math.PI : orientationRad;
+                  handleUpdateGeometry(r.id, { orientation: normalizedOrientation });
+                }}
               />
               {/* Show resize handles when selected and only this rectangle is selected */}
               {isSel && selectedGeometryIds.length === 1 && !isDragging && (
@@ -247,6 +275,7 @@ export function GeometryLayer({
                   showResolutionOverlay={showResolutionOverlay}
                   toggleShowGrid={toggleShowGrid}
                   toggleShowResolutionOverlay={toggleShowResolutionOverlay}
+                  handleUpdateGeometry={handleUpdateGeometry}
                 />
               )}
             </React.Fragment>
@@ -267,6 +296,7 @@ export function GeometryLayer({
               x={anchorX}
               y={anchorY}
               points={relPoints}
+              rotation={(t.orientation || 0) * 180 / Math.PI} // Convert radians to degrees
               closed
               fill="rgba(236,72,153,0.25)"
               stroke={isSel ? "#ec4899" : "transparent"}
