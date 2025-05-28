@@ -265,6 +265,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   // --- Overlay Toggles ---
   const showGrid = useCanvasStore((s) => s.showGrid);
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
+  const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
+  const toggleShowResolutionOverlay = useCanvasStore((s) => s.toggleShowResolutionOverlay);
 
   // --- Grid Lines (Main and Resolution) ---
   const gridLines = useMemo(() => {
@@ -438,11 +440,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedGeometryIds.length > 0) {
         e.preventDefault(); // Prevent any default behavior
         handleBatchRemoveGeometries(selectedGeometryIds);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        selectGeometry(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedGeometryIds, handleBatchRemoveGeometries]);
+  }, [selectedGeometryIds, handleBatchRemoveGeometries, selectGeometry]);
 
   // --- Dynamic Border Weight Calculation ---
   const borderWeight = useMemo(() => {
@@ -772,6 +777,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             handleUpdateGeometry={handleUpdateGeometry}
             selectElement={selectGeometry}
             GRID_PX={GRID_PX}
+            project={project}
+            scale={scale}
+            showGrid={showGrid}
+            showResolutionOverlay={showResolutionOverlay}
+            toggleShowGrid={toggleShowGrid}
+            toggleShowResolutionOverlay={toggleShowResolutionOverlay}
           />
         </Layer>
 

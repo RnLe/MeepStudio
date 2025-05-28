@@ -4,7 +4,6 @@
 import React, {useEffect} from "react";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
-import TopNavBar from "./TopNavBar";
 import TabWindowContainer from "./TabWindowContainer";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useEditorStateStore } from "../providers/EditorStateStore";
@@ -56,7 +55,6 @@ const StudioLayout: React.FC<Props> = ({ ghPages }) => {
 
   return (
     <div className="flex flex-col h-full w-full bg-neutral-900 text-white overflow-hidden relative">
-      <TopNavBar />
       <div className="flex flex-1 h-0 w-full overflow-hidden">
         <LeftSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">

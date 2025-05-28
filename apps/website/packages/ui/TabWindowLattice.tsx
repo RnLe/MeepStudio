@@ -16,8 +16,13 @@ const TabWindowLattice: React.FC<Props> = ({ lattice, ghPages }) => {
   const dataLoader = useLatticeDataLoader({ lattice, ghPages });
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden bg-gray-900">
-      <LatticeToolbar lattice={lattice} ghPages={ghPages} />
+    <div className="flex-1 flex flex-row w-full h-full overflow-hidden">
+      {/* fixed-width toolbar */}
+      <div className="flex-none">
+        <LatticeToolbar lattice={lattice} ghPages={ghPages} />
+      </div>
+
+      {/* canvas area */}
       <div className="flex-1 relative min-w-0 min-h-0">
         <LatticeCanvas lattice={lattice} ghPages={ghPages} />
       </div>

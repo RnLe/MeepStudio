@@ -312,7 +312,8 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
   };
 
   return (
-    <aside className="h-full w-20 flex flex-col items-center py-2 bg-neutral-700 border-l-white border-l-1 border-r-0">
+    // fixed width, never allowed to shrink
+    <aside className="h-full w-20 min-w-[5rem] flex-none flex flex-col items-center py-2 bg-neutral-700 border-l-white border-l-1 border-r-0">
       {/* Show loading indicator when calculating */}
       {isCalculatingVoronoi && (
         <div className="absolute top-2 right-2 z-50">
