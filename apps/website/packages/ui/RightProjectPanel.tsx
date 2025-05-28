@@ -28,7 +28,11 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
   
   const activeTab = getActiveTab();
   const projectTabs = getTabsForProject(project.documentId);
-  const activeTabType = activeTab?.type || "scene";
+  // Treat the canvas sub-tab like the scene tab
+  const activeTabType =
+    activeTab?.type === "canvas"
+      ? "scene"
+      : activeTab?.type || "scene";
 
   const [editValues, setEditValues] = React.useState({
     title: project?.title || "",

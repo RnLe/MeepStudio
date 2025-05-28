@@ -4,6 +4,10 @@ import { Code, FileText, Play, Copy, Check } from "lucide-react";
 import { MeepProject } from "../types/meepProjectTypes";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import { useCanvasStore } from "../providers/CanvasStore";
+import { useCodeAssemblyStore } from "../providers/CodeAssemblyStore";
+import { convertCanvasToMeepCode } from "../codeAssembly/codeAssemblyConversion2D";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { customTheme } from "./customTheme";
 
 // Define the code block groups (from CanvasToolbar, excluding snapping and overlays)
 const CODE_BLOCK_GROUPS = [
@@ -30,9 +34,19 @@ export default function CodeEditor({ project, ghPages }: Props) {
   const geometries = useCanvasStore((s) => s.geometries);
   const geometryCount = geometries.length;
   
+  // Get code assembly state
+  const codeBlocks = useCodeAssemblyStore((s) => s.codeBlocks);
+  const isGenerating = useCodeAssemblyStore((s) => s.isGenerating);
+  const errors = useCodeAssemblyStore((s) => s.errors);
+  
   // Copy state
   const [isCopied, setIsCopied] = useState(false);
   const [copiedBlock, setCopiedBlock] = useState<string | null>(null);
+  
+  // Auto-generate code when geometries change
+  useEffect(() => {
+    convertCanvasToMeepCode();
+  }, [geometries]);
   
   // Get counts for other object types (currently hardcoded to 0)
   const getObjectCount = (groupKey: string): number => {
@@ -131,8 +145,14 @@ export default function CodeEditor({ project, ghPages }: Props) {
     return codeLines.join('\n');
   };
   
-  // Get code content as plain text
+  // Get code content from code assembly store
   const getCodeContent = (key: string, title: string): string => {
+    const codeBlock = codeBlocks.get(key);
+    if (codeBlock && codeBlock.content) {
+      return codeBlock.content;
+    }
+    
+    // Fallback to default content if not generated yet
     const separator = `# ${'─'.repeat(8)} ${title.toUpperCase()} ${'─'.repeat(Math.max(0, 60 - title.length - 12))}`;
     
     switch (key) {
@@ -255,14 +275,20 @@ sim.run(...)`;
     setHoveredBlock(blockKey);
   };
   
-  // Render code section
+  // Render code section with error handling
   const renderCodeSection = (key: string, title: string) => {
-    const separator = `# ${'─'.repeat(8)} ${title.toUpperCase()} ${'─'.repeat(Math.max(0, 60 - title.length - 12))}`;
     const isHovered = hoveredBlock === key;
     const isCopiedBlock = copiedBlock === key;
+    const hasError = errors.has(key);
+    const codeBlock = codeBlocks.get(key);
     
     return (
       <div className="relative group">
+        {/* Error indicator */}
+        {hasError && (
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
+        )}
+        
         {/* Copy button for individual blocks */}
         <button
           onClick={() => handleBlockCopy(key, title)}
@@ -282,122 +308,284 @@ sim.run(...)`;
           )}
         </button>
         
-        {/* Render the code content based on key */}
-        {(() => {
-          switch (key) {
-            case "initialization":
-              return (
-                <>
-                  <div className="text-yellow-400 font-bold">{separator}</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Initialize Meep simulation environment</div>
-                  <div className="text-[#c586b6]">import</div> <span className="text-white">meep</span> <span className="text-[#c586b6]">as</span> <span className="text-white">mp</span>
-                  <div className="text-[#c586b6]">import</div> <span className="text-white">numpy</span> <span className="text-[#c586b6]">as</span> <span className="text-white">np</span>
-                  <br />
-                  <div className="text-[#84bf6a]"># Define simulation parameters</div>
-                  <div className="text-white">cell_size = mp.Vector3({project.scene?.rectWidth || 16}, {project.scene?.rectHeight || 8}, 0)</div>
-                  <div className="text-white">resolution = {project.scene?.resolution || 10}</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Initialize coordinate system</div>
-                  <div className="text-white">pml_layers = [mp.PML(1.0)]</div>
-                  <br />
-                </>
-              );
-              
-            case "geometries":
-              return (
-                <>
-                  <div className="text-yellow-400 font-bold">{separator}</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Define geometry objects ({geometryCount} total)</div>
-                  <div className="text-white">geometry = []</div>
-                  <br />
-                  {geometryCount > 0 ? (
-                    <div className="text-[#84bf6a]"># Geometry definitions will appear here</div>
-                  ) : (
-                    <div className="text-gray-500"># No geometries defined yet</div>
-                  )}
-                  <br />
-                </>
-              );
-              
-            case "materials":
-              return (
-                <>
-                  <div className="text-yellow-400 font-bold">{separator}</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Define materials (0 total)</div>
-                  <div className="text-gray-500"># No materials defined yet</div>
-                  <br />
-                </>
-              );
-              
-            case "sources":
-              return (
-                <>
-                  <div className="text-yellow-400 font-bold">{separator}</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Define sources (0 total)</div>
-                  <div className="text-gray-500"># No sources defined yet</div>
-                  <br />
-                </>
-              );
-              
-            case "boundaries":
-              return (
-                <>
-                  <div className="text-yellow-400 font-bold">{separator}</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Define boundary conditions (0 total)</div>
-                  <div className="text-gray-500"># No boundaries defined yet</div>
-                  <br />
-                </>
-              );
-              
-            case "regions":
-              return (
-                <>
-                  <div className="text-yellow-400 font-bold">{separator}</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Define simulation regions (0 total)</div>
-                  <div className="text-gray-500"># No regions defined yet</div>
-                  <br />
-                </>
-              );
-              
-            case "simulation-assembly":
-              return (
-                <>
-                  <div className="text-yellow-400 font-bold">{separator}</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Assemble simulation components and define monitors</div>
-                  <div className="text-white">sim = mp.Simulation(</div>
-                  <div className="text-white">    cell_size=cell_size,</div>
-                  <div className="text-white">    boundary_layers=pml_layers,</div>
-                  <div className="text-white">    geometry=geometry,</div>
-                  <div className="text-white">    sources=sources,</div>
-                  <div className="text-white">    resolution=resolution</div>
-                  <div className="text-white">)</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Define flux monitors</div>
-                  <div className="text-white">flux_monitor = sim.add_flux(...)</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Define field monitors and callbacks</div>
-                  <div className="text-white">field_monitor = sim.add_dft_fields(...)</div>
-                  <br />
-                  <div className="text-[#84bf6a]"># Ready to run simulation</div>
-                  <div className="text-white">sim.run(...)</div>
-                </>
-              );
-              
-            default:
-              return null;
-          }
-        })()}
+        {/* Render code content */}
+        {codeBlock && codeBlock.content ? (
+          <div className="text-gray-300">
+            {renderHighlightedCode(codeBlock.content)}
+          </div>
+        ) : (
+          // Fallback rendering
+          <>
+            {(() => {
+              switch (key) {
+                case "initialization":
+                  return (
+                    <>
+                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} INITIALIZATION ${'─'.repeat(52)}`}</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Initialize Meep simulation environment</div>
+                      <div className="text-[#c586b6]">import</div> <span className="text-white">meep</span> <span className="text-[#c586b6]">as</span> <span className="text-white">mp</span>
+                      <div className="text-[#c586b6]">import</div> <span className="text-white">numpy</span> <span className="text-[#c586b6]">as</span> <span className="text-white">np</span>
+                      <br />
+                      <div className="text-[#84bf6a]"># Define simulation parameters</div>
+                      <div className="text-white">cell_size = mp.Vector3({project.scene?.rectWidth || 16}, {project.scene?.rectHeight || 8}, 0)</div>
+                      <div className="text-white">resolution = {project.scene?.resolution || 10}</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Initialize coordinate system</div>
+                      <div className="text-white">pml_layers = [mp.PML(1.0)]</div>
+                      <br />
+                    </>
+                  );
+                  
+                case "geometries":
+                  return (
+                    <>
+                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} GEOMETRIES ${'─'.repeat(60)}`}</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Define geometry objects ({geometryCount} total)</div>
+                      <div className="text-white">geometry = []</div>
+                      <br />
+                      {geometryCount > 0 ? (
+                        <div className="text-[#84bf6a]"># Geometry definitions will appear here</div>
+                      ) : (
+                        <div className="text-gray-500"># No geometries defined yet</div>
+                      )}
+                      <br />
+                    </>
+                  );
+                
+                case "materials":
+                  return (
+                    <>
+                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} MATERIALS ${'─'.repeat(60)}`}</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Define materials (0 total)</div>
+                      <div className="text-gray-500"># No materials defined yet</div>
+                      <br />
+                    </>
+                  );
+                  
+                case "sources":
+                  return (
+                    <>
+                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} SOURCES ${'─'.repeat(60)}`}</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Define sources (0 total)</div>
+                      <div className="text-gray-500"># No sources defined yet</div>
+                      <br />
+                    </>
+                  );
+                  
+                case "boundaries":
+                  return (
+                    <>
+                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} BOUNDARIES ${'─'.repeat(60)}`}</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Define boundary conditions (0 total)</div>
+                      <div className="text-gray-500"># No boundaries defined yet</div>
+                      <br />
+                    </>
+                  );
+                  
+                case "regions":
+                  return (
+                    <>
+                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} REGIONS ${'─'.repeat(60)}`}</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Define simulation regions (0 total)</div>
+                      <div className="text-gray-500"># No regions defined yet</div>
+                      <br />
+                    </>
+                  );
+                  
+                case "simulation-assembly":
+                  return (
+                    <>
+                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} SIMULATION ASSEMBLY ${'─'.repeat(52)}`}</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Assemble simulation components and define monitors</div>
+                      <div className="text-white">sim = mp.Simulation(</div>
+                      <div className="text-white">    cell_size=cell_size,</div>
+                      <div className="text-white">    boundary_layers=pml_layers,</div>
+                      <div className="text-white">    geometry=geometry,</div>
+                      <div className="text-white">    sources=sources,</div>
+                      <div className="text-white">    resolution=resolution</div>
+                      <div className="text-white">)</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Define flux monitors</div>
+                      <div className="text-white">flux_monitor = sim.add_flux(...)</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Define field monitors and callbacks</div>
+                      <div className="text-white">field_monitor = sim.add_dft_fields(...)</div>
+                      <br />
+                      <div className="text-[#84bf6a]"># Ready to run simulation</div>
+                      <div className="text-white">sim.run(...)</div>
+                    </>
+                  );
+                  
+                default:
+                  return null;
+              }
+            })()}
+          </>
+        )}
+        
+        {/* Error message */}
+        {hasError && (
+          <div className="text-red-400 text-xs mt-2">
+            Error: {errors.get(key)}
+          </div>
+        )}
       </div>
     );
   };
   
+  // Helper function to render syntax-highlighted Python code
+  const renderHighlightedCode = (code: string) => {
+    const lines = code.split('\n');
+    const sections: Array<{ type: 'header' | 'code'; content: string }> = [];
+    let currentCodeBlock: string[] = [];
+    
+    // Split code into sections (headers vs code blocks)
+    lines.forEach((line) => {
+      if (line.trim().startsWith('#') && line.includes('─')) {
+        // This is a section header
+        if (currentCodeBlock.length > 0) {
+          sections.push({ type: 'code', content: currentCodeBlock.join('\n') });
+          currentCodeBlock = [];
+        }
+        sections.push({ type: 'header', content: line });
+      } else {
+        currentCodeBlock.push(line);
+      }
+    });
+    
+    // Don't forget the last code block
+    if (currentCodeBlock.length > 0) {
+      sections.push({ type: 'code', content: currentCodeBlock.join('\n') });
+    }
+    
+    return sections.map((section, index) => {
+      if (section.type === 'header') {
+        // Render section headers with custom styling
+        return (
+          <div key={index} className="text-[#fdc700] font-bold">
+            {section.content}
+          </div>
+        );
+      } else {
+        // Render code blocks with syntax highlighting
+        return (
+          <SyntaxHighlighter
+            key={index}
+            language="python"
+            style={customTheme}
+            showLineNumbers={false}
+            wrapLines={false}
+            customStyle={{
+              background: 'transparent',
+              margin: 0,
+              padding: 0,
+              color: '#d4d4d4', // Ensure base color is set
+            }}
+            codeTagProps={{
+              style: {
+                color: '#d4d4d4', // Ensure base color for code tag
+                fontFamily: 'inherit',
+                fontSize: 'inherit',
+              }
+            }}
+          >
+            {section.content}
+          </SyntaxHighlighter>
+        );
+      }
+    });
+  };
+  
+  // Tokenize a Python line for syntax highlighting
+  const tokenizePythonLine = (line: string) => {
+    const tokens: Array<{ type: string; value: string }> = [];
+    
+    // Python keywords
+    const keywords = /\b(import|from|as|def|class|if|else|elif|for|while|return|True|False|None|and|or|not|in|is)\b/g;
+    // Numbers
+    const numbers = /\b\d+\.?\d*\b/g;
+    // Strings (both single and double quotes)
+    const strings = /(['"])(?:(?=(\\?))\2.)*?\1/g;
+    // Functions and methods
+    const functions = /\b(\w+)(?=\()/g;
+    // Operators
+    const operators = /[=+\-*/%<>!&|^~:,\[\](){}]/g;
+    
+    // Combined pattern
+    const pattern = new RegExp(
+      `(${strings.source})|` +
+      `(${keywords.source})|` +
+      `(${numbers.source})|` +
+      `(${functions.source})|` +
+      `(${operators.source})|` +
+      `(\\w+)|` +
+      `(\\s+)|` +
+      `(.)`,
+      'g'
+    );
+    
+    let match;
+    while ((match = pattern.exec(line)) !== null) {
+      const [fullMatch, stringMatch, keywordMatch, numberMatch, functionMatch, operatorMatch, wordMatch, spaceMatch, otherMatch] = match;
+      
+      if (stringMatch) {
+        tokens.push({ type: 'string', value: fullMatch });
+      } else if (keywordMatch) {
+        tokens.push({ type: 'keyword', value: fullMatch });
+      } else if (numberMatch) {
+        tokens.push({ type: 'number', value: fullMatch });
+      } else if (functionMatch) {
+        tokens.push({ type: 'function', value: functionMatch });
+      } else if (operatorMatch) {
+        tokens.push({ type: 'operator', value: fullMatch });
+      } else if (wordMatch) {
+        // Check for special words
+        if (wordMatch.startsWith('mp') || wordMatch.startsWith('np')) {
+          tokens.push({ type: 'module', value: fullMatch });
+        } else if (['Vector3', 'Cylinder', 'Block', 'Wedge', 'Sphere', 'Prism', 'Medium', 'PML', 'inf'].includes(wordMatch)) {
+          tokens.push({ type: 'class', value: fullMatch });
+        } else {
+          tokens.push({ type: 'identifier', value: fullMatch });
+        }
+      } else {
+        tokens.push({ type: 'other', value: fullMatch });
+      }
+    }
+    
+    return tokens;
+  };
+  
+  // Get the style class for a token type (VSCode Dark+ theme colors)
+  const getTokenStyle = (token: { type: string; value: string }) => {
+    switch (token.type) {
+      case 'keyword':
+        return 'text-[#569cd6]'; // Blue
+      case 'string':
+        return 'text-[#ce9178]'; // Orange
+      case 'number':
+        return 'text-[#b5cea8]'; // Light green
+      case 'function':
+        return 'text-[#dcdcaa]'; // Yellow
+      case 'class':
+        return 'text-[#4ec9b0]'; // Cyan
+      case 'module':
+        return 'text-[#9cdcfe]'; // Light blue
+      case 'operator':
+        return 'text-[#d4d4d4]'; // Light gray
+      case 'identifier':
+        return 'text-[#9cdcfe]'; // Light blue
+      default:
+        return 'text-[#d4d4d4]'; // Default light gray
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full bg-gray-900 overflow-hidden">
       {/* Custom CSS for text selection */}

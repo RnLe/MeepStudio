@@ -1,8 +1,4 @@
-// src/types/meepProjectTypes.ts
-//
-// Plain-file equivalent of the old Strapi DTO.
-//
-// A file stored on disk is literally JSON.stringify(MeepProject, null, 2)
+import { Vector3 } from "./baseTypes";
 
 /* ---------- Base Geometry Interface ---------- */
 export interface GeometryObject {
@@ -44,11 +40,7 @@ export interface ProjectCode {
 }
 
 /* ---------- Meep Lattice Interface ---------- */
-export interface Vector3 {
-  x: number;
-  y: number;
-  z: number;  // Make z required for consistency
-}
+
 
 export interface MeepLattice {
   /** Basis vectors in real space */

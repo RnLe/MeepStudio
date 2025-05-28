@@ -25,19 +25,23 @@ interface BaseElement {
   selected?: boolean;
 }
 
+interface BaseGeometry extends BaseElement {
+  material?: string;
+}
+
 /* ---------- geometry ---------- */
-export interface Cylinder extends BaseElement {
+export interface Cylinder extends BaseGeometry {
   kind: "cylinder";
   radius: number;
 }
 
-export interface Rectangle extends BaseElement {
+export interface Rectangle extends BaseGeometry {
   kind: "rectangle";
   width: number;
   height: number;
 }
 
-export interface Triangle extends BaseElement {
+export interface Triangle extends BaseGeometry {
   kind: "triangle";
   /** 3 vertices, each in lattice units (a = 1) */
   vertices: [Vector2d, Vector2d, Vector2d];

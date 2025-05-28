@@ -434,11 +434,20 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     },
     
     getActiveProject: () => {
-      const { projects, activeTabId, openTabs } = get();
-      const activeTab = openTabs.find(t => t.id === activeTabId);
-      if (activeTab?.projectId) {
-        return projects.find(p => p.documentId === activeTab.projectId);
+      const state = get();
+      const activeTab = state.openTabs.find((t: Tab) => t.id === state.activeTabId);
+      const activeSubTab = state.activeSubTabId ? state.openTabs.find((t: Tab) => t.id === state.activeSubTabId) : undefined;
+      
+      // If we have an active sub-tab, use its project ID
+      const relevantTab = activeSubTab || activeTab;
+      
+      if (!relevantTab) return undefined;
+      
+      // Handle all tab types that have a projectId
+      if (relevantTab.projectId) {
+        return state.projects.find(p => p.documentId === relevantTab.projectId) || undefined;
       }
+      
       return undefined;
     },
     

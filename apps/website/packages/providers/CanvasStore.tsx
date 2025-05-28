@@ -1,6 +1,7 @@
 "use client";
 import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
+import { calculateGeometryCenter } from "../utils/geometryCalculations";
 
 type CanvasState = {
   // Grid and snapping settings
@@ -80,12 +81,32 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
     
     // Geometry state and actions
     geometries: [],
-    setGeometries: (geoms) => set({ geometries: geoms }),
+    setGeometries: (geoms) => set({ 
+      geometries: geoms.map(g => ({
+        ...g,
+        center: g.center || calculateGeometryCenter(g),
+        orientation: g.orientation || 0
+      }))
+    }),
     addGeometry: (geom) => set((s) => ({ 
-      geometries: [...s.geometries, { ...geom, orientation: geom.orientation || 0 }] 
+      geometries: [...s.geometries, { 
+        ...geom, 
+        center: geom.center || calculateGeometryCenter(geom),
+        orientation: geom.orientation || 0 
+      }] 
     })),
     updateGeometry: (id, partial) => set((s) => ({
-      geometries: s.geometries.map(g => g.id === id ? { ...g, ...partial } : g),
+      geometries: s.geometries.map(g => {
+        if (g.id === id) {
+          const updated = { ...g, ...partial };
+          // Recalculate center if position changed
+          if (partial.pos || partial.x !== undefined || partial.y !== undefined) {
+            updated.center = calculateGeometryCenter(updated);
+          }
+          return updated;
+        }
+        return g;
+      }),
     })),
     removeGeometry: (id) => set((s) => ({
       geometries: s.geometries.filter(g => g.id !== id),

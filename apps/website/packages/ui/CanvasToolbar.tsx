@@ -7,6 +7,7 @@ import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
 import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
+import { calculateGeometryCenter } from "../utils/geometryCalculations";
 
 const GROUPS = [
   { key: "snapping", label: "Snapping", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
@@ -150,12 +151,14 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const projectId = project.documentId;
   const geometries = project.scene?.geometries || [];
   const newCylinder = () => {
+    const pos = { x: 1, y: 1 };
     const newGeom = {
       kind: "cylinder",
       id: nanoid(),
-      pos: { x: 1, y: 1 },
+      pos,
       radius: 1,
-    } as Cylinder;
+      center: calculateGeometryCenter({ pos }), // Calculate center
+    } as Cylinder & { center: { x: number; y: number } };
     addGeometry(newGeom);
     updateProject({
       documentId: projectId,
@@ -168,13 +171,15 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     });
   };
   const newRect = () => {
+    const pos = { x: 1, y: 1 };
     const newGeom = {
       kind: "rectangle",
       id: nanoid(),
-      pos: { x: 1, y: 1 },
+      pos,
       width: 2,
       height: 2,
-    } as Rectangle;
+      center: calculateGeometryCenter({ pos }), // Calculate center
+    } as Rectangle & { center: { x: number; y: number } };
     addGeometry(newGeom);
     updateProject({
       documentId: projectId,
@@ -187,16 +192,18 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     });
   };
   const newTriangle = () => {
+    const pos = { x: 0, y: 0 };
     const newGeom = {
       kind: "triangle",
       id: nanoid(),
-      pos: { x: 0, y: 0 },
+      pos,
       vertices: [
         { x: 0, y: 0 }, // anchor
         { x: 1, y: 0 }, // right
         { x: 0, y: 1 }, // up
       ],
-    } as Triangle;
+      center: calculateGeometryCenter({ pos }), // Calculate center
+    } as Triangle & { center: { x: number; y: number } };
     addGeometry(newGeom);
     updateProject({
       documentId: projectId,

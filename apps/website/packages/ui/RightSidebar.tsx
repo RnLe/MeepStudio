@@ -18,15 +18,44 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
     isEditingProject,
     isEditingLattice,
     setIsEditingProject,
-    setIsEditingLattice
+    setIsEditingLattice,
+    openTabs,
+    activeTabId
   } = useEditorStateStore();
 
   const activeTab = getActiveTab();
   const activeProject = getActiveProject();
   const activeLattice = getActiveLattice();
 
+  // Add debugging
+  React.useEffect(() => {
+    console.log('RightSidebar - activeTab:', activeTab);
+    console.log('RightSidebar - activeProject:', activeProject);
+  }, [activeTab, activeProject]);
+
   // Determine the main tab type based on active tab
-  const activeMainTabType = activeTab?.type === "scene" || activeTab?.type === "code" ? "project" : activeTab?.type;
+  let activeMainTabType: string | undefined = activeTab?.type;
+  
+  // Handle sub-tabs by checking their parent or using projectId/latticeId
+  if (activeTab) {
+    if (activeTab.type === "canvas" || activeTab.type === "code") {
+      // These are always project-related
+      activeMainTabType = "project";
+    } else if (activeTab.parentId) {
+      // Find parent tab for other sub-tabs
+      const parentTab = openTabs.find(t => t.id === activeTab.parentId);
+      if (parentTab?.type === "scene") {
+        activeMainTabType = "project";
+      } else if (parentTab) {
+        activeMainTabType = parentTab.type;
+      }
+    } else if (activeTab.type === "scene") {
+      // Scene is a project tab
+      activeMainTabType = "project";
+    }
+  }
+
+  console.log('RightSidebar - activeMainTabType:', activeMainTabType);
   
   // Determine if we're currently editing
   const isEditing = activeMainTabType === "project" ? isEditingProject : 
@@ -103,6 +132,13 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
           ghPages={ghPages}
           onCancel={handleCancelEdit}
         />
+      )}
+      
+      {/* Add a fallback for when project should be shown but isn't found */}
+      {activeMainTabType === "project" && !activeProject && activeTab && (
+        <div className="p-4 text-gray-500">
+          Project not found for tab: {activeTab.title} (type: {activeTab.type}, projectId: {activeTab.projectId})
+        </div>
       )}
       
       {activeMainTabType === "lattice" && activeLattice && (
