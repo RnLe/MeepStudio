@@ -1,7 +1,7 @@
 // src/components/layout/TabWindowLattice.tsx
 "use client";
 import React from "react";
-import { Lattice } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 import LatticeCanvas from "./LatticeCanvas";
 import LatticeToolbar from "./LatticeToolbar";
 import { useLatticeDataLoader } from "../hooks/useLatticeDataLoader";

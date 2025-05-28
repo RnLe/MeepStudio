@@ -153,7 +153,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
   ];
 
   return (
-    <div className="p-4">
+    <div className="p-4 overflow-y-auto flex-1">
       <style>{`
         input.no-spinner::-webkit-outer-spin-button,
         input.no-spinner::-webkit-inner-spin-button {

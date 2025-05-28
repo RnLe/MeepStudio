@@ -1,4 +1,7 @@
 from fastapi import FastAPI
+import meep as mp
+
+mp.air
 
 app = FastAPI()
 

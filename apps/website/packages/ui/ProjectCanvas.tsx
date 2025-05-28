@@ -10,6 +10,7 @@ import { nanoid } from "nanoid";
 import { GeometryLayer } from "./canvasGeometry";
 import { GridOverlayLayer } from "./canvasGridOverlay";
 import { SelectionBoxLayer } from "./selectionBoxLayer";
+import { SourceLayer } from "./canvasSources";
 
 // --- Constants ---
 const GRID_PX = 40; // Fixed size for each cell in px
@@ -61,26 +62,40 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     selectedGeometryIds,
     selectGeometry,
     setSelectedGeometryIds,
-    gridSnapping, // Keep this one from the store
+    gridSnapping,
     geometries,
     setGeometries,
     addGeometry,
     updateGeometry,
     removeGeometry,
-    removeGeometries
+    removeGeometries,
+    sources,
+    setSources,
+    addSource,
+    updateSource,
+    removeSource,
+    removeSources,
+    getAllElements,
   } = useCanvasStore(
     (s) => ({
       selectedGeometryId: s.selectedGeometryId,
       selectedGeometryIds: s.selectedGeometryIds,
       selectGeometry: s.selectGeometry,
       setSelectedGeometryIds: s.setSelectedGeometryIds,
-      gridSnapping: s.gridSnapping, // Rename this to avoid conflict
+      gridSnapping: s.gridSnapping,
       geometries: s.geometries,
       setGeometries: s.setGeometries,
       addGeometry: s.addGeometry,
       updateGeometry: s.updateGeometry,
       removeGeometry: s.removeGeometry,
       removeGeometries: s.removeGeometries,
+      sources: s.sources,
+      setSources: s.setSources,
+      addSource: s.addSource,
+      updateSource: s.updateSource,
+      removeSource: s.removeSource,
+      removeSources: s.removeSources,
+      getAllElements: s.getAllElements,
     }),
     shallow
   );  // --- Geometry Migration Effect ---
@@ -108,7 +123,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       return g;
     });
     setGeometries(migratedGeoms);
-  }, [project.scene?.geometries, setGeometries]);
+    
+    // Load sources
+    setSources(project.scene?.sources || []);
+  }, [project.scene?.geometries, project.scene?.sources, setGeometries, setSources]);
 
   // --- Geometry Selectors ---
   const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
@@ -182,6 +200,76 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     // Update the store in one operation
     removeGeometries(ids);
   }, [removeGeometries, updateProject, projectId, geometries, project.scene]);
+
+  // --- Source Actions ---
+  const handleAddSource = useCallback((source: any) => {
+    const newSource = { ...source, id: nanoid(), orientation: source.orientation || 0 };
+    addSource(newSource);
+    updateProject({
+      documentId: projectId,
+      project: { 
+        scene: {
+          ...project.scene,
+          sources: [...(project.scene.sources || []), newSource] 
+        }
+      },
+    });
+  }, [addSource, updateProject, projectId, project.scene]);
+
+  const handleUpdateSource = useCallback((id: string, partial: Partial<any>) => {
+    updateSource(id, partial);
+    
+    const updatedSources = useCanvasStore.getState().sources;
+    
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          sources: updatedSources,
+        }
+      },
+    });
+  }, [updateSource, updateProject, projectId, project.scene]);
+
+  const handleRemoveSource = useCallback((id: string) => {
+    removeSource(id);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          sources: sources.filter(s => s.id !== id),
+        }
+      },
+    });
+    if (selectedGeometryId === id) selectGeometry(null);
+  }, [removeSource, updateProject, projectId, sources, selectedGeometryId, selectGeometry, project.scene]);
+
+  // Update batch remove to handle both geometries and sources
+  const handleBatchRemoveElements = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    
+    const geomIds = ids.filter(id => geometries.some(g => g.id === id));
+    const sourceIds = ids.filter(id => sources.some(s => s.id === id));
+    
+    const remainingGeometries = geometries.filter(g => !geomIds.includes(g.id));
+    const remainingSources = sources.filter(s => !sourceIds.includes(s.id));
+    
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          geometries: remainingGeometries,
+          sources: remainingSources,
+        }
+      },
+    });
+    
+    if (geomIds.length > 0) removeGeometries(geomIds);
+    if (sourceIds.length > 0) removeSources(sourceIds);
+  }, [removeGeometries, removeSources, updateProject, projectId, geometries, sources, project.scene]);
 
   // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -435,9 +523,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   // --- Snapping Helpers ---
   const resolutionSnapping = useCanvasStore((s) => s.resolutionSnapping);
   const snapCanvasPosToGrid = useCallback((canvasPos: { x: number; y: number }) => {
-    // Convert canvas (absolute) position to logical grid coordinates
-    const logicalX = (canvasPos.x - pos.x) / scale;
-    const logicalY = (canvasPos.y - pos.y) / scale;
+    // The canvasPos is already in logical coordinates (not stage coordinates)
+    // So we don't need to transform from stage to logical
+    const logicalX = canvasPos.x;
+    const logicalY = canvasPos.y;
 
     if (resolutionSnapping && project.scene?.resolution && project.scene.resolution > 1) {
       const res = project.scene.resolution;
@@ -446,20 +535,20 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       const snappedLogicalX = Math.round(logicalX / cellW) * cellW;
       const snappedLogicalY = Math.round(logicalY / cellH) * cellH;
       return {
-        x: snappedLogicalX * scale + pos.x,
-        y: snappedLogicalY * scale + pos.y,
+        x: snappedLogicalX,
+        y: snappedLogicalY,
       };
     } else if (gridSnapping) {
       const snappedLogicalX = Math.round(logicalX / GRID_PX) * GRID_PX;
       const snappedLogicalY = Math.round(logicalY / GRID_PX) * GRID_PX;
       return {
-        x: snappedLogicalX * scale + pos.x,
-        y: snappedLogicalY * scale + pos.y,
+        x: snappedLogicalX,
+        y: snappedLogicalY,
       };
     } else {
       return canvasPos;
     }
-  }, [pos, scale, resolutionSnapping, gridSnapping, project.scene?.resolution]);
+  }, [resolutionSnapping, gridSnapping, project.scene?.resolution]);
 
   // --- Multi-Select Drag State ---
   const [multiDragAnchor, setMultiDragAnchor] = useState<{
@@ -472,8 +561,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedGeometryIds.length > 0) {
-        e.preventDefault(); // Prevent any default behavior
-        handleBatchRemoveGeometries(selectedGeometryIds);
+        e.preventDefault();
+        handleBatchRemoveElements(selectedGeometryIds);
       } else if (e.key === "Escape") {
         e.preventDefault();
         selectGeometry(null);
@@ -481,7 +570,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedGeometryIds, handleBatchRemoveGeometries, selectGeometry]);
+  }, [selectedGeometryIds, handleBatchRemoveElements, selectGeometry]);
 
   // --- Dynamic Border Weight Calculation ---
   const borderWeight = useMemo(() => {
@@ -508,7 +597,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   useEffect(() => {
     if (containerSize.width > 0 && containerSize.height > 0) {
       setInfoPosition({
-        x: containerSize.width - 200, // 180px → 200px (20px more to the left)
+        x: 20, // 20px from the left edge (bottom left placement)
         y: containerSize.height - 120, // 100px → 120px (20px more up)
       });
     }
@@ -726,19 +815,19 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                 height: pxToLattice(box.height),
               };
               // --- Find intersecting geometries ---
-              const selected = geometries.filter(g => {
-                if (g.kind === "rectangle") {
-                  const rx = g.pos.x - g.width / 2;
-                  const ry = g.pos.y - g.height / 2;
+              const selected = [...geometries, ...sources].filter(elem => {
+                if (elem.kind === "rectangle") {
+                  const rx = elem.pos.x - elem.width / 2;
+                  const ry = elem.pos.y - elem.height / 2;
                   return rectsIntersect(
-                    { x: rx, y: ry, width: g.width, height: g.height },
+                    { x: rx, y: ry, width: elem.width, height: elem.height },
                     latticeBox
                   );
-                } else if (g.kind === "cylinder") {
-                  return circleRectIntersect(g.pos.x, g.pos.y, g.radius, latticeBox);
-                } else if (g.kind === "triangle") {
+                } else if (elem.kind === "cylinder") {
+                  return circleRectIntersect(elem.pos.x, elem.pos.y, elem.radius, latticeBox);
+                } else if (elem.kind === "triangle") {
                   // First pass: bounding box check
-                  const absVerts = (g.vertices as { x: number; y: number }[]).map(v => ({ x: g.pos.x + v.x, y: g.pos.y + v.y }));
+                  const absVerts = (elem.vertices as { x: number; y: number }[]).map(v => ({ x: elem.pos.x + v.x, y: elem.pos.y + v.y }));
                   const xs = absVerts.map(pt => pt.x);
                   const ys = absVerts.map(pt => pt.y);
                   const minX = Math.min(...xs);
@@ -753,27 +842,28 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   
                   // Second pass: precise triangle-rectangle intersection only if bounding box intersects
                   if (boundingBoxIntersects) {
-                    return triangleRectIntersect(g.pos, g.vertices as { x: number; y: number }[], latticeBox);
+                    return triangleRectIntersect(elem.pos, elem.vertices as { x: number; y: number }[], latticeBox);
                   }
                   return false;
-                } else if (g.kind === "continuousSource" || g.kind === "gaussianSource") {
+                } else if (elem.kind === "continuousSource" || elem.kind === "gaussianSource" || 
+                          elem.kind === "eigenModeSource" || elem.kind === "gaussianBeamSource") {
                   return (
-                    g.pos.x >= latticeBox.x &&
-                    g.pos.x <= latticeBox.x + latticeBox.width &&
-                    g.pos.y >= latticeBox.y &&
-                    g.pos.y <= latticeBox.y + latticeBox.height
+                    elem.pos.x >= latticeBox.x &&
+                    elem.pos.x <= latticeBox.x + latticeBox.width &&
+                    elem.pos.y >= latticeBox.y &&
+                    elem.pos.y <= latticeBox.y + latticeBox.height
                   );
-                } else if (g.kind === "pmlBoundary") {
+                } else if (elem.kind === "pmlBoundary") {
                   // Assume has pos, thickness, treat as rectangle (in lattice units)
-                  const rx = g.pos.x - (g.thickness || 0) / 2;
-                  const ry = g.pos.y - (g.thickness || 0) / 2;
+                  const rx = elem.pos.x - (elem.thickness || 0) / 2;
+                  const ry = elem.pos.y - (elem.thickness || 0) / 2;
                   return rectsIntersect(
-                    { x: rx, y: ry, width: g.thickness || 1, height: g.thickness || 1 },
+                    { x: rx, y: ry, width: elem.thickness || 1, height: elem.thickness || 1 },
                     latticeBox
                   );
                 }
                 return false;
-              }).map(g => g.id);
+              }).map(elem => elem.id);
               useCanvasStore.getState().setSelectedGeometryIds(selected);
             }
             setSelOrigin(null);
@@ -839,6 +929,22 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             showResolutionOverlay={showResolutionOverlay}
             toggleShowGrid={toggleShowGrid}
             toggleShowResolutionOverlay={toggleShowResolutionOverlay}
+            setActiveInstructionSet={setActiveInstructionSet}
+          />
+          <SourceLayer
+            sources={sources}
+            selectedIds={selectedGeometryIds}
+            gridSnapping={gridSnapping}
+            resolutionSnapping={resolutionSnapping}
+            snapCanvasPosToGrid={snapCanvasPosToGrid}
+            multiDragAnchor={multiDragAnchor}
+            setMultiDragAnchor={setMultiDragAnchor}
+            updateSource={updateSource}
+            handleUpdateSource={handleUpdateSource}
+            selectElement={(id: string | null, opts?: { shift?: boolean }) => selectGeometry(id, opts)}
+            GRID_PX={GRID_PX}
+            project={project}
+            scale={scale}
             setActiveInstructionSet={setActiveInstructionSet}
           />
         </Layer>

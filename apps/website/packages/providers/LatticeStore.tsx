@@ -1,7 +1,7 @@
 "use client";
 import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
-import { VoronoiData } from "../types/meepProjectTypes";
+import { VoronoiData } from "packages/types/meepLatticeTypes";
 
 type LatticePoint = {
   x: number;

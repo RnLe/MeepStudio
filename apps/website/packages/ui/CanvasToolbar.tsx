@@ -5,7 +5,7 @@ import { Cylinder, Rectangle, Triangle } from "../types/canvasElementTypes";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info } from "lucide-react";
+import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, Zap, Radio, Waves, Beaker } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { calculateGeometryCenter } from "../utils/geometryCalculations";
 
@@ -117,11 +117,38 @@ const overlayTools = [
   },
 ];
 
+const sourceTools: Tool[] = [
+  {
+    label: "Continuous Source",
+    icon: <Zap size={18} />,
+    onClick: (fn: () => void) => fn(),
+    fnKey: "newContinuousSource",
+  },
+  {
+    label: "Gaussian Source",
+    icon: <Radio size={18} />,
+    onClick: (fn: () => void) => fn(),
+    fnKey: "newGaussianSource",
+  },
+  {
+    label: "Eigenmode Source",
+    icon: <Waves size={18} />,
+    onClick: (fn: () => void) => fn(),
+    fnKey: "newEigenModeSource",
+  },
+  {
+    label: "Gaussian Beam",
+    icon: <Beaker size={18} />,
+    onClick: (fn: () => void) => fn(),
+    fnKey: "newGaussianBeamSource",
+  },
+];
+
 const groupToolMap: Record<GroupKey, Tool[]> = {
   snapping: snappingTools,
   geometries: geometryTools,
   materials: [],
-  sources: [],
+  sources: sourceTools,
   boundaries: [],
   regions: [],
   overlays: overlayTools,
@@ -141,6 +168,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const toggleResolutionSnapping = useCanvasStore((s) => s.toggleResolutionSnapping);
   const setResolutionSnapping = (val: boolean) => useCanvasStore.setState({ resolutionSnapping: val });
   const addGeometry = useCanvasStore((s) => s.addGeometry);
+  const addSource = useCanvasStore((s) => s.addSource);
   const showGrid = useCanvasStore((s) => s.showGrid);
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
@@ -150,6 +178,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const { updateProject } = useMeepProjects({ ghPages });
   const projectId = project.documentId;
   const geometries = project.scene?.geometries || [];
+  const sources = project.scene?.sources || [];
   const newCylinder = () => {
     const pos = { x: 1, y: 1 };
     const newGeom = {
@@ -215,12 +244,109 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
       },
     });
   };
+  const newContinuousSource = () => {
+    const pos = { x: 3, y: 3 };
+    const newSource = {
+      kind: "continuousSource",
+      id: nanoid(),
+      pos,
+      component: "Ex",
+      frequency: 1.0,
+      amplitude: { real: 1, imag: 0 },
+      orientation: 0,
+      size: { x: 0, y: 0, z: 0 }, // Point source by default
+    };
+    addSource(newSource);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          sources: [...sources, newSource],
+        },
+      },
+    });
+  };
+  const newGaussianSource = () => {
+    const pos = { x: 3, y: 3 };
+    const newSource = {
+      kind: "gaussianSource",
+      id: nanoid(),
+      pos,
+      component: "Ex",
+      frequency: 1.0,
+      width: 0.1,
+      orientation: 0,
+      size: { x: 0, y: 0, z: 0 }, // Point source by default
+    };
+    addSource(newSource);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          sources: [...sources, newSource],
+        },
+      },
+    });
+  };
+  const newEigenModeSource = () => {
+    const pos = { x: 3, y: 3 };
+    const newSource = {
+      kind: "eigenModeSource",
+      id: nanoid(),
+      pos,
+      component: "ALL_COMPONENTS",
+      eigBand: 1,
+      direction: "AUTOMATIC",
+      orientation: 0,
+      size: { x: 2, y: 0, z: 0 }, // Line source by default for eigenmode
+    };
+    addSource(newSource);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          sources: [...sources, newSource],
+        },
+      },
+    });
+  };
+  const newGaussianBeamSource = () => {
+    const pos = { x: 3, y: 3 };
+    const newSource = {
+      kind: "gaussianBeamSource",
+      id: nanoid(),
+      pos,
+      component: "ALL_COMPONENTS",
+      beamW0: 1.0,
+      beamX0: { x: 0, y: 0, z: 0 },
+      beamKdir: { x: 1, y: 0, z: 0 },
+      orientation: 0,
+      size: { x: 0, y: 2, z: 0 }, // Vertical line source by default for beam
+    };
+    addSource(newSource);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          sources: [...sources, newSource],
+        },
+      },
+    });
+  };
 
   // Tool handlers for dynamic mapping
   const toolHandlers = {
     newCylinder,
     newRect,
     newTriangle,
+    newContinuousSource,
+    newGaussianSource,
+    newEigenModeSource,
+    newGaussianBeamSource,
     toggleShowGrid,
     toggleShowResolutionOverlay,
     toggleShowCanvasInfo,

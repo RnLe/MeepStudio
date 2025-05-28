@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Square, RectangleHorizontal, Hexagon, Diamond, Shapes } from "lucide-react";
-import { MeepProject, MeepLattice } from "../types/meepProjectTypes";
+import { MeepProject } from "../types/meepProjectTypes";
+import { MeepLattice } from "../types/meepLatticeTypes";
 import LatticeCanvas from "./LatticeCanvas";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useEditorStateStore } from "../providers/EditorStateStore";

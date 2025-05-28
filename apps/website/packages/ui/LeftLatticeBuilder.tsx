@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Square, RectangleHorizontal, Hexagon, Diamond, Triangle, Settings, Anchor, ChevronDown, ChevronRight, Superscript, Hash, Pi, CircleDot } from "lucide-react";
 import LatticeVectorDisplay from "./LatticeVectorDisplay";
 import { useEditorStateStore } from "../providers/EditorStateStore";
-import { Vector3 } from "../types/meepProjectTypes";
+import { Vector3 } from "packages/types/meepBaseTypes";
 import { useSpring, animated, config } from "@react-spring/web";
 
 interface LeftLatticeBuilderProps {

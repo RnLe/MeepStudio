@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { Stage, Layer, Line, Circle, Text, Arrow, Rect, Group } from "react-konva";
-import { Lattice } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 import { useLatticeStore } from "../providers/LatticeStore";
 import { useSpring, animated, config } from "@react-spring/konva";
 import { getWasmModule } from "../utils/wasmLoader";

@@ -1,4 +1,4 @@
-import { Vector3 } from "../types/meepProjectTypes";
+import { Vector3 } from "packages/types/meepBaseTypes";
 
 /**
  * Calculate the 3D reciprocal basis vectors for real vectors

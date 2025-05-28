@@ -78,9 +78,9 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div className="w-80 h-full bg-neutral-800 p-0 space-y-4 flex flex-col">
+    <div className="w-80 h-full bg-neutral-800 flex flex-col overflow-hidden">
       {/* Top navbar */}
-      <div className="flex items-center h-10 bg-gray-800 border-b border-gray-700 justify-between sticky top-0 z-10 flex-shrink-0" style={{ margin: 0, padding: 0 }}>
+      <div className="flex items-center h-10 bg-gray-800 border-b border-gray-700 justify-between flex-shrink-0" style={{ margin: 0, padding: 0 }}>
         <span className="font-semibold text-white pl-2">
           {activeMainTabType === "lattice" ? "Lattice Properties" : 
            activeMainTabType === "dashboard" ? "Dashboard" : 
@@ -125,37 +125,40 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
         </div>
       </div>
 
-      {/* Content based on active tab type */}
-      {activeMainTabType === "project" && activeProject && (
-        <RightProjectPanel 
-          project={activeProject} 
-          ghPages={ghPages}
-          onCancel={handleCancelEdit}
-        />
-      )}
-      
-      {/* Add a fallback for when project should be shown but isn't found */}
-      {activeMainTabType === "project" && !activeProject && activeTab && (
-        <div className="p-4 text-gray-500">
-          Project not found for tab: {activeTab.title} (type: {activeTab.type}, projectId: {activeTab.projectId})
-        </div>
-      )}
-      
-      {activeMainTabType === "lattice" && activeLattice && (
-        <RightLatticePanel 
-          lattice={activeLattice} 
-          ghPages={ghPages}
-          onCancel={handleCancelEdit}
-        />
-      )}
-      
-      {activeMainTabType === "dashboard" && (
-        <div className="p-4 text-gray-500">Dashboard has no properties panel</div>
-      )}
-      
-      {!activeTab && (
-        <div className="p-4 text-gray-500">No tab selected</div>
-      )}
+      {/* Content container with overflow handling */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Content based on active tab type */}
+        {activeMainTabType === "project" && activeProject && (
+          <RightProjectPanel 
+            project={activeProject} 
+            ghPages={ghPages}
+            onCancel={handleCancelEdit}
+          />
+        )}
+        
+        {/* Add a fallback for when project should be shown but isn't found */}
+        {activeMainTabType === "project" && !activeProject && activeTab && (
+          <div className="p-4 text-gray-500">
+            Project not found for tab: {activeTab.title} (type: {activeTab.type}, projectId: {activeTab.projectId})
+          </div>
+        )}
+        
+        {activeMainTabType === "lattice" && activeLattice && (
+          <RightLatticePanel 
+            lattice={activeLattice} 
+            ghPages={ghPages}
+            onCancel={handleCancelEdit}
+          />
+        )}
+        
+        {activeMainTabType === "dashboard" && (
+          <div className="p-4 text-gray-500">Dashboard has no properties panel</div>
+        )}
+        
+        {!activeTab && (
+          <div className="p-4 text-gray-500">No tab selected</div>
+        )}
+      </div>
     </div>
   );
 };

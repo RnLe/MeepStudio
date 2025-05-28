@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { MeepProject, Lattice } from "../types/meepProjectTypes";
+import { MeepProject } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 import { MoreHorizontal, Plus, ChevronDown, ChevronRight, Layers, Hexagon, CodeXml } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { useEditorStateStore } from "../providers/EditorStateStore";

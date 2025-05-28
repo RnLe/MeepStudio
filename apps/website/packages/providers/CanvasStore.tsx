@@ -32,6 +32,17 @@ type CanvasState = {
   removeGeometry: (id: string) => void;
   removeGeometries: (ids: string[]) => void;
   
+  // Source state
+  sources: any[];
+  setSources: (sources: any[]) => void;
+  addSource: (source: any) => void;
+  updateSource: (id: string, partial: Partial<any>) => void;
+  removeSource: (id: string) => void;
+  removeSources: (ids: string[]) => void;
+  
+  // Combined elements getter
+  getAllElements: () => any[];
+  
   // Overlay toggles
   showGrid: boolean;
   toggleShowGrid: () => void;
@@ -118,6 +129,52 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
       selectedGeometryIds: s.selectedGeometryIds.filter(selId => !ids.includes(selId)),
       selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
     })),
+    
+    // Source state and actions
+    sources: [],
+    setSources: (sources) => set({ 
+      sources: sources.map(s => ({
+        ...s,
+        center: s.center || s.pos,
+        orientation: s.orientation || 0
+      }))
+    }),
+    addSource: (source) => set((s) => ({ 
+      sources: [...s.sources, { 
+        ...source, 
+        center: source.center || source.pos,
+        orientation: source.orientation || 0 
+      }] 
+    })),
+    updateSource: (id, partial) => set((s) => ({
+      sources: s.sources.map(src => {
+        if (src.id === id) {
+          const updated = { ...src, ...partial };
+          // Update center if position changed
+          if (partial.pos || partial.x !== undefined || partial.y !== undefined) {
+            updated.center = updated.pos || { x: updated.x, y: updated.y };
+          }
+          return updated;
+        }
+        return src;
+      }),
+    })),
+    removeSource: (id) => set((s) => ({
+      sources: s.sources.filter(src => src.id !== id),
+      selectedGeometryIds: s.selectedGeometryIds.filter(selId => selId !== id),
+      selectedGeometryId: s.selectedGeometryId === id ? null : s.selectedGeometryId,
+    })),
+    removeSources: (ids) => set((s) => ({
+      sources: s.sources.filter(src => !ids.includes(src.id)),
+      selectedGeometryIds: s.selectedGeometryIds.filter(selId => !ids.includes(selId)),
+      selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
+    })),
+    
+    // Combined elements getter
+    getAllElements: () => {
+      const state = get();
+      return [...state.geometries, ...state.sources];
+    },
     
     // Overlay toggles
     showGrid: true,

@@ -7,6 +7,8 @@ export type ElementType =
   | "triangle"
   | "continuousSource"
   | "gaussianSource"
+  | "eigenModeSource"
+  | "gaussianBeamSource"
   | "pmlBoundary";
 
 // Geometry types
@@ -48,16 +50,61 @@ export interface Triangle extends BaseGeometry {
 }
 
 /* ---------- sources ---------- */
-export interface ContinuousSource extends BaseElement {
-  kind: "continuousSource";
-  wavelength: number;
-  amplitude: number;
+interface BaseSource extends BaseElement {
+  /** Component direction (Ex, Ey, Ez, etc.) */
+  component: string;
+  /** Visual size for display (not the actual source size) */
+  displaySize?: Vector2d;
+  /** Amplitude (complex number stored as {real, imag}) */
+  amplitude?: { real: number; imag: number };
 }
 
-export interface GaussianSource extends BaseElement {
+export interface ContinuousSource extends BaseSource {
+  kind: "continuousSource";
+  /** Center frequency in units of c/distance */
+  frequency: number;
+  /** Start time */
+  startTime?: number;
+  /** End time */
+  endTime?: number;
+  /** Temporal width for smoothing */
+  width?: number;
+}
+
+export interface GaussianSource extends BaseSource {
   kind: "gaussianSource";
-  centreFreq: number;
-  fwhm: number;
+  /** Center frequency in units of c/distance */
+  frequency: number;
+  /** Gaussian width parameter */
+  width: number;
+  /** Start time */
+  startTime?: number;
+  /** Cutoff parameter */
+  cutoff?: number;
+}
+
+export interface EigenModeSource extends BaseSource {
+  kind: "eigenModeSource";
+  /** Band index */
+  eigBand?: number;
+  /** Direction (X, Y, Z, AUTOMATIC) */
+  direction?: string;
+  /** k-vector */
+  eigKpoint?: { x: number; y: number; z: number };
+  /** Mode parity */
+  eigParity?: string;
+}
+
+export interface GaussianBeamSource extends BaseSource {
+  kind: "gaussianBeamSource";
+  /** Beam focus location relative to source */
+  beamX0?: { x: number; y: number; z: number };
+  /** Beam propagation direction */
+  beamKdir?: { x: number; y: number; z: number };
+  /** Beam waist radius */
+  beamW0: number;
+  /** Polarization vector */
+  beamE0?: { x: number; y: number; z: number };
 }
 
 /* ---------- boundaries ---------- */
@@ -72,4 +119,6 @@ export type CanvasElement =
   | Triangle
   | ContinuousSource
   | GaussianSource
+  | EigenModeSource
+  | GaussianBeamSource
   | PmlBoundary;

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X, CodeXml, Layers, Hexagon, PanelRightOpen, Shapes } from "lucide-react";
 import ContextMenu from "./ContextMenu";
-import { MeepProject, Lattice } from "../types/meepProjectTypes";
+import { MeepProject } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 import { useEditorStateStore, Tab } from "../providers/EditorStateStore";
 import CustomLucideIcon from "./CustomLucideIcon";
 

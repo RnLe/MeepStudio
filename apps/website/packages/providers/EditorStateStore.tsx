@@ -2,7 +2,8 @@
 
 import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
-import { MeepProject, Lattice } from "../types/meepProjectTypes";
+import { MeepProject } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 
 export type TabType = "project" | "lattice" | "dashboard" | "code" | "scene" | "canvas";
 export type MainTabType = "project" | "lattice" | "dashboard";

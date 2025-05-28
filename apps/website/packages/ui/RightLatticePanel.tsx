@@ -1,5 +1,5 @@
 import React from "react";
-import { Lattice } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import LatticeVectorDisplay from "./LatticeVectorDisplay";
 import { MathVector, LabeledVector } from "./MathVector";

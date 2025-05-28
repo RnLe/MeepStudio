@@ -1,6 +1,6 @@
 // Immitation of the Meep Geometry Types
 
-import { Vector3 } from "./baseTypes";
+import { Vector3 } from "./meepBaseTypes";
 
 interface MeepGeometricObject {
     // Derived from the class GeometricObject in Meep:

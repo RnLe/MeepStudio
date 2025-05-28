@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useSpring, animated } from "@react-spring/web";
-import { Vector3 } from "../types/meepProjectTypes";
+import { Vector3 } from "packages/types/meepBaseTypes";
 
 type LatticeType = 'square' | 'rectangular' | 'hexagonal' | 'rhombic' | 'oblique' | 'custom';
 

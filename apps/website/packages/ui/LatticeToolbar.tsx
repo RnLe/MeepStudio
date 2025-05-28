@@ -1,7 +1,7 @@
 "use client";
 import React, { useCallback } from "react";
 import { useLatticeStore } from "../providers/LatticeStore";
-import { Lattice } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useLatticeDataLoader } from "../hooks/useLatticeDataLoader";
 import { Grid3X3, Grid, Hexagon, Box, GitBranch, Sparkles, Eye, Maximize2, Loader2, Grip, Move3D, ChevronLeft, ChevronRight } from "lucide-react";
