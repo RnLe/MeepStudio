@@ -7,19 +7,84 @@ import { useLatticeStore } from "../providers/LatticeStore";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { TransformationTooltip, TooltipWrapper } from "./TransformationTooltip";
 import { Code2, Layers, Download, LucideIcon } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEditorStateStore } from "../providers/EditorStateStore";
 
 interface Props {
   lattice: Lattice;
   ghPages: boolean;
+  onCancel?: () => void;
 }
 
-const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
+const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
   const { updateLattice } = useMeepProjects({ ghPages });
+  const qc = useQueryClient();
+  
+  const { 
+    isEditingLattice: editing,
+    setIsEditingLattice: setEditing
+  } = useEditorStateStore();
+  
   // Use local state instead of store
   const [localSpaceMode, setLocalSpaceMode] = React.useState<'real' | 'reciprocal'>('real');
   
   // Add state for flash effect
   const [isFlashing, setIsFlashing] = React.useState(false);
+  
+  // Add edit values state
+  const [editValues, setEditValues] = React.useState({
+    title: lattice?.title || ""
+  });
+  
+  // Update edit values when lattice changes
+  React.useEffect(() => {
+    setEditValues({
+      title: lattice?.title || ""
+    });
+  }, [lattice]);
+  
+  // Handle cancel
+  const handleCancel = () => {
+    setEditing(false);
+    setEditValues({
+      title: lattice?.title || ""
+    });
+    onCancel?.();
+  };
+  
+  // Handle save
+  const handleSave = async () => {
+    setEditing(false);
+    if (lattice) {
+      const updated = {
+        ...lattice,
+        title: editValues.title
+      };
+      await updateLattice({
+        documentId: lattice.documentId,
+        lattice: updated
+      });
+      qc.invalidateQueries({ queryKey: ["meepProjects"] });
+    }
+  };
+  
+  // Listen for save event from sidebar
+  React.useEffect(() => {
+    const handleSaveEvent = () => {
+      if (editing) {
+        handleSave();
+      }
+    };
+    
+    window.addEventListener('rightSidebarSave', handleSaveEvent);
+    return () => window.removeEventListener('rightSidebarSave', handleSaveEvent);
+  }, [editing, editValues, lattice]);
+  
+  // Handle input change
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditValues((prev) => ({ ...prev, [name]: value }));
+  };
   
   // Get lattice point cache for statistics
   const latticePointCache = useLatticeStore((s) => s.latticePointCache);
@@ -180,7 +245,19 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages }) => {
     <div className="flex-1 flex flex-col overflow-y-auto">
       {/* Title and description */}
       <div className="p-4 pb-0">
-        <h2 className="text-xl font-semibold text-white text-center">{lattice.title}</h2>
+        {editing ? (
+          <input
+            className="not-prose text-xl font-semibold text-white text-center rounded px-1 py-0.5 focus:bg-neutral-600 bg-neutral-700 transition-colors outline-none w-full"
+            name="title"
+            value={editValues.title}
+            minLength={1}
+            maxLength={128}
+            required
+            onChange={handleChange}
+          />
+        ) : (
+          <h2 className="text-xl font-semibold text-white text-center">{lattice.title}</h2>
+        )}
         {lattice.description && (
           <p className="text-sm text-gray-400 text-center mt-1">{lattice.description}</p>
         )}

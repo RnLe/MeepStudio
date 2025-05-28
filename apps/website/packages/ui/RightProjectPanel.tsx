@@ -12,9 +12,10 @@ import { useEditorStateStore } from "../providers/EditorStateStore";
 interface Props {
   project: MeepProject;
   ghPages: boolean;
+  onCancel?: () => void;
 }
 
-const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
+const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
   const { 
     deleteProject,
     addCodeTabToProject,
@@ -58,6 +59,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
       rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
       resolution: project?.scene?.resolution || projectSettings.resolution.default,
     });
+    onCancel?.();
   };
 
   const refreshProjectInStore = React.useCallback((updatedProject: MeepProject) => {
@@ -85,6 +87,18 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
       refreshProjectInStore(updated);
     }
   };
+
+  // Listen for save event from sidebar
+  React.useEffect(() => {
+    const handleSaveEvent = () => {
+      if (editing) {
+        handleSave();
+      }
+    };
+    
+    window.addEventListener('rightSidebarSave', handleSaveEvent);
+    return () => window.removeEventListener('rightSidebarSave', handleSaveEvent);
+  }, [editing, editValues, project]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -153,16 +167,6 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages }) => {
         }
       `}</style>
       
-      {/* Edit controls in top right */}
-      <div className="absolute top-2 right-12 flex gap-2">
-        {editing ? (
-          <>
-            <button className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700" onClick={handleSave}>Save</button>
-            <button className="text-xs px-2 py-1 rounded bg-gray-600 text-white hover:bg-gray-700" onClick={handleCancel}>Cancel</button>
-          </>
-        ) : null}
-      </div>
-
       <div className="space-y-3">
         <div className="flex justify-center items-center">
           {editing ? (

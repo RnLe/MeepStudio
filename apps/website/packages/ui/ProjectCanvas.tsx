@@ -831,7 +831,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             geometries={geometries}
             updateGeometry={updateGeometry}
             handleUpdateGeometry={handleUpdateGeometry}
-            selectElement={selectGeometry}
+            selectElement={(id: string | null, opts?: { shift?: boolean }) => selectGeometry(id, opts)}
             GRID_PX={GRID_PX}
             project={project}
             scale={scale}

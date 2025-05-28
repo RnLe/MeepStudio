@@ -40,6 +40,14 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
     }
   };
 
+  const handleCancelEdit = () => {
+    if (activeMainTabType === "project") {
+      setIsEditingProject(false);
+    } else if (activeMainTabType === "lattice") {
+      setIsEditingLattice(false);
+    }
+  };
+
   return (
     <div className="w-80 h-full bg-neutral-800 p-0 space-y-4 flex flex-col">
       {/* Top navbar */}
@@ -50,6 +58,28 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
            "Project Properties"}
         </span>
         <div className="flex items-center gap-1 mr-2">
+          {/* Save/Cancel buttons - only show when editing */}
+          {isEditing && (
+            <>
+              <button 
+                className="text-xs px-2 py-1 rounded text-white bg-[#4a7ec7] hover:bg-[#7aa5d8]" 
+                onClick={() => {
+                  // Trigger save through custom event for both project and lattice
+                  const event = new CustomEvent('rightSidebarSave');
+                  window.dispatchEvent(event);
+                }}
+              >
+                Save
+              </button>
+              <button 
+                className="text-xs px-2 py-1 rounded bg-gray-600 text-white hover:bg-gray-700" 
+                onClick={handleCancelEdit}
+              >
+                Cancel
+              </button>
+            </>
+          )}
+          
           {/* Edit button - only show for project and lattice tabs when not already editing */}
           {(activeMainTabType === "project" || activeMainTabType === "lattice") && !isEditing && (
             <button 
@@ -68,11 +98,19 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
 
       {/* Content based on active tab type */}
       {activeMainTabType === "project" && activeProject && (
-        <RightProjectPanel project={activeProject} ghPages={ghPages} />
+        <RightProjectPanel 
+          project={activeProject} 
+          ghPages={ghPages}
+          onCancel={handleCancelEdit}
+        />
       )}
       
       {activeMainTabType === "lattice" && activeLattice && (
-        <RightLatticePanel lattice={activeLattice} ghPages={ghPages} />
+        <RightLatticePanel 
+          lattice={activeLattice} 
+          ghPages={ghPages}
+          onCancel={handleCancelEdit}
+        />
       )}
       
       {activeMainTabType === "dashboard" && (
