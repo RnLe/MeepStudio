@@ -4,7 +4,7 @@ import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
 
-export type TabType = "project" | "lattice" | "dashboard" | "code" | "scene";
+export type TabType = "project" | "lattice" | "dashboard" | "code" | "scene" | "canvas";
 export type MainTabType = "project" | "lattice" | "dashboard";
 
 export interface Tab {
@@ -24,13 +24,13 @@ type EditorState = {
   // All tabs (flat structure)
   openTabs: Tab[];
   activeTabId: string | null;
+  activeSubTabId: string | null; // Track active sub tab separately
   
   // Computed properties for backward compatibility
   activeProjectId: string | null;
   activeLatticeId: string | null;
   activeDashboardId: string | null;
   activeMainTabType: MainTabType | null;
-  activeSubTabId: string | null;
   
   // Source data
   projects: MeepProject[];
@@ -122,12 +122,19 @@ type EditorState = {
   // Panel editing actions
   setIsEditingProject: (editing: boolean) => void;
   setIsEditingLattice: (editing: boolean) => void;
+  
+  // New methods for cleaner tab management
+  getMainTabs: () => Tab[];
+  getSubTabsForMainTab: (mainTabId: string) => Tab[];
+  setActiveSubTab: (tabId: string | null) => void;
+  closeSubTab: (tabId: string) => void;
 };
 
 export const useEditorStateStore = createWithEqualityFn<EditorState>(
   (set, get) => ({
     openTabs: [],
     activeTabId: null,
+    activeSubTabId: null,
     ghPages: false,
     rightSidebarOpen: true,
     leftSidebarPanel: "explorer",
@@ -148,6 +155,97 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     isEditingProject: false,
     isEditingLattice: false,
     
+    getMainTabs: () => {
+      const { openTabs } = get();
+      return openTabs.filter(tab => !tab.parentId);
+    },
+    
+    getSubTabsForMainTab: (mainTabId: string) => {
+      const { openTabs } = get();
+      const subTabs = openTabs.filter(tab => tab.parentId === mainTabId);
+      
+      // Always ensure canvas tab exists as the first sub tab if there are other sub tabs
+      const hasNonCanvasSubTabs = subTabs.some(t => t.type !== 'canvas');
+      const hasCanvasTab = subTabs.some(t => t.type === 'canvas');
+      
+      if (hasNonCanvasSubTabs && !hasCanvasTab) {
+        // Create canvas tab
+        const mainTab = openTabs.find(t => t.id === mainTabId);
+        const canvasTab: Tab = {
+          id: `canvas-${mainTabId}`,
+          type: 'canvas',
+          title: 'Canvas',
+          parentId: mainTabId,
+          projectId: mainTab?.projectId,
+          latticeId: mainTab?.latticeId,
+        };
+        
+        // Add to openTabs
+        set({ openTabs: [...get().openTabs, canvasTab] });
+        return [canvasTab, ...subTabs];
+      }
+      
+      // Sort to ensure canvas tab is always first
+      return subTabs.sort((a, b) => {
+        if (a.type === 'canvas') return -1;
+        if (b.type === 'canvas') return 1;
+        return 0;
+      });
+    },
+    
+    setActiveSubTab: (tabId: string | null) => {
+      set({ activeSubTabId: tabId });
+    },
+    
+    closeSubTab: (tabId: string) => {
+      const { openTabs, activeSubTabId } = get();
+      const tabToClose = openTabs.find(t => t.id === tabId);
+      
+      // Don't allow closing canvas tabs
+      if (tabToClose?.type === 'canvas') return;
+      
+      const updatedTabs = openTabs.filter(t => t.id !== tabId);
+      
+      // Check if we need to remove the canvas tab too
+      if (tabToClose?.parentId) {
+        const remainingSubTabs = updatedTabs.filter(
+          t => t.parentId === tabToClose.parentId && t.type !== 'canvas'
+        );
+        
+        // If no sub tabs remain except canvas, remove canvas too
+        if (remainingSubTabs.length === 0) {
+          const finalTabs = updatedTabs.filter(
+            t => !(t.parentId === tabToClose.parentId && t.type === 'canvas')
+          );
+          
+          set({ 
+            openTabs: finalTabs,
+            activeSubTabId: null,
+          });
+          return;
+        }
+      }
+      
+      let newActiveSubTabId = activeSubTabId;
+      if (activeSubTabId === tabId) {
+        // Switch to canvas tab when closing active sub tab
+        const closedTab = openTabs.find(t => t.id === tabId);
+        if (closedTab?.parentId) {
+          const canvasTab = updatedTabs.find(
+            t => t.parentId === closedTab.parentId && t.type === 'canvas'
+          );
+          newActiveSubTabId = canvasTab?.id || null;
+        } else {
+          newActiveSubTabId = null;
+        }
+      }
+      
+      set({ 
+        openTabs: updatedTabs,
+        activeSubTabId: newActiveSubTabId,
+      });
+    },
+    
     openTab: (tab) => {
       const { openTabs, setRightSidebarOpen } = get();
       const isAlreadyOpen = openTabs.some(t => t.id === tab.id);
@@ -156,7 +254,25 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         set({ openTabs: [...openTabs, tab] });
       }
       
-      set({ activeTabId: tab.id });
+      // If it's a sub tab, ensure canvas tab exists and set both active tab and sub tab
+      if (tab.parentId) {
+        // This will create canvas tab if needed
+        get().getSubTabsForMainTab(tab.parentId);
+        
+        set({ 
+          activeTabId: tab.parentId,
+          activeSubTabId: tab.id 
+        });
+      } else {
+        // When opening a main tab, check if it has sub tabs and activate canvas by default
+        const subTabs = get().getSubTabsForMainTab(tab.id);
+        const canvasTab = subTabs.find((t: Tab) => t.type === 'canvas');
+        
+        set({ 
+          activeTabId: tab.id,
+          activeSubTabId: canvasTab?.id || null
+        });
+      }
       
       if (tab.type !== "dashboard") {
         setRightSidebarOpen(true);
@@ -165,27 +281,37 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     
     closeTab: (tabId) => {
       const { openTabs, activeTabId } = get();
-      const updatedTabs = openTabs.filter(t => t.id !== tabId);
+      const tabToClose = openTabs.find(t => t.id === tabId);
+      
+      // If closing a main tab, also close its sub tabs (including canvas)
+      const tabsToRemove = tabToClose && !tabToClose.parentId
+        ? [tabId, ...openTabs.filter(t => t.parentId === tabId).map(t => t.id)]
+        : [tabId];
+      
+      const updatedTabs = openTabs.filter(t => !tabsToRemove.includes(t.id));
       
       let newActiveTabId = activeTabId;
+      let newActiveSubTabId = get().activeSubTabId;
+      
       if (activeTabId === tabId && updatedTabs.length > 0) {
-        // Find the next best tab to activate
-        const tabToClose = openTabs.find(t => t.id === tabId);
-        if (tabToClose?.parentId) {
-          // If closing a child tab, try to activate its parent
-          const parent = updatedTabs.find(t => t.id === tabToClose.parentId);
-          newActiveTabId = parent?.id || updatedTabs[0].id;
-        } else {
-          // Otherwise activate the first remaining tab
-          newActiveTabId = updatedTabs[0].id;
-        }
+        // Find the next main tab to activate
+        const mainTabs = updatedTabs.filter(t => !t.parentId);
+        newActiveTabId = mainTabs.length > 0 ? mainTabs[0].id : null;
+        newActiveSubTabId = null;
       } else if (updatedTabs.length === 0) {
         newActiveTabId = null;
+        newActiveSubTabId = null;
+      }
+      
+      // Clear sub tab if it was removed
+      if (tabsToRemove.includes(get().activeSubTabId || '')) {
+        newActiveSubTabId = null;
       }
       
       set({ 
         openTabs: updatedTabs,
         activeTabId: newActiveTabId,
+        activeSubTabId: newActiveSubTabId,
       });
     },
     
@@ -193,8 +319,18 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
       const { setRightSidebarOpen, openTabs } = get();
       const tab = openTabs.find(t => t.id === tabId);
       
-      if (tab) {
-        set({ activeTabId: tabId });
+      if (tab && !tab.parentId) {
+        // When activating a main tab, check if it has sub tabs
+        const subTabs = get().getSubTabsForMainTab(tabId);
+        
+        // If there are sub tabs, activate the canvas tab
+        const canvasTab = subTabs.find((t: Tab) => t.type === 'canvas');
+        const activeSubTabId = canvasTab?.id || null;
+        
+        set({ 
+          activeTabId: tabId,
+          activeSubTabId 
+        });
         
         if (tab.type === "dashboard") {
           setRightSidebarOpen(false);
@@ -289,7 +425,11 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     },
     
     getActiveTab: () => {
-      const { openTabs, activeTabId } = get();
+      const { openTabs, activeTabId, activeSubTabId } = get();
+      // Return sub tab if active, otherwise main tab
+      if (activeSubTabId) {
+        return openTabs.find(t => t.id === activeSubTabId);
+      }
       return openTabs.find(t => t.id === activeTabId);
     },
     
@@ -687,11 +827,6 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
         default:
           return null;
       }
-    },
-    
-    get activeSubTabId() {
-      const { activeTabId } = get();
-      return activeTabId;
     },
     
     removeCodeTabFromProject: (projectId) => {

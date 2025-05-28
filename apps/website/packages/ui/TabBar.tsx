@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { X, CodeXml, Layers, Hexagon, PanelRightOpen } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { X, CodeXml, Layers, Hexagon, PanelRightOpen, Shapes } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { MeepProject, Lattice } from "../types/meepProjectTypes";
 import { useEditorStateStore, Tab } from "../providers/EditorStateStore";
@@ -14,62 +14,41 @@ const getTabIcon = (type: Tab["type"]) => {
       return CodeXml;
     case "lattice":
       return Hexagon;
+    case "canvas": // Add canvas type
+      return Shapes;
     default:
       return Layers;
   }
 };
 
-const TabBar: React.FC = () => {
+interface TabBarProps {
+  tabs: Tab[];
+  activeTabId: string | null;
+  onTabClick: (tabId: string) => void;
+  onTabClose: (tabId: string) => void;
+  isSubTabBar?: boolean;
+  parentTabWidth?: number; // Add prop for parent tab width
+}
+
+const TabBar: React.FC<TabBarProps> = ({ 
+  tabs, 
+  activeTabId, 
+  onTabClick, 
+  onTabClose,
+  isSubTabBar = false,
+  parentTabWidth
+}) => {
   const [contextMenu, setContextMenu] = useState<null | { x: number; y: number; item: MeepProject | Lattice; type: 'project' | 'lattice' }>(null);
-  const [detachedTabs, setDetachedTabs] = useState<Set<string>>(new Set());
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   
   const {
-    openTabs,
-    activeTabId,
     projects,
     lattices,
-    setActiveTab,
-    closeTab,
     deleteProject,
     deleteLattice,
-    addCodeTabToProject,
     rightSidebarOpen,
     setRightSidebarOpen,
   } = useEditorStateStore();
-
-  // Group tabs by their parent relationship
-  const tabGroups = React.useMemo(() => {
-    const groups: Map<string, Tab[]> = new Map();
-    const standalone: Tab[] = [];
-    const processed = new Set<string>();
-    
-    // First pass: identify all parent tabs
-    openTabs.forEach(tab => {
-      if (!tab.parentId && !detachedTabs.has(tab.id)) {
-        // This is a parent tab, check if it has children
-        const children = openTabs.filter(t => 
-          t.parentId === tab.id && 
-          !detachedTabs.has(t.id) && 
-          openTabs.some(p => p.id === tab.id) // Parent still exists
-        );
-        if (children.length > 0) {
-          groups.set(tab.id, [tab, ...children]);
-          processed.add(tab.id);
-          children.forEach(child => processed.add(child.id));
-        }
-      }
-    });
-    
-    // Second pass: add standalone tabs
-    openTabs.forEach(tab => {
-      if (!processed.has(tab.id) || detachedTabs.has(tab.id)) {
-        standalone.push(tab);
-      }
-    });
-    
-    return { groups, standalone };
-  }, [openTabs, detachedTabs]);
 
   const handleContextMenu = (e: React.MouseEvent, tab: Tab) => {
     e.preventDefault();
@@ -96,90 +75,69 @@ const TabBar: React.FC = () => {
     }
   };
 
-  const renderTab = (tab: Tab, isAttached: boolean = false, isLastInGroup: boolean = false, groupId?: string) => {
+  const renderTab = (tab: Tab) => {
     const IconComponent = getTabIcon(tab.type);
     const isActive = tab.id === activeTabId;
-    
-    // Check if any tab in the group is active
-    const parentId = groupId || tab.parentId || tab.id;
-    const groupTabs = tabGroups.groups.get(parentId) || [];
-    const isInActiveGroup = groupTabs.some(t => t.id === activeTabId);
-    const isSiblingActive = isInActiveGroup && !isActive;
-    
-    // Check if a sibling is being hovered
-    const siblingHovered = groupTabs.some(t => t.id === hoveredTab && t.id !== tab.id);
     const isHovered = hoveredTab === tab.id;
+    const isClosable = tab.type !== "canvas"; // Canvas tabs are not closable
     
-    // Hide detached sub tabs whose parent still exists
-    if (detachedTabs.has(tab.id) && tab.parentId && openTabs.some(t => t.id === tab.parentId)) {
-      return null;
-    }
+    // Apply dynamic width to all canvas tabs in sub tab bars when we have parent width
+    const shouldHaveDynamicWidth = isSubTabBar && tab.type === "canvas" && parentTabWidth;
+    const minWidth = 96; // 24 * 4 = 96px (6rem equivalent)
+    const dynamicWidth = shouldHaveDynamicWidth ? Math.max(parentTabWidth, minWidth) : undefined;
     
     return (
       <div
         key={tab.id}
-        onClick={() => {
-          setActiveTab(tab.id);
-          // Re-attach sub tab when parent is activated
-          if (tab.type === "project" || tab.type === "scene") {
-            const childTabs = openTabs.filter(t => t.parentId === tab.id);
-            childTabs.forEach(child => {
-              setDetachedTabs(prev => {
-                const next = new Set(prev);
-                next.delete(child.id);
-                return next;
-              });
-            });
-          }
-        }}
+        data-tab-id={tab.id} // Add data attribute for measurement
+        onClick={() => onTabClick(tab.id)}
         onMouseEnter={() => setHoveredTab(tab.id)}
         onMouseLeave={() => setHoveredTab(null)}
         onContextMenu={(e) => handleContextMenu(e, tab)}
-        className={`group flex items-center cursor-pointer transition-all duration-300 ease-out relative ${
+        className={`group flex items-center cursor-pointer transition-all duration-300 ease-out relative ${shouldHaveDynamicWidth ? '' : 'px-4'} ${
           isActive
             ? "bg-slate-700 text-white z-10"
-            : isSiblingActive
-              ? isHovered
-                ? "bg-slate-700/95 text-white z-10"   // increased brightness on hover
-                : "bg-slate-700/60 text-white/90 z-10" // lowered brightness when inactive
-              : isHovered
-                ? "bg-slate-700/85 text-white z-10"
-                : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
-        } ${isAttached ? "-ml-px pl-3 pr-10" : "px-4"} ${!isLastInGroup && isAttached ? "" : ""}`}
+            : isHovered
+              ? "bg-slate-700/85 text-white z-10"
+              : "bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white"
+        }`}
         style={{
-          paddingTop: "10px",
-          paddingBottom: "10px",
-          clipPath: isAttached && !isLastInGroup ? "polygon(0 0, calc(100% - 8px) 0, 100% 100%, 0 100%)" : undefined
+          paddingTop: isSubTabBar ? "8px" : "10px",
+          paddingBottom: isSubTabBar ? "8px" : "10px",
+          ...(shouldHaveDynamicWidth ? {
+            width: `${dynamicWidth}px`,
+            paddingLeft: "16px",
+            paddingRight: "16px",
+            justifyContent: "center"
+          } : {
+            paddingLeft: "16px",
+            paddingRight: "16px"
+          })
         }}
       >
-        <IconComponent size={isAttached ? 18 : 14} className={`${isAttached ? "mr-2" : "mr-2"} text-slate-400`} />
-        {!isAttached && <span className="truncate max-w-40 font-semibold text-sm tracking-wide mr-8">{tab.title}</span>}
+        <IconComponent size={isSubTabBar ? 16 : 16} className="mr-2 text-slate-400" />
+        <span className={`truncate ${shouldHaveDynamicWidth ? 'max-w-none' : 'max-w-40'} ${isSubTabBar ? 'text-sm' : 'font-semibold text-sm'} tracking-wide ${isClosable && !shouldHaveDynamicWidth ? 'mr-8' : 'mr-2'}`}>
+          {tab.title}
+        </span>
         
-        {/* Show close button for all tabs */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!isAttached && groupTabs.length > 1) {
-              // Detach all sub tabs when closing parent
-              groupTabs.slice(1).forEach(child => {
-                setDetachedTabs(prev => new Set([...prev, child.id]));
-              });
-            }
-            closeTab(tab.id);
-          }}
-          className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
-            isActive
-              ? "opacity-60 hover:opacity-100" 
-              : isHovered
-                ? "opacity-60 hover:opacity-100"
+        {isClosable && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onTabClose(tab.id);
+            }}
+            className={`absolute right-2 p-1.5 transition-all duration-200 hover:bg-slate-600/50 rounded cursor-pointer ${
+              isActive || isHovered
+                ? "opacity-60 hover:opacity-100" 
                 : "opacity-0 group-hover:opacity-60 group-hover:hover:opacity-100"
-          }`}
-        >
-          <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
-        </button>
+            }`}
+          >
+            <X size={14} className="text-slate-400 hover:text-slate-200 transition-colors" />
+          </button>
+        )}
         
         {/* Active indicator */}
-        {isActive && (
+        {isActive && !isSubTabBar && (
           <>
             <div className={`absolute -top-0.5 left-0 right-0 h-1 ${
               tab.type === "dashboard" ? "bg-purple-400" : 
@@ -194,82 +152,30 @@ const TabBar: React.FC = () => {
           </>
         )}
         
-        {/* Sibling active indicator - thin line that moves with tab */}
-        {isSiblingActive && (
-          <div
-            className={`absolute top-0 left-0 right-0 h-0.5 ${
-              tab.type === "dashboard"
-                ? "bg-purple-400/60"
-                : tab.type === "lattice"
-                  ? "bg-green-400/60"
-                  : "bg-blue-400/60"
-            } rounded-full`}
-          />
-        )}
-      </div>
-    );
-  };
-
-  const renderTabGroup = (tabs: Tab[]) => {
-    const groupId = tabs[0].id;
-    return (
-      <div
-        key={groupId}              // <- unique key for list items
-        className="flex"
-      >
-        {tabs.map((tab, index) =>
-          renderTab(tab, index > 0, index === tabs.length - 1, groupId)
+        {/* Sub tab active indicator */}
+        {isActive && isSubTabBar && (
+          <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+            tab.type === "code" ? "bg-yellow-400" : 
+            tab.type === "canvas" ? "bg-blue-400" :
+            "bg-blue-400"
+          } rounded-full`}></div>
         )}
       </div>
     );
   };
   
   return (
-    /* z-index added so lowered tabs sit above the viewport content below */
-    <div className="min-h-12 bg-slate-800 border-b border-slate-700/50 shadow-xl flex items-end relative z-30">
+    <div className={`${isSubTabBar ? 'min-h-8' : 'min-h-12'} bg-slate-800 ${isSubTabBar ? '' : 'border-b border-slate-700/50'} shadow-xl flex items-end relative z-30`}>
       <div className="flex overflow-hidden flex-1">
-        {/* Render grouped tabs */}
-        {Array.from(tabGroups.groups.values()).map(renderTabGroup)}
-
-        {/* Render standalone tabs */}
-        {tabGroups.standalone.map(tab => renderTab(tab))}
-
-        {/* Add code tab button for active project */}
-        {(() => {
-          const activeTab = openTabs.find(t => t.id === activeTabId);
-          if (
-            (activeTab?.type === "project" || activeTab?.type === "scene") &&
-            activeTab.projectId
-          ) {
-            const hasCodeTab = openTabs.some(
-              t => t.id === `code-${activeTab.projectId}`
-            );
-            const project = projects.find(
-              p => p.documentId === activeTab.projectId
-            );
-            if (project?.code && !hasCodeTab) {
-              return (
-                <button
-                  onClick={() => addCodeTabToProject(activeTab.projectId!)}
-                  className="ml-2 p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                  title="Add code tab"
-                >
-                  <CodeXml size={16}/>
-                </button>
-              );
-            }
-          }
-          return null;
-        })()}
+        {tabs.map(renderTab)}
       </div>
 
-      {/* Right sidebar toggle button */}
-      {!rightSidebarOpen && (
+      {/* Right sidebar toggle button - only show on main tab bar */}
+      {!isSubTabBar && !rightSidebarOpen && (
         <button
           onClick={() => setRightSidebarOpen(true)}
-          className="ml-2 mr-2 p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all duration-200 opacity-100 data-[open=true]:opacity-0 flex items-center justify-center"
+          className="ml-2 mr-2 p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all duration-200 opacity-100 flex items-center justify-center"
           title="Open properties panel"
-          data-open={rightSidebarOpen}
         >
           <PanelRightOpen size={21} />
         </button>
