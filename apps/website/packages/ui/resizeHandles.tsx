@@ -16,6 +16,7 @@ interface ResizeHandlesProps {
   toggleShowGrid: () => void;
   toggleShowResolutionOverlay: () => void;
   handleUpdateGeometry: (id: string, updates: Partial<RectEl>) => void;
+  setActiveInstructionSet: (key: 'default' | 'rotating' | 'resizing' | 'dragging') => void;
 }
 
 export function ResizeHandles({ 
@@ -31,7 +32,8 @@ export function ResizeHandles({
   showResolutionOverlay,
   toggleShowGrid,
   toggleShowResolutionOverlay,
-  handleUpdateGeometry
+  handleUpdateGeometry,
+  setActiveInstructionSet
 }: ResizeHandlesProps) {
   const handleSize = 9 / scale; // Reduced by half from 18
   const edgeWidth = 6 / scale;
@@ -47,6 +49,15 @@ export function ResizeHandles({
   
   // State to track if we're currently rotating
   const [isRotating, setIsRotating] = React.useState(false);
+  
+  // State to track if we're currently resizing (not just rotating)
+  const [isResizing, setIsResizing] = React.useState(false);
+  
+  // State to track initial overlay states when resize starts
+  const initialOverlayStates = React.useRef<{ grid: boolean; resolution: boolean } | null>(null);
+  
+  // State to track current overlay states during drag to prevent flickering
+  const currentOverlayStates = React.useRef<{ grid: boolean; resolution: boolean } | null>(null);
   
   // State to track which handle is being resized
   const [activeHandle, setActiveHandle] = React.useState<string | null>(null);
@@ -84,19 +95,21 @@ export function ResizeHandles({
   }, [snapToGrid]);
   
   const handleDragStart = (evt: any) => {
-    const shiftPressed = evt.evt.shiftKey;
-    const ctrlPressed = evt.evt.ctrlKey || evt.evt.metaKey;
+    // Set instruction set to resizing
+    setActiveInstructionSet('resizing');
+    setIsResizing(true);
     
-    // Show grid overlay if shift is pressed and grid is hidden
-    if (shiftPressed && !showGrid) {
-      toggleShowGrid();
-      setTempShowGrid(true);
-    }
-    
-    // Show resolution overlay if ctrl is pressed and resolution is hidden
-    if (ctrlPressed && !showResolutionOverlay) {
-      toggleShowResolutionOverlay();
-      setTempShowResolution(true);
+    // Store the initial overlay states when resize starts
+    if (!initialOverlayStates.current) {
+      initialOverlayStates.current = {
+        grid: showGrid,
+        resolution: showResolutionOverlay
+      };
+      // Initialize current states to match initial states
+      currentOverlayStates.current = {
+        grid: showGrid,
+        resolution: showResolutionOverlay
+      };
     }
   };
   
@@ -104,36 +117,43 @@ export function ResizeHandles({
     const shiftPressed = evt.evt.shiftKey;
     const ctrlPressed = evt.evt.ctrlKey || evt.evt.metaKey;
     
-    // Update overlays based on current key state
-    if (shiftPressed && !showGrid && !tempShowGrid) {
+    if (!currentOverlayStates.current) return;
+    
+    // Handle grid overlay
+    if (shiftPressed && !currentOverlayStates.current.grid) {
       toggleShowGrid();
-      setTempShowGrid(true);
-    } else if (!shiftPressed && tempShowGrid) {
+      currentOverlayStates.current.grid = true;
+    } else if (!shiftPressed && currentOverlayStates.current.grid && !initialOverlayStates.current?.grid) {
       toggleShowGrid();
-      setTempShowGrid(false);
+      currentOverlayStates.current.grid = false;
     }
     
-    if (ctrlPressed && !showResolutionOverlay && !tempShowResolution) {
+    // Handle resolution overlay
+    if (ctrlPressed && !currentOverlayStates.current.resolution) {
       toggleShowResolutionOverlay();
-      setTempShowResolution(true);
-    } else if (!ctrlPressed && tempShowResolution) {
+      currentOverlayStates.current.resolution = true;
+    } else if (!ctrlPressed && currentOverlayStates.current.resolution && !initialOverlayStates.current?.resolution) {
       toggleShowResolutionOverlay();
-      setTempShowResolution(false);
+      currentOverlayStates.current.resolution = false;
     }
   };
   
   const handleDragEnd = (evt: any) => {
-    // Restore overlay states
-    if (tempShowGrid) {
-      toggleShowGrid();
-      setTempShowGrid(false);
-    }
-    if (tempShowResolution) {
-      toggleShowResolutionOverlay();
-      setTempShowResolution(false);
+    // Restore overlay states to their initial values
+    if (initialOverlayStates.current && currentOverlayStates.current) {
+      if (currentOverlayStates.current.grid !== initialOverlayStates.current.grid) {
+        toggleShowGrid();
+      }
+      if (currentOverlayStates.current.resolution !== initialOverlayStates.current.resolution) {
+        toggleShowResolutionOverlay();
+      }
+      initialOverlayStates.current = null;
+      currentOverlayStates.current = null;
     }
     
-    // Don't call onResizeEnd here - it's called in the mouse up handlers with the correct state
+    // Reset instruction set to default
+    setActiveInstructionSet('default');
+    setIsResizing(false);
   };
   
   const handleCornerMouseDown = (cornerName: string) => (e: any) => {
@@ -457,7 +477,14 @@ export function ResizeHandles({
 
       let newRot = initRotRef.current + delta;              // use ref here
 
-      if (evt.shiftKey) newRot = Math.round(newRot / 15) * 15;
+      // Apply snapping based on modifier keys
+      if (evt.shiftKey) {
+        // Snap to 5° increments
+        newRot = Math.round(newRot / 5) * 5;
+      } else if (evt.ctrlKey || evt.metaKey) {
+        // Snap to 1° increments
+        newRot = Math.round(newRot);
+      }
 
       const orientationRad = ((newRot * Math.PI) / 180) % (2 * Math.PI);
       const normalized     = orientationRad < 0 ? orientationRad + 2 * Math.PI : orientationRad;
@@ -480,6 +507,51 @@ export function ResizeHandles({
     return `url('data:image/svg+xml;utf8,${encoded}') 12 12, auto`;
   }, []);
 
+  // Keyboard event handlers for showing/hiding grids during resize
+  React.useEffect(() => {
+    if (!isResizing) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!currentOverlayStates.current || !initialOverlayStates.current) return;
+      
+      // Handle shift key
+      if (e.shiftKey && !currentOverlayStates.current.grid) {
+        toggleShowGrid();
+        currentOverlayStates.current.grid = true;
+      }
+      
+      // Handle ctrl/cmd key
+      if ((e.ctrlKey || e.metaKey) && !currentOverlayStates.current.resolution) {
+        toggleShowResolutionOverlay();
+        currentOverlayStates.current.resolution = true;
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!currentOverlayStates.current || !initialOverlayStates.current) return;
+      
+      // Handle shift key release
+      if (!e.shiftKey && currentOverlayStates.current.grid && !initialOverlayStates.current.grid) {
+        toggleShowGrid();
+        currentOverlayStates.current.grid = false;
+      }
+      
+      // Handle ctrl/cmd key release
+      if (!e.ctrlKey && !e.metaKey && currentOverlayStates.current.resolution && !initialOverlayStates.current.resolution) {
+        toggleShowResolutionOverlay();
+        currentOverlayStates.current.resolution = false;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isResizing, toggleShowGrid, toggleShowResolutionOverlay]);
+  
   return (
     <Group>
       {/* Main group that rotates with the rectangle */}
@@ -554,6 +626,9 @@ export function ResizeHandles({
           const pointer = stage.getPointerPosition();
           if (!pointer) return;
 
+          // Set instruction set to rotating
+          setActiveInstructionSet('rotating');
+
           // Convert stage coordinates to local coordinates
           const transform = stage.getAbsoluteTransform().copy();
           transform.invert();
@@ -580,12 +655,26 @@ export function ResizeHandles({
             // Make sure we're using the latest orientation value
             const finalOrientation = latestOrientation.current;
             handleUpdateGeometry(rectangle.id, { orientation: finalOrientation });
-            handleDragEnd({ evt });                // overlay cleanup
+            
+            // Don't call handleDragEnd here as it's for resize operations
+            // Just reset the overlay states if needed
+            if (tempShowGrid) {
+              toggleShowGrid();
+              setTempShowGrid(false);
+            }
+            if (tempShowResolution) {
+              toggleShowResolutionOverlay();
+              setTempShowResolution(false);
+            }
+            
             setBaseVec(null); 
             baseVecRef.current = null; // clear ref
             setCurrVec(null); 
             setMousePos(null);
             setIsRotating(false); // No longer rotating
+            
+            // Reset instruction set to default
+            setActiveInstructionSet('default');
             
             // Force cursor reset by setting it directly on the stage container
             const container = stage.container();
@@ -597,43 +686,44 @@ export function ResizeHandles({
             }
           };
 
-          handleDragStart({ evt: e.evt });         // overlay display
+          // Don't call handleDragStart for rotation - it's for resize operations
           window.addEventListener("mousemove", move);
           window.addEventListener("mouseup", up);
         }}
       >
-        {/* Background circle - hide during rotation */}
+        {/* Rotation icon - hide during rotation */}
         {!isRotating && (
-          <Circle
-            x={0}
-            y={0}
-            radius={iconSize / 2}
-            fill="white"
-            stroke="#3b82f6"
-            strokeWidth={strokeWidth}
-          />
-        )}
-        {/* Lucide corner-up-right icon - hide during rotation */}
-        {!isRotating && (
-          <Path
-            data={`
-              M ${iconSize * 0.15} ${iconSize * 0.15}
-              L ${iconSize * 0.15} ${-iconSize * 0.15}
-              L ${-iconSize * 0.15} ${-iconSize * 0.15}
-              M ${iconSize * 0.15} ${-iconSize * 0.15}
-              L ${-iconSize * 0.05} ${-iconSize * 0.25}
-              M ${iconSize * 0.15} ${-iconSize * 0.15}
-              L ${iconSize * 0.25} ${-iconSize * 0.05}
-            `}
-            stroke="#3b82f6"
-            strokeWidth={strokeWidth * 3}
-            strokeLineCap="round"
-            strokeLineJoin="round"
-            fill="none"
-          />
+          <>
+            {/* First path: the curved arrow */}
+            <Path
+              data="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"
+              stroke="#ffffff"
+              strokeWidth={3}  // Use a fixed value instead of calculated
+              fill="transparent"  // Use "transparent" instead of "none"
+              lineCap="round"    // Note: different casing
+              lineJoin="round"   // Note: different casing
+              scaleX={iconSize / 24}
+              scaleY={iconSize / 24}
+              offsetX={12}
+              offsetY={12}
+            />
+            {/* Second path: the arrow head */}
+            <Path
+              data="M21 3v5h-5"
+              stroke="#ffffff"
+              strokeWidth={3}  // Use a fixed value instead of calculated
+              fill="transparent"  // Use "transparent" instead of "none"
+              lineCap="round"    // Note: different casing
+              lineJoin="round"   // Note: different casing
+              scaleX={iconSize / 24}
+              scaleY={iconSize / 24}
+              offsetX={12}
+              offsetY={12}
+            />
+          </>
         )}
       </Group>
-
+      
       {/* helper lines and arc ---------------------------------------------------- */}
       {baseVec && currVec && (
         <>

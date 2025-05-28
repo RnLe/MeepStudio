@@ -36,11 +36,13 @@ type CanvasState = {
   toggleShowGrid: () => void;
   showResolutionOverlay: boolean;
   toggleShowResolutionOverlay: () => void;
+  showCanvasInfo: boolean;
+  toggleShowCanvasInfo: () => void;
 };
 
 export const useCanvasStore = createWithEqualityFn<CanvasState>(
   (set, get) => ({
-    gridSnapping: true,
+    gridSnapping: false, // Changed from true to false
     toggleGridSnapping: () => set((s) => ({ gridSnapping: !s.gridSnapping, resolutionSnapping: s.gridSnapping ? s.resolutionSnapping : false })),
     resolutionSnapping: false,
     toggleResolutionSnapping: () => set((s) => ({ resolutionSnapping: !s.resolutionSnapping, gridSnapping: s.resolutionSnapping ? s.gridSnapping : false })),
@@ -101,6 +103,8 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
     toggleShowGrid: () => set((s) => ({ showGrid: !s.showGrid })),
     showResolutionOverlay: false,
     toggleShowResolutionOverlay: () => set((s) => ({ showResolutionOverlay: !s.showResolutionOverlay })),
+    showCanvasInfo: true,
+    toggleShowCanvasInfo: () => set((s) => ({ showCanvasInfo: !s.showCanvasInfo })),
   }),
   shallow
 );

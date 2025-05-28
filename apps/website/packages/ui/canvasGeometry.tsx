@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { Cylinder, Rectangle as RectEl, Triangle } from "../types/canvasElementTypes";
 import { Line, Circle, Rect } from "react-konva";
 import { ResizeHandles } from "./resizeHandles";
@@ -9,11 +9,35 @@ import { ResizeHandles } from "./resizeHandles";
  * Expects all props and helpers to be passed in from the parent.
  */
 
+interface GeometryLayerProps {
+  cylinders: any[];
+  rectangles: any[];
+  triangles: any[];
+  selectedIds: string[];
+  gridSnapping: boolean;
+  resolutionSnapping: boolean;
+  snapCanvasPosToGrid: (pos: { x: number; y: number }) => { x: number; y: number };
+  multiDragAnchor: any;
+  setMultiDragAnchor: (anchor: any) => void;
+  geometries: any[];
+  updateGeometry: (id: string, updates: any) => void;
+  handleUpdateGeometry: (id: string, updates: any) => void;
+  selectElement: (id: string | null, opts?: { shift?: boolean }) => void;
+  GRID_PX: number;
+  project: any;
+  scale: number;
+  showGrid: boolean;
+  showResolutionOverlay: boolean;
+  toggleShowGrid: () => void;
+  toggleShowResolutionOverlay: () => void;
+  setActiveInstructionSet: (key: 'default' | 'rotating' | 'resizing' | 'dragging') => void;
+}
+
 export function GeometryLayer({
   cylinders,
   rectangles,
   triangles,
-  selectedIds: selectedGeometryIds,
+  selectedIds,
   gridSnapping,
   resolutionSnapping,
   snapCanvasPosToGrid,
@@ -22,15 +46,16 @@ export function GeometryLayer({
   geometries,
   updateGeometry,
   handleUpdateGeometry,
-  selectElement: selectGeometry,
+  selectElement,
   GRID_PX,
   project,
   scale,
   showGrid,
   showResolutionOverlay,
   toggleShowGrid,
-  toggleShowResolutionOverlay
-}: any) {
+  toggleShowResolutionOverlay,
+  setActiveInstructionSet
+}: GeometryLayerProps) {
   // Track dragging state for all rectangles
   const [draggingRectangles, setDraggingRectangles] = React.useState<Set<string>>(new Set());
   
@@ -73,10 +98,19 @@ export function GeometryLayer({
     return value;
   }, [gridSnapping, resolutionSnapping, project?.scene?.resolution]);
 
+  // Handle drag start/end for instruction set updates
+  const handleGeometryDragStart = useCallback(() => {
+    setActiveInstructionSet('dragging');
+  }, [setActiveInstructionSet]);
+
+  const handleGeometryDragEnd = useCallback(() => {
+    setActiveInstructionSet('default');
+  }, [setActiveInstructionSet]);
+
   return (
     <>
       {cylinders.map((el: any) => {
-        const isSel = selectedGeometryIds.includes(el.id);
+        const isSel = selectedIds.includes(el.id);
         if (el.kind === "cylinder") {
           const c = el as Cylinder;
           return (
@@ -98,11 +132,12 @@ export function GeometryLayer({
                 : {}
               )}
               onDragStart={(evt) => {
-                if (isSel && selectedGeometryIds.length > 1) {
+                handleGeometryDragStart();
+                if (isSel && selectedIds.length > 1) {
                   setMultiDragAnchor({
                     id: c.id,
                     anchor: { x: c.pos.x, y: c.pos.y },
-                    initialPositions: Object.fromEntries(selectedGeometryIds.map((id: string) => {
+                    initialPositions: Object.fromEntries(selectedIds.map((id: string) => {
                       const g = geometries.find((g: any) => g.id === id);
                       return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
                     }).filter(Boolean) as [string, { x: number; y: number }][]),
@@ -110,14 +145,14 @@ export function GeometryLayer({
                 }
               }}
               onDragMove={(evt) => {
-                if (multiDragAnchor && isSel && selectedGeometryIds.length > 1 && multiDragAnchor.id === c.id) {
+                if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === c.id) {
                   const newX = evt.target.x() / GRID_PX;
                   const newY = evt.target.y() / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
                   
                   // Update all selected items including the anchor
-                  selectedGeometryIds.forEach((id: string) => {
+                  selectedIds.forEach((id: string) => {
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
                       const init = multiDragAnchor.initialPositions[id];
@@ -129,14 +164,15 @@ export function GeometryLayer({
                 }
               }}
               onDragEnd={(evt) => {
-                if (multiDragAnchor && isSel && selectedGeometryIds.length > 1 && multiDragAnchor.id === c.id) {
+                handleGeometryDragEnd();
+                if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === c.id) {
                   const newX = evt.target.x() / GRID_PX;
                   const newY = evt.target.y() / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
                   
                   // Update all selected items with final positions
-                  selectedGeometryIds.forEach((id: string) => {
+                  selectedIds.forEach((id: string) => {
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
                       const init = multiDragAnchor.initialPositions[id];
@@ -153,14 +189,14 @@ export function GeometryLayer({
                   handleUpdateGeometry(c.id, { pos: { x, y } });
                 }
               }}
-              onClick={(evt) => selectGeometry(c.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
+              onClick={(evt) => selectElement(c.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
             />
           );
         }
         return null;
       })}
       {rectangles.map((el: any) => {
-        const isSel = selectedGeometryIds.includes(el.id);
+        const isSel = selectedIds.includes(el.id);
         if (el.kind === "rectangle") {
           const r = el as RectEl;
           const isDragging = isRectangleDragging(r.id);
@@ -188,11 +224,12 @@ export function GeometryLayer({
                 )}
                 onDragStart={(evt) => {
                   setRectangleDragging(r.id, true);
-                  if (isSel && selectedGeometryIds.length > 1) {
+                  handleGeometryDragStart();
+                  if (isSel && selectedIds.length > 1) {
                     setMultiDragAnchor({
                       id: r.id,
                       anchor: { x: r.pos.x, y: r.pos.y },
-                      initialPositions: Object.fromEntries(selectedGeometryIds.map((id: string) => {
+                      initialPositions: Object.fromEntries(selectedIds.map((id: string) => {
                         const g = geometries.find((g: any) => g.id === id);
                         return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
                       }).filter(Boolean) as [string, { x: number; y: number }][]),
@@ -200,14 +237,14 @@ export function GeometryLayer({
                   }
                 }}
                 onDragMove={(evt) => {
-                  if (multiDragAnchor && isSel && selectedGeometryIds.length > 1 && multiDragAnchor.id === r.id) {
+                  if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === r.id) {
                     const newX = evt.target.x() / GRID_PX;
                     const newY = evt.target.y() / GRID_PX;
                     const dx = newX - multiDragAnchor.anchor.x;
                     const dy = newY - multiDragAnchor.anchor.y;
                     
                     // Update all selected items including the anchor
-                    selectedGeometryIds.forEach((id: string) => {
+                    selectedIds.forEach((id: string) => {
                       const g = geometries.find((g: any) => g.id === id);
                       if (g) {
                         const init = multiDragAnchor.initialPositions[id];
@@ -216,7 +253,7 @@ export function GeometryLayer({
                         }
                       }
                     });
-                  } else if (selectedGeometryIds.length === 1) {
+                  } else if (selectedIds.length === 1) {
                     // Single item drag - update position immediately
                     const centerX = evt.target.x() / GRID_PX;
                     const centerY = evt.target.y() / GRID_PX;
@@ -225,14 +262,15 @@ export function GeometryLayer({
                 }}
                 onDragEnd={(evt) => {
                   setRectangleDragging(r.id, false);
-                  if (multiDragAnchor && isSel && selectedGeometryIds.length > 1 && multiDragAnchor.id === r.id) {
+                  handleGeometryDragEnd();
+                  if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === r.id) {
                     const newX = evt.target.x() / GRID_PX;
                     const newY = evt.target.y() / GRID_PX;
                     const dx = newX - multiDragAnchor.anchor.x;
                     const dy = newY - multiDragAnchor.anchor.y;
                     
                     // Update all selected items with final positions
-                    selectedGeometryIds.forEach((id: string) => {
+                    selectedIds.forEach((id: string) => {
                       const g = geometries.find((g: any) => g.id === id);
                       if (g) {
                         const init = multiDragAnchor.initialPositions[id];
@@ -249,7 +287,7 @@ export function GeometryLayer({
                     handleUpdateGeometry(r.id, { pos: { x: centerX, y: centerY } });
                   }
                 }}
-                onClick={(evt) => selectGeometry(r.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
+                onClick={(evt) => selectElement(r.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
                 onTransformEnd={(evt) => {
                   // Handle rotation updates
                   const node = evt.target;
@@ -261,7 +299,7 @@ export function GeometryLayer({
                 }}
               />
               {/* Show resize handles when selected and only this rectangle is selected */}
-              {isSel && selectedGeometryIds.length === 1 && !isDragging && (
+              {isSel && selectedIds.length === 1 && !isDragging && (
                 <ResizeHandles
                   rectangle={r}
                   GRID_PX={GRID_PX}
@@ -276,6 +314,7 @@ export function GeometryLayer({
                   toggleShowGrid={toggleShowGrid}
                   toggleShowResolutionOverlay={toggleShowResolutionOverlay}
                   handleUpdateGeometry={handleUpdateGeometry}
+                  setActiveInstructionSet={setActiveInstructionSet}
                 />
               )}
             </React.Fragment>
@@ -284,7 +323,7 @@ export function GeometryLayer({
         return null;
       })}
       {triangles.map((el: any) => {
-        const isSel = selectedGeometryIds.includes(el.id);
+        const isSel = selectedIds.includes(el.id);
         if (el.kind === "triangle") {
           const t = el as Triangle;
           const anchorX = t.pos.x * GRID_PX;
@@ -310,11 +349,11 @@ export function GeometryLayer({
                 : {}
               )}
               onDragStart={(evt) => {
-                if (isSel && selectedGeometryIds.length > 1) {
+                if (isSel && selectedIds.length > 1) {
                   setMultiDragAnchor({
                     id: t.id,
                     anchor: { x: t.pos.x, y: t.pos.y },
-                    initialPositions: Object.fromEntries(selectedGeometryIds.map((id: string) => {
+                    initialPositions: Object.fromEntries(selectedIds.map((id: string) => {
                       const g = geometries.find((g: any) => g.id === id);
                       return g ? [id, { x: g.pos.x, y: g.pos.y }] : null;
                     }).filter(Boolean) as [string, { x: number; y: number }][]),
@@ -322,14 +361,14 @@ export function GeometryLayer({
                 }
               }}
               onDragMove={(evt) => {
-                if (multiDragAnchor && isSel && selectedGeometryIds.length > 1 && multiDragAnchor.id === t.id) {
+                if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === t.id) {
                   const newX = evt.target.x() / GRID_PX;
                   const newY = evt.target.y() / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
                   
                   // Update all selected items including the anchor
-                  selectedGeometryIds.forEach((id: string) => {
+                  selectedIds.forEach((id: string) => {
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
                       const init = multiDragAnchor.initialPositions[id];
@@ -341,14 +380,14 @@ export function GeometryLayer({
                 }
               }}
               onDragEnd={(evt) => {
-                if (multiDragAnchor && isSel && selectedGeometryIds.length > 1 && multiDragAnchor.id === t.id) {
+                if (multiDragAnchor && isSel && selectedIds.length > 1 && multiDragAnchor.id === t.id) {
                   const newX = evt.target.x() / GRID_PX;
                   const newY = evt.target.y() / GRID_PX;
                   const dx = newX - multiDragAnchor.anchor.x;
                   const dy = newY - multiDragAnchor.anchor.y;
                   
                   // Update all selected items with final positions
-                  selectedGeometryIds.forEach((id: string) => {
+                  selectedIds.forEach((id: string) => {
                     const g = geometries.find((g: any) => g.id === id);
                     if (g) {
                       const init = multiDragAnchor.initialPositions[id];
@@ -365,7 +404,7 @@ export function GeometryLayer({
                   handleUpdateGeometry(t.id, { pos: { x: newX, y: newY } });
                 }
               }}
-              onClick={(evt) => selectGeometry(t.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
+              onClick={(evt) => selectElement(t.id, { shift: evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey })}
             />
           );
         }

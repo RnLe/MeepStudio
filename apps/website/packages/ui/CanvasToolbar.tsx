@@ -5,7 +5,7 @@ import { Cylinder, Rectangle, Triangle } from "../types/canvasElementTypes";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid } from "lucide-react";
+import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 
 const GROUPS = [
@@ -35,6 +35,7 @@ type ToolbarState = {
   resolutionSnapping: boolean;
   showGrid: boolean;
   showResolutionOverlay: boolean;
+  showCanvasInfo: boolean;
 };
 
 interface Tool {
@@ -106,6 +107,13 @@ const overlayTools = [
     isActive: (state: { showResolutionOverlay: boolean }) => state.showResolutionOverlay,
     fnKey: "toggleShowResolutionOverlay",
   },
+  {
+    label: "Show Canvas Info",
+    icon: <Info size={18} className="" />,
+    onClick: (toggleShowCanvasInfo: () => void) => toggleShowCanvasInfo(),
+    isActive: (state: { showCanvasInfo: boolean }) => state.showCanvasInfo,
+    fnKey: "toggleShowCanvasInfo",
+  },
 ];
 
 const groupToolMap: Record<GroupKey, Tool[]> = {
@@ -136,6 +144,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
   const toggleShowResolutionOverlay = useCanvasStore((s) => s.toggleShowResolutionOverlay);
+  const showCanvasInfo = useCanvasStore((s) => s.showCanvasInfo);
+  const toggleShowCanvasInfo = useCanvasStore((s) => s.toggleShowCanvasInfo);
   const { updateProject } = useMeepProjects({ ghPages });
   const projectId = project.documentId;
   const geometries = project.scene?.geometries || [];
@@ -206,6 +216,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newTriangle,
     toggleShowGrid,
     toggleShowResolutionOverlay,
+    toggleShowCanvasInfo,
     toggleGridSnapping,
     toggleResolutionSnapping,
     setGridSnapping,
@@ -228,31 +239,41 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
               {group.label}
             </div>
             <div className="grid grid-cols-2 gap-1 w-full justify-items-center min-h-8">
-              {groupToolMap[group.key as GroupKey].map((tool, i) => (
-                <button
-                  key={tool.label}
-                  title={tool.label}
-                  className={`flex items-center justify-center w-8 h-8 rounded transition-all
-                    ${tool.isActive && tool.isActive({ gridSnapping, resolutionSnapping, showGrid, showResolutionOverlay })
-                      ? "bg-yellow-600/60 hover:bg-yellow-500/80"
-                      : "hover:bg-neutral-600 active:bg-neutral-600"}
-                  `}
-                  onClick={() => {
-                    if (tool.fnKey === "toggleGridSnapping") {
-                      tool.onClick({ toggleGridSnapping, setResolutionSnapping, gridSnapping });
-                    } else if (tool.fnKey === "toggleResolutionSnapping") {
-                      tool.onClick({ toggleResolutionSnapping, setGridSnapping, resolutionSnapping });
-                    } else if (tool.onClick && tool.fnKey) {
-                      tool.onClick(toolHandlers[tool.fnKey as keyof typeof toolHandlers]);
-                    } else if (tool.onClick) {
-                      tool.onClick(toggleGridSnapping);
-                    }
-                  }}
-                  aria-label={tool.label}
-                >
-                  {tool.icon}
-                </button>
-              ))}
+              {groupToolMap[group.key as GroupKey].map((tool, i) => {
+                // Determine active color based on tool
+                let activeColor = "bg-yellow-600/60 hover:bg-yellow-500/80"; // default
+                
+                // Use blue color for canvas info tool
+                if (tool.label === "Show Canvas Info") {
+                  activeColor = "bg-[#4a7ec7] hover:bg-[#7aa5d8]";
+                }
+                
+                return (
+                  <button
+                    key={tool.label}
+                    title={tool.label}
+                    className={`flex items-center justify-center w-8 h-8 rounded transition-all
+                      ${tool.isActive && tool.isActive({ gridSnapping, resolutionSnapping, showGrid, showResolutionOverlay, showCanvasInfo })
+                        ? activeColor
+                        : "hover:bg-neutral-600 active:bg-neutral-600"}
+                    `}
+                    onClick={() => {
+                      if (tool.fnKey === "toggleGridSnapping") {
+                        tool.onClick({ toggleGridSnapping, setResolutionSnapping, gridSnapping });
+                      } else if (tool.fnKey === "toggleResolutionSnapping") {
+                        tool.onClick({ toggleResolutionSnapping, setGridSnapping, resolutionSnapping });
+                      } else if (tool.onClick && tool.fnKey) {
+                        tool.onClick(toolHandlers[tool.fnKey as keyof typeof toolHandlers]);
+                      } else if (tool.onClick) {
+                        tool.onClick(toggleGridSnapping);
+                      }
+                    }}
+                    aria-label={tool.label}
+                  >
+                    {tool.icon}
+                  </button>
+                );
+              })}
             </div>
           </div>
           {idx < GROUPS.length - 1 && (

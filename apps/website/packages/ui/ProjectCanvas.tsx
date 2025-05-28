@@ -14,6 +14,28 @@ import { SelectionBoxLayer } from "./selectionBoxLayer";
 // --- Constants ---
 const GRID_PX = 40; // Fixed size for each cell in px
 
+// --- Instruction Sets for Canvas Info ---
+const INSTRUCTION_SETS = {
+  default: [
+    "Right Click + Drag: Pan",
+    "Left Click + Drag: Select"
+  ],
+  rotating: [
+    "Shift + Drag: Snap to 5°",
+    "Ctrl + Drag: Snap to 1°"
+  ],
+  resizing: [
+    "Shift + Drag: Snap to grid",
+    "Ctrl + Drag: Snap to resolution"
+  ],
+  dragging: [
+    "Shift + Drag: Snap to grid",
+    "Ctrl + Drag: Snap to resolution"
+  ]
+} as const;
+
+type InstructionSetKey = keyof typeof INSTRUCTION_SETS;
+
 // --- Types ---
 interface Props {
   project: MeepProject;
@@ -278,6 +300,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
   const toggleShowResolutionOverlay = useCanvasStore((s) => s.toggleShowResolutionOverlay);
+  const showCanvasInfo = useCanvasStore((s) => s.showCanvasInfo);
 
   // --- Grid Lines (Main and Resolution) ---
   const gridLines = useMemo(() => {
@@ -473,6 +496,28 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     const weight = 1/3 + (2/3) * (maxDimension - 1) / 9;
     return weight;
   }, [gridWidth, gridHeight]);
+
+  // --- Draggable Canvas Info State ---
+  const [infoPosition, setInfoPosition] = useState({ x: null as number | null, y: null as number | null });
+  const [isDraggingInfo, setIsDraggingInfo] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const infoRef = useRef<HTMLDivElement>(null);
+  const [activeInstructionSet, setActiveInstructionSet] = useState<InstructionSetKey>('default');
+
+  // Initialize position on mount and when container resizes
+  useEffect(() => {
+    if (containerSize.width > 0 && containerSize.height > 0) {
+      setInfoPosition({
+        x: containerSize.width - 200, // 180px → 200px (20px more to the left)
+        y: containerSize.height - 120, // 100px → 120px (20px more up)
+      });
+    }
+  }, [containerSize.width, containerSize.height]);
+
+  // Export setActiveInstructionSet for use in child components
+  const canvasContext = useMemo(() => ({
+    setActiveInstructionSet
+  }), []);
 
   // --- Render ---
   return (
@@ -794,12 +839,72 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             showResolutionOverlay={showResolutionOverlay}
             toggleShowGrid={toggleShowGrid}
             toggleShowResolutionOverlay={toggleShowResolutionOverlay}
+            setActiveInstructionSet={setActiveInstructionSet}
           />
         </Layer>
 
         {/* --- Selection rectangle overlay --- */}
         <SelectionBoxLayer selBox={selBox} />
       </Stage>
+      
+      {/* Canvas info overlay */}
+      {showCanvasInfo && infoPosition.x !== null && infoPosition.y !== null && (
+        <div
+          ref={infoRef}
+          className="absolute bg-gray-800/90 backdrop-blur rounded-lg p-3 text-xs text-gray-300 select-none whitespace-nowrap"
+          style={{
+            left: `${infoPosition.x}px`,
+            top: `${infoPosition.y}px`,
+            minWidth: '160px',
+          }}
+          onMouseDown={(e) => {
+            const rect = infoRef.current?.getBoundingClientRect();
+            const containerRect = containerRef.current?.getBoundingClientRect();
+            if (rect && containerRect) {
+              setDragOffset({
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+              });
+              setIsDraggingInfo(true);
+              e.preventDefault();
+            }
+          }}
+        >
+          <div className="space-y-1">
+            {INSTRUCTION_SETS[activeInstructionSet].map((instruction, index) => (
+              <div key={index} className="text-gray-200">{instruction}</div>
+            ))}
+            <div className="text-gray-500 mt-2 pt-2 border-t border-gray-700">
+              <div>Zoom: {(scale / minZoomDynamic).toFixed(1)}</div>
+              {gridSnapping && <div>Grid snapping</div>}
+              {resolutionSnapping && <div>Resolution snapping</div>}
+              {!gridSnapping && !resolutionSnapping && <div>No snapping</div>}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Global mouse handlers for dragging */}
+      {isDraggingInfo && (
+        <div
+          className="fixed inset-0 z-50"
+          onMouseMove={(e) => {
+            const containerRect = containerRef.current?.getBoundingClientRect();
+            const infoRect = infoRef.current?.getBoundingClientRect();
+            if (containerRect && infoRect) {
+              const x = e.clientX - containerRect.left - dragOffset.x;
+              const y = e.clientY - containerRect.top - dragOffset.y;
+              setInfoPosition({
+                x: Math.max(0, Math.min(containerSize.width - infoRect.width, x)),
+                y: Math.max(0, Math.min(containerSize.height - infoRect.height, y)),
+              });
+            }
+          }}
+          onMouseUp={() => {
+            setIsDraggingInfo(false);
+          }}
+        />
+      )}
     </div>
   );
 };
