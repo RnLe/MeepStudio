@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { Group, Circle, Arrow, Rect, Line, Text, Path, Shape } from "react-konva";
 import { nanoid } from "nanoid";
+import { useCanvasStore } from "../providers/CanvasStore";
 
 export const SourceLayer: React.FC<{
   sources: any[];
@@ -14,11 +15,13 @@ export const SourceLayer: React.FC<{
   setMultiDragAnchor: (anchor: { id: string; anchor: { x: number; y: number }; initialPositions: Record<string, { x: number; y: number }> } | null) => void;
   updateSource: (id: string, partial: Partial<any>) => void;
   handleUpdateSource: (id: string, partial: Partial<any>) => void;
+  handleUpdateGeometry: (id: string, partial: Partial<any>) => void;
   selectElement: (id: string | null, opts?: { shift?: boolean }) => void;
   GRID_PX: number;
   project: any;
   scale: number;
   setActiveInstructionSet: (set: any) => void;
+  getAllElements: () => any[];
 }> = ({
   sources,
   selectedIds,
@@ -29,11 +32,13 @@ export const SourceLayer: React.FC<{
   setMultiDragAnchor,
   updateSource,
   handleUpdateSource,
+  handleUpdateGeometry,
   selectElement,
   GRID_PX,
   project,
   scale,
   setActiveInstructionSet,
+  getAllElements,
 }) => {
   // Helper to determine source visual type
   const getSourceVisualType = (source: any) => {
@@ -79,19 +84,29 @@ export const SourceLayer: React.FC<{
             draggable
             onDragStart={(e) => {
               setActiveInstructionSet('dragging');
-              if (selectedIds.length > 1 && selectedIds.includes(source.id)) {
-                // Initialize multi-drag
-                const initPositions: Record<string, { x: number; y: number }> = {};
-                selectedIds.forEach(id => {
-                  const elem = sources.find(s => s.id === id);
-                  if (elem) {
-                    initPositions[id] = { x: elem.pos.x, y: elem.pos.y };
-                  }
+
+              // ensure the dragged source is selected
+              if (!selectedIds.includes(source.id)) {
+                selectElement(source.id);
+              }
+
+              // --- RE-READ the current selection from the store ---
+              const currentSel = useCanvasStore.getState().selectedGeometryIds;
+              if (currentSel.length > 1 && currentSel.includes(source.id)) {
+                const allElements = getAllElements();
+                const init: Record<string,{x:number;y:number}> = {};
+                currentSel.forEach(id=>{
+                  const el = allElements.find(e=>e.id===id);
+                  if (el) init[id] = { ...el.pos };
                 });
+                
+                // Get the anchor position in canvas coordinates (not lattice!)
+                const anchorPos = e.target.position();
+                
                 setMultiDragAnchor({
                   id: source.id,
-                  anchor: { x: source.pos.x, y: source.pos.y },
-                  initialPositions: initPositions
+                  anchor: anchorPos,  // This should be in canvas pixels!
+                  initialPositions: init,
                 });
               }
             }}
@@ -102,17 +117,34 @@ export const SourceLayer: React.FC<{
               node.position(snappedPos);
               
               if (multiDragAnchor && multiDragAnchor.id === source.id) {
-                // Multi-drag logic
-                const dx = snappedPos.x / GRID_PX - multiDragAnchor.anchor.x;
-                const dy = snappedPos.y / GRID_PX - multiDragAnchor.anchor.y;
+                // Multi-drag logic for all elements
+                // Calculate delta in canvas coordinates
+                const deltaX = snappedPos.x - multiDragAnchor.anchor.x;
+                const deltaY = snappedPos.y - multiDragAnchor.anchor.y;
+                
+                // Convert delta to lattice units
+                const deltaLatticeX = deltaX / GRID_PX;
+                const deltaLatticeY = deltaY / GRID_PX;
+                
+                const { updateGeometry, updateSource } = useCanvasStore.getState();
+                const allElements = getAllElements();
                 
                 Object.entries(multiDragAnchor.initialPositions).forEach(([id, initPos]) => {
                   const typedInitPos = initPos as { x: number; y: number };
                   const newPos = {
-                    x: typedInitPos.x + dx,
-                    y: typedInitPos.y + dy,
+                    x: typedInitPos.x + deltaLatticeX,
+                    y: typedInitPos.y + deltaLatticeY,
                   };
-                  updateSource(id, { pos: newPos });
+                  
+                  // Check if it's a geometry or source and update accordingly
+                  const elem = allElements.find(e => e.id === id);
+                  if (elem) {
+                    if (elem.kind === 'cylinder' || elem.kind === 'rectangle' || elem.kind === 'triangle') {
+                      updateGeometry(id, { pos: newPos });
+                    } else {
+                      updateSource(id, { pos: newPos });
+                    }
+                  }
                 });
               } else {
                 // Single drag
@@ -130,24 +162,49 @@ export const SourceLayer: React.FC<{
               const finalPos = snapCanvasPosToGrid(pos);
               
               if (multiDragAnchor && multiDragAnchor.id === source.id) {
-                // Finalize multi-drag
-                const dx = finalPos.x / GRID_PX - multiDragAnchor.anchor.x;
-                const dy = finalPos.y / GRID_PX - multiDragAnchor.anchor.y;
+                // Finalize multi-drag for all elements
+                // Calculate delta in canvas coordinates
+                const deltaX = finalPos.x - multiDragAnchor.anchor.x;
+                const deltaY = finalPos.y - multiDragAnchor.anchor.y;
                 
-                const updates: Array<{ id: string; pos: { x: number; y: number } }> = [];
+                // Convert delta to lattice units
+                const deltaLatticeX = deltaX / GRID_PX;
+                const deltaLatticeY = deltaY / GRID_PX;
+                
+                const allElements = getAllElements();
+                
+                const geomUpdates: Array<{ id: string; pos: { x: number; y: number } }> = [];
+                const sourceUpdates: Array<{ id: string; pos: { x: number; y: number } }> = [];
+                
                 Object.entries(multiDragAnchor.initialPositions).forEach(([id, initPos]) => {
                   const typedInitPos = initPos as { x: number; y: number };
                   const newPos = {
-                    x: typedInitPos.x + dx,
-                    y: typedInitPos.y + dy,
+                    x: typedInitPos.x + deltaLatticeX,
+                    y: typedInitPos.y + deltaLatticeY,
                   };
-                  updates.push({ id, pos: newPos });
+                  
+                  const elem = allElements.find(e => e.id === id);
+                  if (elem) {
+                    if (elem.kind === 'cylinder' || elem.kind === 'rectangle' || elem.kind === 'triangle') {
+                      geomUpdates.push({ id, pos: newPos });
+                    } else {
+                      sourceUpdates.push({ id, pos: newPos });
+                    }
+                  }
                 });
                 
-                // Batch update
-                updates.forEach(({ id, pos }) => {
-                  handleUpdateSource(id, { pos });
-                });
+                // Batch update through project
+                if (geomUpdates.length > 0 || sourceUpdates.length > 0) {
+                  // Update each geometry
+                  geomUpdates.forEach(({ id, pos }) => {
+                    handleUpdateGeometry(id, { pos });
+                  });
+                  
+                  // Update each source
+                  sourceUpdates.forEach(({ id, pos }) => {
+                    handleUpdateSource(id, { pos });
+                  });
+                }
                 
                 setMultiDragAnchor(null);
               } else {
@@ -159,8 +216,9 @@ export const SourceLayer: React.FC<{
                 handleUpdateSource(source.id, { pos: newPos });
               }
             }}
-            onMouseDown={(e) => {
-              const shift = e.evt.shiftKey;
+            onClick={(evt) => {
+              // Handle selection on click (not drag)
+              const shift = evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey;
               selectElement(source.id, { shift });
             }}
           >

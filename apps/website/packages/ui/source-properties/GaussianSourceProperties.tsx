@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { SourceComponent } from "../../types/meepSourceTypes";
-import { Zap } from "lucide-react";
+import { Zap, RotateCcw } from "lucide-react";
 import { GaussianPulsePlot } from "../plots/GaussianPulsePlot";
 import { Dial } from "../components/Dial";
 import { LengthUnit } from "../../types/meepProjectTypes";
@@ -11,6 +11,11 @@ import {
   convertTime,
   convertWavelength
 } from "../../utils/physicalUnitsHelper";
+import { 
+  getSourceDefaults, 
+  GAUSSIAN_SOURCE_DEFAULTS,
+  BASE_SOURCE_DEFAULTS 
+} from "../../constants/sourceDefaults";
 
 interface GaussianSourcePropertiesProps {
   source: any;
@@ -25,6 +30,9 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
   projectUnit = LengthUnit.NM,
   projectA = 1
 }) => {
+  // Get default values
+  const defaults = React.useMemo(() => getSourceDefaults('gaussian'), []);
+  
   const [showUnits, setShowUnits] = React.useState(false);
   const [lineOrientation, setLineOrientation] = React.useState<'horizontal' | 'vertical'>('horizontal');
   const [areaOrientation, setAreaOrientation] = React.useState<'wide' | 'tall'>('wide');
@@ -60,12 +68,12 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
     }
   };
 
-  // Calculate derived values
-  const frequency = source.frequency || 1;
-  const width = source.width || 0.1;
+  // Calculate derived values using defaults
+  const frequency = source.frequency || defaults.frequency;
+  const width = source.width || defaults.width;
   const fwidth = width > 0 ? 1 / width : Infinity;
-  const startTime = source.startTime || 0;
-  const cutoff = source.cutoff || 5;
+  const startTime = source.startTime || defaults.start_time;
+  const cutoff = source.cutoff || defaults.cutoff;
   const peakTime = startTime + cutoff * width;
   const wavelength = frequency > 0 ? 1 / frequency : 0;
 
@@ -83,7 +91,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
   // Set default component to Ez if not set
   React.useEffect(() => {
     if (!source.component) {
-      onUpdate({ component: SourceComponent.Ez });
+      onUpdate({ component: defaults.component });
     }
   }, []);
 
@@ -140,6 +148,28 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
     }
   }, [sizeX, sizeY, sourceType]);
 
+  const handleResetTimeFrequencyParams = () => {
+    onUpdate({
+      amplitude: defaults.amplitude,
+      frequency: defaults.frequency,
+      width: defaults.width,
+      startTime: defaults.start_time,
+      cutoff: defaults.cutoff
+    });
+  };
+
+  // Check if any time/frequency parameter differs from default
+  const hasNonDefaultTimeFreqParams = React.useMemo(() => {
+    return (
+      (source.amplitude?.real !== defaults.amplitude.real) ||
+      (source.amplitude?.imag !== defaults.amplitude.imag) ||
+      (source.frequency !== defaults.frequency) ||
+      (source.width !== defaults.width) ||
+      (source.startTime !== defaults.start_time) ||
+      (source.cutoff !== defaults.cutoff)
+    );
+  }, [source, defaults]);
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
@@ -178,11 +208,11 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
       
       {/* Gaussian Pulse Visualization */}
       <GaussianPulsePlot
-        frequency={source.frequency || 1}
-        pulseWidth={source.width || 0.1}
-        startTime={source.startTime || 0}
-        cutoff={source.cutoff || 5}
-        amplitude={source.amplitude || { real: 1, imag: 0 }}
+        frequency={source.frequency || defaults.frequency}
+        pulseWidth={source.width || defaults.width}
+        startTime={source.startTime || defaults.start_time}
+        cutoff={source.cutoff || defaults.cutoff}
+        amplitude={source.amplitude || defaults.amplitude}
         showUnits={showUnits}
         projectUnit={projectUnit}
         projectA={projectA}
@@ -196,7 +226,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
             <div>
               <label className="text-[10px] text-gray-400 block mb-0.5">Component</label>
               <select
-                value={source.component || SourceComponent.Ez}
+                value={source.component || defaults.component}
                 onChange={(e) => onUpdate({ component: e.target.value })}
                 className="w-full px-1 py-0.5 text-xs bg-neutral-700 rounded text-gray-200"
               >
@@ -237,8 +267,20 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
       </div>
 
       {/* Time & Frequency Parameters - 2x4 grid layout */}
-      <div className="bg-neutral-700/30 rounded-lg p-2">
+      <div className="bg-neutral-700/30 rounded-lg p-2 relative">
         <label className="text-[10px] text-gray-400 block mb-1">Time & Frequency Parameters</label>
+        
+        {/* Reset button - only show when values differ from defaults */}
+        {hasNonDefaultTimeFreqParams && (
+          <button
+            onClick={handleResetTimeFrequencyParams}
+            className="absolute top-1 right-1 p-1 rounded-full transition-colors group"
+            title="Reset all parameters"
+          >
+            <RotateCcw size={12} className="text-gray-500 group-hover:text-white transition-colors" />
+          </button>
+        )}
+        
         <div className="grid grid-cols-4 gap-2 items-center">
           {/* Amplitude column (2x1) */}
           <div className="col-span-1">
@@ -247,26 +289,28 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
               <div className="space-y-2">
                 <div className="flex justify-center">
                   <Dial
-                    value={source.amplitude?.real || 1}
-                    onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || { real: 1, imag: 0 }), real: val } })}
+                    value={source.amplitude?.real || defaults.amplitude.real}
+                    onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || defaults.amplitude), real: val } })}
                     mode="linear"
                     min={-10}
                     max={10}
                     step={0.1}
                     size={36}
                     label="Real"
+                    defaultValue={defaults.amplitude.real}
                   />
                 </div>
                 <div className="flex justify-center">
                   <Dial
-                    value={source.amplitude?.imag || 0}
-                    onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || { real: 1, imag: 0 }), imag: val } })}
+                    value={source.amplitude?.imag || defaults.amplitude.imag}
+                    onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || defaults.amplitude), imag: val } })}
                     mode="linear"
                     min={-10}
                     max={10}
                     step={0.1}
                     size={36}
                     label="Imaginary"
+                    defaultValue={defaults.amplitude.imag}
                   />
                 </div>
               </div>
@@ -280,16 +324,17 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
               <div className="flex justify-center">
                 <div className="flex flex-col items-center">
                   <Dial
-                    value={source.frequency || 1}
+                    value={source.frequency || defaults.frequency}
                     onChange={(val) => onUpdate({ frequency: val })}
                     mode="10x"
                     min={0.001}
                     step={0.001}
                     size={36}
                     label="Frequency"
+                    defaultValue={defaults.frequency}
                   />
                   <div className="text-[9px] text-blue-400 mt-0.5 h-3">
-                    {showUnits && convertFrequency(source.frequency || 1, projectA, projectUnit)}
+                    {showUnits && convertFrequency(source.frequency || defaults.frequency, projectA, projectUnit)}
                   </div>
                 </div>
               </div>
@@ -298,16 +343,17 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
               <div className="flex justify-center">
                 <div className="flex flex-col items-center">
                   <Dial
-                    value={source.width || 0.1}
+                    value={source.width || defaults.width}
                     onChange={(val) => onUpdate({ width: val })}
                     mode="10x"
                     min={0.001}
                     step={0.0001}
                     size={36}
                     label="Pulse Width"
+                    defaultValue={defaults.width}
                   />
                   <div className="text-[9px] text-blue-400 mt-0.5 h-3">
-                    {showUnits && convertTime(source.width || 0.1, projectA, projectUnit)}
+                    {showUnits && convertTime(source.width || defaults.width, projectA, projectUnit)}
                   </div>
                 </div>
               </div>
@@ -316,16 +362,17 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
               <div className="flex justify-center">
                 <div className="flex flex-col items-center">
                   <Dial
-                    value={source.startTime || 0}
+                    value={source.startTime || defaults.start_time}
                     onChange={(val) => onUpdate({ startTime: val })}
                     mode="linear"
                     min={0}
                     step={0.001}
                     size={36}
                     label="Start Time"
+                    defaultValue={defaults.start_time}
                   />
                   <div className="text-[9px] text-blue-400 mt-0.5 h-3">
-                    {showUnits && convertTime(source.startTime || 0, projectA, projectUnit)}
+                    {showUnits && convertTime(source.startTime || defaults.start_time, projectA, projectUnit)}
                   </div>
                 </div>
               </div>
@@ -333,7 +380,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
               {/* Cutoff - positioned below frequency */}
               <div className="flex justify-center col-start-2">
                 <Dial
-                  value={source.cutoff || 5}
+                  value={source.cutoff || defaults.cutoff}
                   onChange={(val) => onUpdate({ cutoff: val })}
                   mode="linear"
                   min={1}
@@ -341,6 +388,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
                   step={0.001}
                   size={36}
                   label="Cutoff"
+                  defaultValue={defaults.cutoff}
                 />
               </div>
             </div>
@@ -471,7 +519,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
         <label className="text-xs text-gray-400 cursor-pointer select-none">Integrated source</label>
         <input
           type="checkbox"
-          checked={source.isIntegrated || false}
+          checked={source.isIntegrated || defaults.is_integrated}
           onChange={(e) => e.stopPropagation()}
           className="rounded bg-neutral-700 border-gray-600 cursor-pointer"
         />

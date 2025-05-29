@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import { Cylinder, Rectangle as RectEl, Triangle } from "../types/canvasElementTypes";
 import { Line, Circle, Rect, Group } from "react-konva";
 import { ResizeHandles } from "./resizeHandles";
+import { useCanvasStore } from "packages/providers/CanvasStore";
 
 /**
  * Geometry rendering components for ProjectCanvas.
@@ -22,6 +23,7 @@ interface GeometryLayerProps {
   geometries: any[];
   updateGeometry: (id: string, updates: any) => void;
   handleUpdateGeometry: (id: string, updates: any) => void;
+  handleUpdateSource?: (id: string, updates: any) => void;
   selectElement: (id: string | null, opts?: { shift?: boolean }) => void;
   GRID_PX: number;
   project: any;
@@ -46,6 +48,7 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
   geometries,
   updateGeometry,
   handleUpdateGeometry,
+  handleUpdateSource,
   selectElement,
   GRID_PX,
   project,
@@ -263,10 +266,13 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
     }
     
     const anchorPos = e.target.position();
+    const { getAllElements } = useCanvasStore.getState();
+    const allElements = getAllElements();
+    
     const initialPositions = selectedIds.reduce((acc, id) => {
-      const geom = geometries.find(g => g.id === id);
-      if (geom) {
-        acc[id] = { ...geom.pos };
+      const elem = allElements.find(e => e.id === id);
+      if (elem) {
+        acc[id] = { ...elem.pos };
       }
       return acc;
     }, {} as Record<string, { x: number; y: number }>);
@@ -276,7 +282,7 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
       anchor: anchorPos,
       initialPositions,
     });
-  }, [selectedIds, geometries, setMultiDragAnchor, setActiveInstructionSet, showGrid, showResolutionOverlay]);
+  }, [selectedIds, setMultiDragAnchor, setActiveInstructionSet, showGrid, showResolutionOverlay]);
 
   const handleMultiDragMove = React.useCallback((e: any) => {
     if (!multiDragAnchor) return;
@@ -312,6 +318,9 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
     const deltaX = snappedPos.x - multiDragAnchor.anchor.x;
     const deltaY = snappedPos.y - multiDragAnchor.anchor.y;
     
+    const { updateGeometry, updateSource, getAllElements } = useCanvasStore.getState();
+    const allElements = getAllElements();
+    
     // Update all selected elements
     selectedIds.forEach(id => {
       const initialPos = multiDragAnchor.initialPositions[id];
@@ -319,9 +328,14 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
         const newX = initialPos.x + deltaX / GRID_PX;
         const newY = initialPos.y + deltaY / GRID_PX;
         
-        updateGeometry(id, {
-          pos: { x: newX, y: newY }
-        });
+        const elem = allElements.find(e => e.id === id);
+        if (elem) {
+          if (elem.kind === 'cylinder' || elem.kind === 'rectangle' || elem.kind === 'triangle') {
+            updateGeometry(id, { pos: { x: newX, y: newY } });
+          } else {
+            updateSource(id, { pos: { x: newX, y: newY } });
+          }
+        }
       }
     });
     
@@ -343,6 +357,9 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
     const deltaX = snappedPos.x - multiDragAnchor.anchor.x;
     const deltaY = snappedPos.y - multiDragAnchor.anchor.y;
     
+    const { getAllElements } = useCanvasStore.getState();
+    const allElements = getAllElements();
+    
     // Batch update all selected elements
     selectedIds.forEach(id => {
       const initialPos = multiDragAnchor.initialPositions[id];
@@ -350,7 +367,18 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
         const newX = initialPos.x + deltaX / GRID_PX;
         const newY = initialPos.y + deltaY / GRID_PX;
         
-        handleUpdateGeometry(id, { pos: { x: newX, y: newY } });
+        const elem = allElements.find(e => e.id === id);
+        if (elem) {
+          if (elem.kind === 'cylinder' || elem.kind === 'rectangle' || elem.kind === 'triangle') {
+            handleUpdateGeometry(id, { pos: { x: newX, y: newY } });
+          } else {
+            // Need to pass handleUpdateSource from parent
+            const parentHandleUpdateSource = (window as any).__handleUpdateSource;
+            if (parentHandleUpdateSource) {
+              parentHandleUpdateSource(id, { pos: { x: newX, y: newY } });
+            }
+          }
+        }
       }
     });
     

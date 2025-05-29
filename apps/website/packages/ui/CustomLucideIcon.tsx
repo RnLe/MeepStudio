@@ -26,7 +26,7 @@ const CustomLucideIcon: React.FC<CustomLucideIconProps> = ({
   src,
   size = 24,
   color = "currentColor",
-  strokeWidth = 2,
+  strokeWidth = 1.5,
   className = "",
   ...rest
 }) => {
@@ -95,7 +95,12 @@ const CustomLucideIcon: React.FC<CustomLucideIconProps> = ({
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`lucide lucide-custom-icon ${className}`}
+      shapeRendering="geometricPrecision"
+      style={{
+        imageRendering: 'crisp-edges',
+        transform: 'translateZ(0)',
+      }}
+      className={`lucide lucide-custom-icon antialiased ${className}`}
       dangerouslySetInnerHTML={{ __html: inner }}
       {...rest}
     />

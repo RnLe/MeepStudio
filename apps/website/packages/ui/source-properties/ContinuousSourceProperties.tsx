@@ -13,6 +13,13 @@ import {
   convertTime,
   convertWavelength
 } from "../../utils/physicalUnitsHelper";
+import { 
+  getSourceDefaults, 
+  CONTINUOUS_SOURCE_DEFAULTS,
+  INFINITY_TIME,
+  INFINITY_THRESHOLD,
+  isInfinityTime
+} from "../../constants/sourceDefaults";
 
 interface ContinuousSourcePropertiesProps {
   source: any;
@@ -27,6 +34,8 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
   projectUnit = LengthUnit.NM,
   projectA = 1
 }) => {
+  // Get default values
+  const defaults = React.useMemo(() => getSourceDefaults('continuous'), []);
   const [showUnits, setShowUnits] = React.useState(false);
   const [lineOrientation, setLineOrientation] = React.useState<'horizontal' | 'vertical'>('horizontal');
   const [areaOrientation, setAreaOrientation] = React.useState<'wide' | 'tall'>('wide');
@@ -63,14 +72,14 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
     }
   };
 
-  // Calculate derived values
-  const frequency = source.frequency || 1;
-  const startTime = source.startTime || 0;
-  const endTime = source.endTime || 1e20;
-  const width = source.width || 0;
+  // Calculate derived values using defaults
+  const frequency = source.frequency || defaults.frequency;
+  const startTime = source.startTime || defaults.start_time;
+  const endTime = source.endTime || defaults.end_time;
+  const width = source.width || defaults.width;
   const wavelength = frequency > 0 ? 1 / frequency : 0;
   const fwidth = source.fwidth || (width > 0 ? 1 / width : Infinity);
-  const slowness = source.slowness || 3.0;
+  const slowness = source.slowness || defaults.slowness;
 
   // Frequency-domain FWHM (same expression as in plot)
   const sigma        = width > 0 ? 1 / (2 * Math.PI * width * slowness) : Infinity;
@@ -97,7 +106,7 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
   // Set default component to Ex if not set
   React.useEffect(() => {
     if (!source.component) {
-      onUpdate({ component: SourceComponent.Ex });
+      onUpdate({ component: defaults.component });
     }
   }, []);
 
@@ -156,47 +165,43 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
 
   // Handle end time click
   const handleEndTimeClick = () => {
-    if (endTime >= 1e20) {
+    if (isInfinityTime(endTime)) {
       setIsEditingEndTime(true);
       onUpdate({ endTime: 10 }); // Set to a reasonable default when clicking infinity
     }
   };
 
-  const handleEndTimeChange = (val: number) => {
-    onUpdate({ endTime: val });
-  };
-
   const handleEndTimeFocusLoss = () => {
     // Return to infinity if at max value
-    if (source.endTime >= 1e19) {
-      onUpdate({ endTime: 1e20 });
+    if (isInfinityTime(source.endTime)) {
+      onUpdate({ endTime: INFINITY_TIME });
       setIsEditingEndTime(false);
     }
   };
 
   const handleResetTimeFrequencyParams = () => {
     onUpdate({
-      amplitude: { real: 1, imag: 0 },
-      frequency: 1,
-      startTime: 0,
-      endTime: 1e20,
-      width: 0,
-      slowness: 3.0
+      amplitude: defaults.amplitude,
+      frequency: defaults.frequency,
+      startTime: defaults.start_time,
+      endTime: defaults.end_time,
+      width: defaults.width,
+      slowness: defaults.slowness
     });
   };
 
   // Check if any time/frequency parameter differs from default
   const hasNonDefaultTimeFreqParams = React.useMemo(() => {
     return (
-      (source.amplitude?.real !== 1) ||
-      (source.amplitude?.imag !== 0) ||
-      (source.frequency !== 1) ||
-      (source.startTime !== 0) ||
-      (source.endTime !== 1e20) ||
-      (source.width !== 0) ||
-      (source.slowness !== 3.0)
+      (source.amplitude?.real !== defaults.amplitude.real) ||
+      (source.amplitude?.imag !== defaults.amplitude.imag) ||
+      (source.frequency !== defaults.frequency) ||
+      (source.startTime !== defaults.start_time) ||
+      (source.endTime !== defaults.end_time) ||
+      (source.width !== defaults.width) ||
+      (source.slowness !== defaults.slowness)
     );
-  }, [source]);
+  }, [source, defaults]);
 
   return (
     <div className="space-y-2">
@@ -236,12 +241,12 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
       
       {/* Continuous Wave Visualization */}
       <ContinuousWavePlot
-        frequency={source.frequency || 1}
-        startTime={source.startTime || 0}
-        endTime={source.endTime || 1e20}
-        width={source.width || 0}
-        slowness={source.slowness || 3.0}
-        amplitude={source.amplitude || { real: 1, imag: 0 }}
+        frequency={source.frequency || defaults.frequency}
+        startTime={source.startTime || defaults.start_time}
+        endTime={source.endTime || defaults.end_time}
+        width={source.width || defaults.width}
+        slowness={source.slowness || defaults.slowness}
+        amplitude={source.amplitude || defaults.amplitude}
         showUnits={showUnits}
         projectUnit={projectUnit}
         projectA={projectA}
@@ -255,7 +260,7 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
             <div>
               <label className="text-[10px] text-gray-400 block mb-0.5">Component</label>
               <select
-                value={source.component || SourceComponent.Ex}
+                value={source.component || defaults.component}
                 onChange={(e) => onUpdate({ component: e.target.value })}
                 className="w-full px-1 py-0.5 text-xs bg-neutral-700 rounded text-gray-200"
               >
@@ -318,28 +323,28 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
               <div className="space-y-2">
                 <div className="flex justify-center">
                   <Dial
-                    value={source.amplitude?.real || 1}
-                    onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || { real: 1, imag: 0 }), real: val } })}
+                    value={source.amplitude?.real || defaults.amplitude.real}
+                    onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || defaults.amplitude), real: val } })}
                     mode="linear"
                     min={-10}
                     max={10}
                     step={0.001}
                     size={36}
                     label="Real"
-                    defaultValue={1}
+                    defaultValue={defaults.amplitude.real}
                   />
                 </div>
                 <div className="flex justify-center">
                   <Dial
-                    value={source.amplitude?.imag || 0}
-                    onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || { real: 1, imag: 0 }), imag: val } })}
+                    value={source.amplitude?.imag || defaults.amplitude.imag}
+                    onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || defaults.amplitude), imag: val } })}
                     mode="linear"
                     min={-10}
                     max={10}
                     step={0.001}
                     size={36}
                     label="Imaginary"
-                    defaultValue={0}
+                    defaultValue={defaults.amplitude.imag}
                   />
                 </div>
               </div>
@@ -353,17 +358,17 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
               <div className="flex justify-center">
                 <div className="flex flex-col items-center">
                   <Dial
-                    value={source.frequency || 1}
+                    value={source.frequency || defaults.frequency}
                     onChange={(val) => onUpdate({ frequency: val })}
                     mode="10x"
                     min={0.001}
                     step={0.001}
                     size={36}
                     label="Frequency"
-                    defaultValue={1}
+                    defaultValue={defaults.frequency}
                   />
                   <div className="text-[9px] text-blue-400 mt-0.5 h-3">
-                    {showUnits && convertFrequency(source.frequency || 1, projectA, projectUnit)}
+                    {showUnits && convertFrequency(source.frequency || defaults.frequency, projectA, projectUnit)}
                   </div>
                 </div>
               </div>
@@ -392,7 +397,7 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                 {/* End Time */}
                 <div className="flex justify-center">
                   <div className="flex flex-col items-center">
-                    {source.endTime >= 1e19 ? (
+                    {isInfinityTime(source.endTime) ? (
                       <>
                         <div 
                           className="text-center cursor-pointer"
@@ -413,16 +418,16 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                         onChange={(val) => onUpdate({ endTime: val })}
                         mode="10x"
                         min={0.001}
-                        max={1e20}
+                        max={INFINITY_TIME}
                         step={0.001}
                         size={36}
                         label="End Time"
-                        defaultValue={1e20}
+                        defaultValue={defaults.end_time}
                         resetIcon="infinity"
                       />
                     )}
                     <div className="text-[9px] text-blue-400 mt-0.5 h-3">
-                      {showUnits && source.endTime < 1e19 && convertTime(source.endTime, projectA, projectUnit)}
+                      {showUnits && !isInfinityTime(source.endTime) && convertTime(source.endTime, projectA, projectUnit)}
                     </div>
                   </div>
                 </div>
@@ -434,7 +439,7 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                 <div className="flex justify-center">
                   <div className="flex flex-col items-center">
                     <Dial
-                      value={source.width || 0}
+                      value={source.width || defaults.width}
                       onChange={(val) => onUpdate({ width: val })}
                       mode="linear"
                       min={0}
@@ -442,10 +447,10 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                       step={0.001}
                       size={36}
                       label="Width"
-                      defaultValue={0}
+                      defaultValue={defaults.width}
                     />
                     <div className="text-[9px] text-blue-400 mt-0.5 h-3">
-                      {showUnits && source.width > 0 && convertTime(source.width || 0, projectA, projectUnit)}
+                      {showUnits && source.width > 0 && convertTime(source.width || defaults.width, projectA, projectUnit)}
                     </div>
                   </div>
                 </div>
@@ -454,7 +459,7 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                 <div className="flex justify-center">
                   <div className="flex flex-col items-center">
                     <Dial
-                      value={source.slowness || 3.0}
+                      value={source.slowness || defaults.slowness}
                       onChange={(val) => onUpdate({ slowness: val })}
                       mode="linear"
                       min={Math.max(0.01, source.width || 0.01)}
@@ -462,7 +467,7 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                       step={0.001}
                       size={36}
                       label="Slowness"
-                      defaultValue={3.0}
+                      defaultValue={defaults.slowness}
                     />
                   </div>
                 </div>
@@ -595,7 +600,7 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
         <label className="text-xs text-gray-400 cursor-pointer select-none">Integrated source</label>
         <input
           type="checkbox"
-          checked={source.isIntegrated || false}
+          checked={source.isIntegrated || defaults.is_integrated}
           onChange={(e) => e.stopPropagation()}
           className="rounded bg-neutral-700 border-gray-600 cursor-pointer"
         />

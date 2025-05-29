@@ -133,6 +133,15 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const rectangles = useMemo(() => geometries.filter(g => g.kind === "rectangle"), [geometries]);
   const triangles = useMemo(() => geometries.filter(g => g.kind === "triangle"), [geometries]);
 
+  // --- helper that always commits the *current* store state ---
+  const commitScene = useCallback(() => {
+    const { geometries: gs, sources: ss } = useCanvasStore.getState();
+    updateProject({
+      documentId: projectId,
+      project: { scene: { ...project.scene, geometries: gs, sources: ss } }
+    });
+  }, [updateProject, projectId, project.scene]);
+
   // --- Geometry Actions ---
   const handleAddGeometry = useCallback((geom: any) => {
     const newGeom = { ...geom, id: nanoid(), orientation: geom.orientation || 0 };
@@ -148,23 +157,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     });
   }, [addGeometry, updateProject, projectId, geometries]);
   const handleUpdateGeometry = useCallback((id: string, partial: Partial<any>) => {
-    // First update the store
-    updateGeometry(id, partial);
-    
-    // Get the updated geometries from the store after the update
-    const updatedGeometries = useCanvasStore.getState().geometries;
-    
-    // Then update the project with the current state
-    updateProject({
-      documentId: projectId,
-      project: {
-        scene: {
-          ...project.scene,
-          geometries: updatedGeometries,
-        }
-      },
-    });
-  }, [updateGeometry, updateProject, projectId, project.scene]);
+    updateGeometry(id, partial);          // update store only
+    commitScene();                        // commit both arrays
+  }, [updateGeometry, commitScene]);
   const handleRemoveGeometry = useCallback((id: string) => {
     removeGeometry(id);
     updateProject({
@@ -217,20 +212,17 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   }, [addSource, updateProject, projectId, project.scene]);
 
   const handleUpdateSource = useCallback((id: string, partial: Partial<any>) => {
-    updateSource(id, partial);
-    
-    const updatedSources = useCanvasStore.getState().sources;
-    
-    updateProject({
-      documentId: projectId,
-      project: {
-        scene: {
-          ...project.scene,
-          sources: updatedSources,
-        }
-      },
-    });
-  }, [updateSource, updateProject, projectId, project.scene]);
+    updateSource(id, partial);            // update store only
+    commitScene();                        // commit both arrays
+  }, [updateSource, commitScene]);
+  
+  // Make handleUpdateSource available globally for multi-drag
+  React.useEffect(() => {
+    (window as any).__handleUpdateSource = handleUpdateSource;
+    return () => {
+      delete (window as any).__handleUpdateSource;
+    };
+  }, [handleUpdateSource]);
 
   const handleRemoveSource = useCallback((id: string) => {
     removeSource(id);
@@ -864,7 +856,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                 }
                 return false;
               }).map(elem => elem.id);
+              
+              // Update selection state
               useCanvasStore.getState().setSelectedGeometryIds(selected);
+              
+              // If only one element selected, also set selectedGeometryId for property panel
+              if (selected.length === 1) {
+                useCanvasStore.getState().selectGeometry(selected[0]);
+              }
             }
             setSelOrigin(null);
             setSelBox(null);
@@ -921,6 +920,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             geometries={geometries}
             updateGeometry={updateGeometry}
             handleUpdateGeometry={handleUpdateGeometry}
+            handleUpdateSource={handleUpdateSource}
             selectElement={(id: string | null, opts?: { shift?: boolean }) => selectGeometry(id, opts)}
             GRID_PX={GRID_PX}
             project={project}
@@ -941,11 +941,13 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             setMultiDragAnchor={setMultiDragAnchor}
             updateSource={updateSource}
             handleUpdateSource={handleUpdateSource}
+            handleUpdateGeometry={handleUpdateGeometry}
             selectElement={(id: string | null, opts?: { shift?: boolean }) => selectGeometry(id, opts)}
             GRID_PX={GRID_PX}
             project={project}
             scale={scale}
             setActiveInstructionSet={setActiveInstructionSet}
+            getAllElements={getAllElements}
           />
         </Layer>
 

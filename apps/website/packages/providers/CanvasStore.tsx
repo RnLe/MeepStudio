@@ -80,17 +80,15 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
         set({ selectedGeometryId: null, selectedGeometryIds: [] });
       } else if (opts && opts.shift) {
         set((s) => {
-          if (s.selectedGeometryIds.includes(id)) {
-            return {
-              selectedGeometryId: id,
-              selectedGeometryIds: s.selectedGeometryIds.filter((selId) => selId !== id),
-            };
-          } else {
-            return {
-              selectedGeometryId: id,
-              selectedGeometryIds: [...s.selectedGeometryIds, id],
-            };
-          }
+          const newIds = s.selectedGeometryIds.includes(id)
+            ? s.selectedGeometryIds.filter((selId) => selId !== id)
+            : [...s.selectedGeometryIds, id];
+          
+          // Always update selectedGeometryId to the most recently clicked item
+          return {
+            selectedGeometryId: id,
+            selectedGeometryIds: newIds,
+          };
         });
       } else {
         set({ selectedGeometryId: id, selectedGeometryIds: [id] });

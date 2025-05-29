@@ -5,9 +5,10 @@ import { Cylinder, Rectangle, Triangle } from "../types/canvasElementTypes";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, Zap, Radio, Waves, Beaker } from "lucide-react";
+import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { calculateGeometryCenter } from "../utils/geometryCalculations";
+import { getSourceDefaults } from "../constants/sourceDefaults";
 
 const GROUPS = [
   { key: "snapping", label: "Snapping", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
@@ -120,27 +121,21 @@ const overlayTools = [
 const sourceTools: Tool[] = [
   {
     label: "Continuous Source",
-    icon: <Zap size={18} />,
+    icon: <CustomLucideIcon src="/icons/wave_icon.svg" size={32} />,
     onClick: (fn: () => void) => fn(),
     fnKey: "newContinuousSource",
   },
   {
     label: "Gaussian Source",
-    icon: <Radio size={18} />,
+    icon: <CustomLucideIcon src="/icons/gauss_wave_package.svg" size={32} />,
     onClick: (fn: () => void) => fn(),
     fnKey: "newGaussianSource",
   },
   {
     label: "Eigenmode Source",
-    icon: <Waves size={18} />,
+    icon: <CustomLucideIcon src="/icons/quantum_harmonic_oscillator.svg" size={32} />,
     onClick: (fn: () => void) => fn(),
     fnKey: "newEigenModeSource",
-  },
-  {
-    label: "Gaussian Beam",
-    icon: <Beaker size={18} />,
-    onClick: (fn: () => void) => fn(),
-    fnKey: "newGaussianBeamSource",
   },
 ];
 
@@ -246,15 +241,12 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   };
   const newContinuousSource = () => {
     const pos = { x: 3, y: 3 };
+    const defaults = getSourceDefaults('continuous');
     const newSource = {
+      ...defaults,
       kind: "continuousSource",
       id: nanoid(),
       pos,
-      component: "Ex",
-      frequency: 1.0,
-      amplitude: { real: 1, imag: 0 },
-      orientation: 0,
-      size: { x: 0, y: 0, z: 0 }, // Point source by default
     };
     addSource(newSource);
     updateProject({
@@ -269,15 +261,12 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   };
   const newGaussianSource = () => {
     const pos = { x: 3, y: 3 };
+    const defaults = getSourceDefaults('gaussian');
     const newSource = {
+      ...defaults,
       kind: "gaussianSource",
       id: nanoid(),
       pos,
-      component: "Ex",
-      frequency: 1.0,
-      width: 0.1,
-      orientation: 0,
-      size: { x: 0, y: 0, z: 0 }, // Point source by default
     };
     addSource(newSource);
     updateProject({
@@ -292,39 +281,13 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   };
   const newEigenModeSource = () => {
     const pos = { x: 3, y: 3 };
+    const defaults = getSourceDefaults('eigenmode');
     const newSource = {
+      ...defaults,
       kind: "eigenModeSource",
       id: nanoid(),
       pos,
-      component: "ALL_COMPONENTS",
-      eigBand: 1,
-      direction: "AUTOMATIC",
-      orientation: 0,
-      size: { x: 2, y: 0, z: 0 }, // Line source by default for eigenmode
-    };
-    addSource(newSource);
-    updateProject({
-      documentId: projectId,
-      project: {
-        scene: {
-          ...project.scene,
-          sources: [...sources, newSource],
-        },
-      },
-    });
-  };
-  const newGaussianBeamSource = () => {
-    const pos = { x: 3, y: 3 };
-    const newSource = {
-      kind: "gaussianBeamSource",
-      id: nanoid(),
-      pos,
-      component: "ALL_COMPONENTS",
-      beamW0: 1.0,
-      beamX0: { x: 0, y: 0, z: 0 },
-      beamKdir: { x: 1, y: 0, z: 0 },
-      orientation: 0,
-      size: { x: 0, y: 2, z: 0 }, // Vertical line source by default for beam
+      eig_resolution: 2 * (project.scene?.resolution || 10),
     };
     addSource(newSource);
     updateProject({
@@ -346,7 +309,6 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newContinuousSource,
     newGaussianSource,
     newEigenModeSource,
-    newGaussianBeamSource,
     toggleShowGrid,
     toggleShowResolutionOverlay,
     toggleShowCanvasInfo,
