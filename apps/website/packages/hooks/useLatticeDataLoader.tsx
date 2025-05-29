@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useCallback } from "react";
-import { Lattice, VoronoiData } from "../types/meepProjectTypes";
+import { Lattice, VoronoiData } from "../types/meepLatticeTypes";
 import { useLatticeStore } from "../providers/LatticeStore";
 import { getWasmModule } from "../utils/wasmLoader";
 import { useMeepProjects } from "./useMeepProjects";

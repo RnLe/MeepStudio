@@ -2,7 +2,8 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { nanoid } from "nanoid";
-import { MeepProject, ProjectScene, ProjectCode, ProjectLattice, Lattice } from "../types/meepProjectTypes";
+import { MeepProject, ProjectScene, ProjectCode, ProjectLattice, LengthUnit } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 import { getWasmModule } from "../utils/wasmLoader";
 
 /* ---------- Helpers ---------- */
@@ -29,7 +30,10 @@ function buildProject(p: CreatableProjectFields): MeepProject {
     rectWidth: p.scene?.rectWidth ?? 10,
     rectHeight: p.scene?.rectHeight ?? 10,
     resolution: p.scene?.resolution ?? 4,
+    a: p.scene?.a ?? 1.0,
+    unit: p.scene?.unit ?? LengthUnit.NM,
     geometries: p.scene?.geometries ?? [],
+    sources: p.scene?.sources ?? [],
   };
 
   // Build default code (optional)

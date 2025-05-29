@@ -1,6 +1,6 @@
 import React from "react";
 import { Code2, Layers, Download } from "lucide-react";
-import { MeepProject } from "../types/meepProjectTypes";
+import { MeepProject, LengthUnit } from "../types/meepProjectTypes";
 import { projectSettings } from "../types/editorSettings";
 import ObjectsList from "./ObjectList";
 import ObjectPropertiesPanel from "./ObjectPropertiesPanels";
@@ -39,6 +39,8 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
     rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
     resolution: project?.scene?.resolution || projectSettings.resolution.default,
+    a: project?.scene?.a || 1.0,
+    unit: project?.scene?.unit || LengthUnit.NM,
   });
 
   const { updateProject } = useMeepProjects({ ghPages });
@@ -51,6 +53,8 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
       rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
       resolution: project?.scene?.resolution || projectSettings.resolution.default,
+      a: project?.scene?.a || 1.0,
+      unit: project?.scene?.unit || LengthUnit.NM,
     });
     if (project?.scene?.geometries) setGeometries(project.scene.geometries);
   }, [project, setGeometries]);
@@ -62,6 +66,8 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
       rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
       resolution: project?.scene?.resolution || projectSettings.resolution.default,
+      a: project?.scene?.a || 1.0,
+      unit: project?.scene?.unit || LengthUnit.NM,
     });
     onCancel?.();
   };
@@ -81,6 +87,8 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
           rectWidth: editValues.rectWidth,
           rectHeight: editValues.rectHeight,
           resolution: editValues.resolution,
+          a: editValues.a,
+          unit: editValues.unit,
         },
       };
       await updateProject({
@@ -106,7 +114,15 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setEditValues((prev) => ({ ...prev, [name]: name === 'title' ? value : value === '' ? '' : Number(value) }));
+    setEditValues((prev) => ({ 
+      ...prev, 
+      [name]: name === 'title' ? value : name === 'a' ? (value === '' ? '' : Number(value)) : value === '' ? '' : Number(value) 
+    }));
+  };
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setEditValues((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleNumberWheel = (e: React.WheelEvent<HTMLInputElement>) => {
@@ -152,6 +168,19 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     }
   ];
 
+  // Unit tooltips mapping
+  const unitTooltips: Record<LengthUnit, string> = {
+    [LengthUnit.AM]: "Attometers",
+    [LengthUnit.FM]: "Femtometers",
+    [LengthUnit.PM]: "Picometers",
+    [LengthUnit.NM]: "Nanometers",
+    [LengthUnit.UM]: "Micrometers",
+    [LengthUnit.MM]: "Millimeters",
+    [LengthUnit.CM]: "Centimeters",
+    [LengthUnit.M]: "Meters",
+    [LengthUnit.KM]: "Kilometers",
+  };
+
   return (
     <div className="p-4 overflow-y-auto flex-1">
       <style>{`
@@ -168,6 +197,12 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
           line-height: 16px !important;
           width: 2.2rem !important;
           text-align: center;
+        }
+        .characteristic-input {
+          width: 3rem !important;
+        }
+        .unit-select {
+          padding: 0 2px;
         }
       `}</style>
       
@@ -243,6 +278,37 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
                   />
                 ) : (
                   <span className="flex-1 text-xs text-gray-300 text-right">{project.scene?.resolution}</span>
+                )}
+              </div>
+              <div className="flex flex-row w-full items-center justify-between">
+                <span className="w-28 text-xs text-gray-400 font-medium text-left" title="Characteristic Unit">a</span>
+                {editing ? (
+                  <span className="flex gap-1 items-center">
+                    <input
+                      type="number"
+                      name="a"
+                      min={0.001}
+                      step={0.1}
+                      value={editValues.a}
+                      onChange={handleChange}
+                      onWheel={handleNumberWheel}
+                      className="characteristic-input text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
+                    />
+                    <select
+                      name="unit"
+                      value={editValues.unit}
+                      onChange={handleSelectChange}
+                      className="unit-select text-xs bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none"
+                    >
+                      {Object.entries(LengthUnit).map(([key, value]) => (
+                        <option key={key} value={value} title={unitTooltips[value as LengthUnit]}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
+                ) : (
+                  <span className="flex-1 text-xs text-gray-300 text-right">{project.scene?.a} {project.scene?.unit}</span>
                 )}
               </div>
             </div>

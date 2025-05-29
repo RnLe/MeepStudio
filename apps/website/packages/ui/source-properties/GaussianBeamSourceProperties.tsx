@@ -2,6 +2,7 @@
 import React from "react";
 import { useCanvasStore } from "../../providers/CanvasStore";
 import { SourceComponent } from "../../types/meepSourceTypes";
+import { Dial } from "../components/Dial";
 
 interface GaussianBeamSourcePropertiesProps {
   source: any;
@@ -56,53 +57,61 @@ export const GaussianBeamSourceProperties: React.FC<GaussianBeamSourceProperties
         <span className="text-[10px] text-gray-500 block mt-0.5">Auto-set for beams</span>
       </div>
 
-      {/* Beam Waist */}
+      {/* Beam Parameters Group */}
       <div>
-        <label className="text-xs text-gray-400 block mb-1">Beam Waist (w₀)</label>
-        <input
-          type="number"
-          value={source.beamW0 || 1}
-          onChange={(e) => handleNumberChange('beamW0', e.target.value)}
-          className="w-full px-2 py-1 text-xs bg-neutral-700 rounded text-gray-200"
-          step="0.1"
-          min="0.1"
-        />
+        <label className="text-xs text-gray-400 block mb-1">Beam Parameters</label>
+        <div className="bg-neutral-700/50 rounded p-2">
+          <div className="flex justify-center">
+            <Dial
+              value={source.beamW0 || 1}
+              onChange={(val) => onUpdate({ beamW0: val })}
+              mode="10x"
+              min={0.1}
+              step={0.01}
+              size={36}
+              label="Beam Waist (w₀)"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Focus Location */}
       <div>
         <label className="text-xs text-gray-400 block mb-1">Focus Location (relative)</label>
         <div className="bg-neutral-700/50 rounded px-2 py-1">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <input
-                type="number"
+          <div className="grid grid-cols-3 gap-1">
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamX0?.x || 0}
-                onChange={(e) => handleVectorChange('beamX0', 'x', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamX0: { ...source.beamX0, x: val } })}
+                mode="linear"
+                min={-10}
+                step={0.1}
+                size={36}
+                label="x"
               />
-              <span className="text-[10px] text-gray-500 block text-center">x</span>
             </div>
-            <div>
-              <input
-                type="number"
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamX0?.y || 0}
-                onChange={(e) => handleVectorChange('beamX0', 'y', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamX0: { ...source.beamX0, y: val } })}
+                mode="linear"
+                min={-10}
+                step={0.1}
+                size={36}
+                label="y"
               />
-              <span className="text-[10px] text-gray-500 block text-center">y</span>
             </div>
-            <div>
-              <input
-                type="number"
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamX0?.z || 0}
-                onChange={(e) => handleVectorChange('beamX0', 'z', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamX0: { ...source.beamX0, z: val } })}
+                mode="linear"
+                min={-10}
+                step={0.1}
+                size={36}
+                label="z"
               />
-              <span className="text-[10px] text-gray-500 block text-center">z</span>
             </div>
           </div>
         </div>
@@ -112,36 +121,42 @@ export const GaussianBeamSourceProperties: React.FC<GaussianBeamSourceProperties
       <div>
         <label className="text-xs text-gray-400 block mb-1">Propagation Direction</label>
         <div className="bg-neutral-700/50 rounded px-2 py-1">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <input
-                type="number"
+          <div className="grid grid-cols-3 gap-1">
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamKdir?.x || 1}
-                onChange={(e) => handleVectorChange('beamKdir', 'x', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamKdir: { ...source.beamKdir, x: val } })}
+                mode="linear"
+                min={-1}
+                max={1}
+                step={0.1}
+                size={36}
+                label="kₓ"
               />
-              <span className="text-[10px] text-gray-500 block text-center">kₓ</span>
             </div>
-            <div>
-              <input
-                type="number"
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamKdir?.y || 0}
-                onChange={(e) => handleVectorChange('beamKdir', 'y', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamKdir: { ...source.beamKdir, y: val } })}
+                mode="linear"
+                min={-1}
+                max={1}
+                step={0.1}
+                size={36}
+                label="kᵧ"
               />
-              <span className="text-[10px] text-gray-500 block text-center">kᵧ</span>
             </div>
-            <div>
-              <input
-                type="number"
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamKdir?.z || 0}
-                onChange={(e) => handleVectorChange('beamKdir', 'z', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamKdir: { ...source.beamKdir, z: val } })}
+                mode="linear"
+                min={-1}
+                max={1}
+                step={0.1}
+                size={36}
+                label="kᵣ"
               />
-              <span className="text-[10px] text-gray-500 block text-center">kᵧ</span>
             </div>
           </div>
         </div>
@@ -152,36 +167,42 @@ export const GaussianBeamSourceProperties: React.FC<GaussianBeamSourceProperties
       <div>
         <label className="text-xs text-gray-400 block mb-1">Polarization Vector (E₀)</label>
         <div className="bg-neutral-700/50 rounded px-2 py-1">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <input
-                type="number"
+          <div className="grid grid-cols-3 gap-1">
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamE0?.x || 0}
-                onChange={(e) => handleVectorChange('beamE0', 'x', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamE0: { ...source.beamE0, x: val } })}
+                mode="linear"
+                min={-1}
+                max={1}
+                step={0.1}
+                size={36}
+                label="Eₓ"
               />
-              <span className="text-[10px] text-gray-500 block text-center">Eₓ</span>
             </div>
-            <div>
-              <input
-                type="number"
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamE0?.y || 0}
-                onChange={(e) => handleVectorChange('beamE0', 'y', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamE0: { ...source.beamE0, y: val } })}
+                mode="linear"
+                min={-1}
+                max={1}
+                step={0.1}
+                size={36}
+                label="Eᵧ"
               />
-              <span className="text-[10px] text-gray-500 block text-center">Eᵧ</span>
             </div>
-            <div>
-              <input
-                type="number"
+            <div className="flex justify-center">
+              <Dial
                 value={source.beamE0?.z || 0}
-                onChange={(e) => handleVectorChange('beamE0', 'z', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
+                onChange={(val) => onUpdate({ beamE0: { ...source.beamE0, z: val } })}
+                mode="linear"
+                min={-1}
+                max={1}
+                step={0.1}
+                size={36}
+                label="Eᵣ"
               />
-              <span className="text-[10px] text-gray-500 block text-center">Eᵧ</span>
             </div>
           </div>
         </div>
@@ -190,33 +211,37 @@ export const GaussianBeamSourceProperties: React.FC<GaussianBeamSourceProperties
       {/* Amplitude */}
       <div>
         <label className="text-xs text-gray-400 block mb-1">Amplitude</label>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <input
-              type="number"
-              value={source.amplitude?.real || 1}
-              onChange={(e) => handleAmplitudeChange(true, e.target.value)}
-              className="w-full px-2 py-1 text-xs bg-neutral-700 rounded text-gray-200"
-              placeholder="Real"
-              step="0.1"
-            />
-            <span className="text-[10px] text-gray-500 block text-center mt-0.5">Real</span>
-          </div>
-          <div>
-            <input
-              type="number"
-              value={source.amplitude?.imag || 0}
-              onChange={(e) => handleAmplitudeChange(false, e.target.value)}
-              className="w-full px-2 py-1 text-xs bg-neutral-700 rounded text-gray-200"
-              placeholder="Imag"
-              step="0.1"
-            />
-            <span className="text-[10px] text-gray-500 block text-center mt-0.5">Imag</span>
+        <div className="bg-neutral-700/50 rounded px-2 py-1">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex justify-center">
+              <Dial
+                value={source.amplitude?.real || 1}
+                onChange={(val) => onUpdate({ amplitude: { ...source.amplitude, real: val } })}
+                mode="linear"
+                min={-10}
+                max={10}
+                step={0.1}
+                size={36}
+                label="Real"
+              />
+            </div>
+            <div className="flex justify-center">
+              <Dial
+                value={source.amplitude?.imag || 0}
+                onChange={(val) => onUpdate({ amplitude: { ...source.amplitude, imag: val } })}
+                mode="linear"
+                min={-10}
+                max={10}
+                step={0.1}
+                size={36}
+                label="Imag"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Center Position */}
+      {/* Center Position - kept as regular inputs */}
       <div>
         <label className="text-xs text-gray-400 block mb-1">Source Center</label>
         <div className="bg-neutral-700/50 rounded px-2 py-1">
@@ -250,27 +275,27 @@ export const GaussianBeamSourceProperties: React.FC<GaussianBeamSourceProperties
         <label className="text-xs text-gray-400 block mb-1">Source Size</label>
         <div className="bg-neutral-700/50 rounded px-2 py-1">
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <input
-                type="number"
+            <div className="flex justify-center">
+              <Dial
                 value={source.size?.x || 0}
-                onChange={(e) => handleVectorChange('size', 'x', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
-                min="0"
+                onChange={(val) => onUpdate({ size: { ...source.size, x: val } })}
+                mode="linear"
+                min={0}
+                step={0.1}
+                size={36}
+                label="width"
               />
-              <span className="text-[10px] text-gray-500 block text-center">width</span>
             </div>
-            <div>
-              <input
-                type="number"
+            <div className="flex justify-center">
+              <Dial
                 value={source.size?.y || 0}
-                onChange={(e) => handleVectorChange('size', 'y', e.target.value)}
-                className="w-full px-1 py-0.5 text-xs bg-neutral-600 rounded text-gray-200"
-                step="0.1"
-                min="0"
+                onChange={(val) => onUpdate({ size: { ...source.size, y: val } })}
+                mode="linear"
+                min={0}
+                step={0.1}
+                size={36}
+                label="height"
               />
-              <span className="text-[10px] text-gray-500 block text-center">height</span>
             </div>
           </div>
         </div>

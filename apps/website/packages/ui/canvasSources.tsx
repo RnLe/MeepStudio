@@ -37,9 +37,6 @@ export const SourceLayer: React.FC<{
 }) => {
   // Helper to determine source visual type
   const getSourceVisualType = (source: any) => {
-    // Gaussian sources are always point sources
-    if (source.kind === "gaussianSource") return 'point';
-    
     const sizeX = source.size?.x || 0;
     const sizeY = source.size?.y || 0;
     

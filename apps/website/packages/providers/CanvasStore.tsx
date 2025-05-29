@@ -2,6 +2,7 @@
 import { createWithEqualityFn } from "zustand/traditional";
 import { shallow } from "zustand/shallow";
 import { calculateGeometryCenter } from "../utils/geometryCalculations";
+import { LengthUnit } from "../types/meepProjectTypes";
 
 type CanvasState = {
   // Grid and snapping settings
@@ -50,6 +51,12 @@ type CanvasState = {
   toggleShowResolutionOverlay: () => void;
   showCanvasInfo: boolean;
   toggleShowCanvasInfo: () => void;
+  
+  // Scene properties
+  a: number;
+  setA: (a: number) => void;
+  unit: LengthUnit;
+  setUnit: (unit: LengthUnit) => void;
 };
 
 export const useCanvasStore = createWithEqualityFn<CanvasState>(
@@ -183,6 +190,12 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
     toggleShowResolutionOverlay: () => set((s) => ({ showResolutionOverlay: !s.showResolutionOverlay })),
     showCanvasInfo: true,
     toggleShowCanvasInfo: () => set((s) => ({ showCanvasInfo: !s.showCanvasInfo })),
+    
+    // Scene properties
+    a: 1.0,
+    setA: (a) => set({ a }),
+    unit: LengthUnit.NM,
+    setUnit: (unit) => set({ unit }),
   }),
   shallow
 );

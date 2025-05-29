@@ -316,6 +316,8 @@ const ObjectPropertiesPanel: React.FC<Props> = ({ project, ghPages }) => {
             <GaussianSourceProperties 
               source={selected} 
               onUpdate={handleUpdate}
+              projectUnit={project.scene?.unit}
+              projectA={project.scene?.a}
             />
           )}
           
@@ -332,14 +334,6 @@ const ObjectPropertiesPanel: React.FC<Props> = ({ project, ghPages }) => {
               onUpdate={handleUpdate}
             />
           )}
-          
-          {/* Delete button */}
-          <button
-            onClick={handleDelete}
-            className="w-full mt-4 px-3 py-1.5 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded transition-colors"
-          >
-            Delete {selected.kind}
-          </button>
         </div>
       )}
     </div>

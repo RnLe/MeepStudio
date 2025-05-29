@@ -1,7 +1,8 @@
 // src/hooks/useMeepProjects.ts
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MeepProject, Lattice, serializeMeepProject, deserializeMeepProject } from "../types/meepProjectTypes";
+import { MeepProject } from "../types/meepProjectTypes";
+import { Lattice } from "../types/meepLatticeTypes";
 import { ghPagesSvc } from "./ghPagesProjectsStore";
 import { nanoid } from "nanoid";
 import { useEditorStateStore } from "../providers/EditorStateStore";

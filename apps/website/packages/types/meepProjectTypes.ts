@@ -1,5 +1,18 @@
 import { Vector3 } from "./meepBaseTypes";
 
+/* ---------- Unit Enum ---------- */
+export enum LengthUnit {
+  AM = "am",  // attometers
+  FM = "fm",  // femtometers
+  PM = "pm",  // picometers
+  NM = "nm",  // nanometers
+  UM = "μm",  // micrometers
+  MM = "mm",  // millimeters
+  CM = "cm",  // centimeters
+  M = "m",    // meters
+  KM = "km",  // kilometers
+}
+
 /* ---------- Base Geometry Interface ---------- */
 export interface GeometryObject {
   id: string;
@@ -20,6 +33,10 @@ export interface ProjectScene {
   rectHeight: number;
   /** Resolution of the scene/simulation grid. Must be an integer. Default: 4 */
   resolution: number;
+  /** Characteristic length scale */
+  a: number;
+  /** Unit for the characteristic length */
+  unit: LengthUnit;
   /**
    * All geometry objects for this scene (2D only for now).
    * Each geometry has at least: id, kind, and geometry-specific fields.
