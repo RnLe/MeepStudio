@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "./Modal";
 import { projectSettings } from "../types/editorSettings";
 import { useEditorStateStore } from "../providers/EditorStateStore";
+import { LengthUnit } from "../types/meepProjectTypes";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -20,6 +21,8 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
   const [newRectHeight, setNewRectHeight] = useState(projectSettings.rectHeight.default);
   const [newResolution, setNewResolution] = useState(projectSettings.resolution.default);
   const [resolutionMode, setResolutionMode] = useState<'predefined' | 'custom'>('predefined');
+  const [newA, setNewA] = useState(1);
+  const [newUnit, setNewUnit] = useState<LengthUnit>(LengthUnit.UM);
   
   const predefinedResolutions = [4, 8, 16, 32, 64];
 
@@ -33,6 +36,8 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
       setNewRectHeight(projectSettings.rectHeight.default);
       setNewResolution(projectSettings.resolution.default);
       setResolutionMode('predefined');
+      setNewA(1);
+      setNewUnit(LengthUnit.UM);
     }
   }, [isOpen]);
 
@@ -41,7 +46,9 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
     newDimension !== 2 || 
     newRectWidth !== projectSettings.rectWidth.default || 
     newRectHeight !== projectSettings.rectHeight.default || 
-    newResolution !== projectSettings.resolution.default;
+    newResolution !== projectSettings.resolution.default ||
+    newA !== 1 ||
+    newUnit !== LengthUnit.UM;
 
   const handleCreateProject = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -66,6 +73,8 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
           rectWidth,
           rectHeight,
           resolution,
+          a: newA,
+          unit: newUnit,
           geometries: [],
         },
         description: newDescription.trim() || undefined,
@@ -110,6 +119,39 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
             className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none"
             rows={3}
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Characteristic Length (a)
+            </label>
+            <input
+              type="number"
+              value={newA}
+              onChange={(e) => setNewA(Number(e.target.value))}
+              min="0.001"
+              step="0.001"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Unit
+            </label>
+            <select
+              value={newUnit}
+              onChange={(e) => setNewUnit(e.target.value as LengthUnit)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+            >
+              {Object.values(LengthUnit).map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex gap-2 pt-4">
