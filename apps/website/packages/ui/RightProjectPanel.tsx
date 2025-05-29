@@ -326,7 +326,12 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
           <>
             <ObjectsList project={project} />
             <hr className="border-gray-700" />
-            <ObjectPropertiesPanel project={project} ghPages={ghPages} />
+            <ObjectPropertiesPanel 
+              project={project} 
+              ghPages={ghPages}
+              projectA={project?.scene?.a || 1}
+              projectUnit={project?.scene?.unit || LengthUnit.NM}
+            />
             
             {/* Actions */}
             <div className="mt-6">

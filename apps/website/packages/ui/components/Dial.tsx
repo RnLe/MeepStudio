@@ -1,7 +1,9 @@
 "use client";
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import { RotateCcw, Infinity as InfinityIcon } from "lucide-react";
 
 export type DialMode = "linear" | "10x";
+export type ResetIconType = "reset" | "infinity";
 
 interface DialProps {
   value: number;
@@ -14,6 +16,8 @@ interface DialProps {
   label?: string;
   className?: string;
   allowModeSwitching?: boolean;
+  defaultValue?: number;
+  resetIcon?: ResetIconType;
 }
 
 export const Dial: React.FC<DialProps> = ({
@@ -26,7 +30,9 @@ export const Dial: React.FC<DialProps> = ({
   size = 40,
   label,
   className = "",
-  allowModeSwitching = true
+  allowModeSwitching = true,
+  defaultValue,
+  resetIcon = "reset"
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -35,25 +41,41 @@ export const Dial: React.FC<DialProps> = ({
   const [mode, setMode] = useState<DialMode>(initialMode);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [showResetButton, setShowResetButton] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const lastClickTime = useRef<number>(0);
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
   const hasDragged = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Internal minimum to avoid precision issues
   const internalMin = Math.max(min, 1e-6);
   const effectiveStep = Math.max(step, internalMin / 100);
 
+  // Check if value differs from default
+  useEffect(() => {
+    if (defaultValue !== undefined && Math.abs(value - defaultValue) > 1e-10) {
+      setShowResetButton(true);
+    } else {
+      setShowResetButton(false);
+    }
+  }, [value, defaultValue]);
+
   // Convert value to total rotation (in radians)
   const valueToRotation = useCallback((val: number): number => {
-    const clampedVal = Math.max(internalMin, val);
+    const clampedVal = Math.max(internalMin, Math.min(max, val));
     if (mode === "linear") {
       // In linear mode, value directly maps to rotations
       return clampedVal * 2 * Math.PI;
     } else {
-      // 10x mode
+      // 10x mode - handle very large values
+      if (clampedVal >= 1e19) {
+        // For values near infinity, map to a high rotation value
+        return 19 * 2 * Math.PI;
+      }
       return Math.log10(clampedVal) * 2 * Math.PI;
     }
-  }, [mode, internalMin]);
+  }, [mode, internalMin, max]);
 
   // Convert total rotation to value
   const rotationToValue = useCallback((rotation: number): number => {
@@ -64,6 +86,10 @@ export const Dial: React.FC<DialProps> = ({
     } else {
       // 10x mode
       const revolutions = rotation / (2 * Math.PI);
+      if (revolutions >= 19) {
+        // Near max rotation, return very large value
+        return Math.min(max, 1e20);
+      }
       const val = Math.pow(10, revolutions);
       return Math.max(internalMin, Math.min(max, val));
     }
@@ -154,6 +180,13 @@ export const Dial: React.FC<DialProps> = ({
     }
   };
 
+  const handleReset = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (defaultValue !== undefined) {
+      onChange(defaultValue);
+    }
+  };
+
   useEffect(() => {
     if (!isDragging) return;
 
@@ -204,7 +237,9 @@ export const Dial: React.FC<DialProps> = ({
 
   // Format value for display
   const formatValue = (val: number): string => {
-    if (val >= 0.1) {
+    if (val >= 1e19) {
+      return "∞";
+    } else if (val >= 0.1) {
       if (val >= 1000) {
         return val.toExponential(1).replace(/e\+?/, 'e');
       }
@@ -240,8 +275,16 @@ export const Dial: React.FC<DialProps> = ({
     ? (mode === "linear" ? "Linear ×1 (click to switch)" : "Exponential ×10 (click to switch)")
     : (mode === "linear" ? "Linear ×1" : "Exponential ×10");
 
+  // Get icon component
+  const ResetIcon = resetIcon === "infinity" ? InfinityIcon : RotateCcw;
+
   return (
-    <div className={`flex flex-col items-center gap-1 ${className} ${value === 0 ? 'opacity-50' : ''}`}>
+    <div 
+      className={`flex flex-col items-center gap-1 ${className} ${value === 0 ? 'opacity-50' : ''}`} 
+      ref={containerRef}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="relative">
         <svg
           ref={svgRef}
@@ -296,6 +339,17 @@ export const Dial: React.FC<DialProps> = ({
             fill="#666"
           />
         </svg>
+        
+        {/* Reset button - positioned at top right */}
+        {showResetButton && defaultValue !== undefined && isHovered && (
+          <button
+            onClick={handleReset}
+            className="absolute -top-1 -right-1 p-0.5 rounded-full flex items-center justify-center transition-colors group"
+            title={resetIcon === "infinity" ? "Set to infinity" : "Reset to default"}
+          >
+            <ResetIcon size={10} className="text-gray-500 group-hover:text-white transition-colors" />
+          </button>
+        )}
         
         {/* Manual input overlay */}
         {isEditing && (

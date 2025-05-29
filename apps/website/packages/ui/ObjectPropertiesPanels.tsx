@@ -2,6 +2,7 @@
 import React from "react";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { useMeepProjects } from "../hooks/useMeepProjects";
+import { LengthUnit } from "../types/meepProjectTypes";
 import { MeepProject } from "../types/meepProjectTypes";
 import {
   Cylinder,
@@ -19,12 +20,19 @@ import { GaussianSourceProperties } from "./source-properties/GaussianSourceProp
 import { EigenModeSourceProperties } from "./source-properties/EigenModeSourceProperties";
 import { GaussianBeamSourceProperties } from "./source-properties/GaussianBeamSourceProperties";
 
-interface Props {
+interface ObjectPropertiesPanelProps {
   project: MeepProject;
   ghPages: boolean;
+  projectA?: number;
+  projectUnit?: LengthUnit;
 }
 
-const ObjectPropertiesPanel: React.FC<Props> = ({ project, ghPages }) => {
+const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({ 
+  project, 
+  ghPages,
+  projectA = 1,
+  projectUnit = LengthUnit.NM
+}) => {
   const { 
     selectedGeometryIds, 
     selectedGeometryId, 
@@ -309,6 +317,8 @@ const ObjectPropertiesPanel: React.FC<Props> = ({ project, ghPages }) => {
             <ContinuousSourceProperties 
               source={selected} 
               onUpdate={handleUpdate}
+              projectA={projectA}
+              projectUnit={projectUnit}
             />
           )}
           
@@ -316,8 +326,8 @@ const ObjectPropertiesPanel: React.FC<Props> = ({ project, ghPages }) => {
             <GaussianSourceProperties 
               source={selected} 
               onUpdate={handleUpdate}
-              projectUnit={project.scene?.unit}
-              projectA={project.scene?.a}
+              projectA={projectA}
+              projectUnit={projectUnit}
             />
           )}
           
