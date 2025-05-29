@@ -1,17 +1,10 @@
 "use client";
 import React, { useState } from "react";
 import { shallow } from "zustand/shallow";
-import { Circle, Square, TriangleIcon, Zap, Radio, Waves, Beaker, ChevronDown, ChevronRight } from "lucide-react";
+import { Circle, Square, TriangleIcon, ChevronDown, ChevronRight } from "lucide-react";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { MeepProject } from "../types/meepProjectTypes";
-import {
-  Cylinder,
-  Rectangle,
-  Triangle,
-  ContinuousSource,
-  GaussianSource,
-  PmlBoundary,
-} from "../types/canvasElementTypes";
+import CustomLucideIcon from "./CustomLucideIcon";
 
 const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
   const [expandedGroups, setExpandedGroups] = useState({
@@ -76,15 +69,13 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
       getIcon: (item: any) => {
         switch (item.kind) {
           case "continuousSource":
-            return <Zap size={12} />;
+            return <CustomLucideIcon src="/icons/wave_icon.svg" size={20} />;
           case "gaussianSource":
-            return <Radio size={12} />;
+            return <CustomLucideIcon src="/icons/gauss_wave_package.svg" size={20} />;
           case "eigenModeSource":
-            return <Waves size={12} />;
-          case "gaussianBeamSource":
-            return <Beaker size={12} />;
+            return <CustomLucideIcon src="/icons/quantum_harmonic_oscillator.svg" size={20} />;
           default:
-            return <Zap size={12} />;
+            return <CustomLucideIcon src="/icons/wave_icon.svg" size={20} />;
         }
       },
       getLabel: (item: any) => {

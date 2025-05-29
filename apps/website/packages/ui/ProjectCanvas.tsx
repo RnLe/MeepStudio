@@ -948,6 +948,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             scale={scale}
             setActiveInstructionSet={setActiveInstructionSet}
             getAllElements={getAllElements}
+            showGrid={showGrid}
+            showResolutionOverlay={showResolutionOverlay}
+            toggleShowGrid={toggleShowGrid}
+            toggleShowResolutionOverlay={toggleShowResolutionOverlay}
           />
         </Layer>
 

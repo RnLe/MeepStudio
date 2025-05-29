@@ -22,6 +22,10 @@ export const SourceLayer: React.FC<{
   scale: number;
   setActiveInstructionSet: (set: any) => void;
   getAllElements: () => any[];
+  showGrid: boolean;
+  showResolutionOverlay: boolean;
+  toggleShowGrid: () => void;
+  toggleShowResolutionOverlay: () => void;
 }> = ({
   sources,
   selectedIds,
@@ -39,7 +43,46 @@ export const SourceLayer: React.FC<{
   scale,
   setActiveInstructionSet,
   getAllElements,
+  showGrid,
+  showResolutionOverlay,
+  toggleShowGrid,
+  toggleShowResolutionOverlay,
 }) => {
+  // Add state to track initial overlay states during drag
+  const initialOverlayStates = React.useRef<{ grid: boolean; resolution: boolean } | null>(null);
+  const currentOverlayStates = React.useRef<{ grid: boolean; resolution: boolean } | null>(null);
+
+  // Add state to track if we're dragging any source
+  const [isDraggingSource, setIsDraggingSource] = React.useState(false);
+
+  // Helper function to snap values to grid
+  const snapToGrid = React.useCallback((value: number, forceGrid?: boolean, forceResolution?: boolean) => {
+    // If ctrl is pressed, force resolution snapping
+    if (forceResolution && project?.scene?.resolution && project.scene.resolution > 1) {
+      const res = project.scene.resolution;
+      const cellSize = 1 / res;
+      return Math.round(value / cellSize) * cellSize;
+    }
+    // If shift is pressed, force grid snapping
+    else if (forceGrid) {
+      return Math.round(value);
+    }
+    // Otherwise use current settings
+    else if (resolutionSnapping && project?.scene?.resolution && project.scene.resolution > 1) {
+      const res = project.scene.resolution;
+      const cellSize = 1 / res;
+      return Math.round(value / cellSize) * cellSize;
+    } else if (gridSnapping) {
+      return Math.round(value);
+    }
+    return value;
+  }, [gridSnapping, resolutionSnapping, project?.scene?.resolution]);
+
+  // Enhanced snap function that considers shift/ctrl keys
+  const snapWithModifiers = React.useCallback((value: number, shiftPressed: boolean, ctrlPressed: boolean) => {
+    return snapToGrid(value, shiftPressed, ctrlPressed);
+  }, [snapToGrid]);
+
   // Helper to determine source visual type
   const getSourceVisualType = (source: any) => {
     const sizeX = source.size?.x || 0;
@@ -50,10 +93,293 @@ export const SourceLayer: React.FC<{
     return 'rectangle';
   };
 
+  // Single drag handlers
+  const handleSingleDragStart = React.useCallback((e: any, source: any) => {
+    setActiveInstructionSet('dragging');
+    setIsDraggingSource(true);
+    
+    // Store initial overlay states
+    if (!initialOverlayStates.current) {
+      initialOverlayStates.current = {
+        grid: showGrid,
+        resolution: showResolutionOverlay
+      };
+      currentOverlayStates.current = {
+        grid: showGrid,
+        resolution: showResolutionOverlay
+      };
+    }
+    
+    // ensure the dragged source is selected
+    if (!selectedIds.includes(source.id)) {
+      selectElement(source.id);
+    }
+  }, [selectElement, setActiveInstructionSet, showGrid, showResolutionOverlay, selectedIds]);
+
+  const handleSingleDragMove = React.useCallback((e: any, source: any) => {
+    const shiftPressed = e.evt.shiftKey;
+    const ctrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+    
+    if (!currentOverlayStates.current || !initialOverlayStates.current) return;
+    
+    // Handle grid overlay
+    if (shiftPressed && !currentOverlayStates.current.grid) {
+      toggleShowGrid();
+      currentOverlayStates.current.grid = true;
+    } else if (!shiftPressed && currentOverlayStates.current.grid && !initialOverlayStates.current.grid) {
+      toggleShowGrid();
+      currentOverlayStates.current.grid = false;
+    }
+    
+    // Handle resolution overlay
+    if (ctrlPressed && !currentOverlayStates.current.resolution) {
+      toggleShowResolutionOverlay();
+      currentOverlayStates.current.resolution = true;
+    } else if (!ctrlPressed && currentOverlayStates.current.resolution && !initialOverlayStates.current.resolution) {
+      toggleShowResolutionOverlay();
+      currentOverlayStates.current.resolution = false;
+    }
+    
+    // Get position and apply modifier-based snapping
+    const pos = e.target.position();
+    const snappedX = snapWithModifiers(pos.x / GRID_PX, shiftPressed, ctrlPressed);
+    const snappedY = snapWithModifiers(pos.y / GRID_PX, shiftPressed, ctrlPressed);
+    
+    const latticePos = { x: snappedX, y: snappedY };
+    
+    // Update source with snapped position
+    updateSource(source.id, { pos: latticePos });
+    
+    // Force position update on the Konva node
+    e.target.position({ x: snappedX * GRID_PX, y: snappedY * GRID_PX });
+  }, [snapWithModifiers, updateSource, GRID_PX, toggleShowGrid, toggleShowResolutionOverlay]);
+
+  const handleSingleDragEnd = React.useCallback((e: any, source: any) => {
+    const shiftPressed = e.evt.shiftKey;
+    const ctrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+    
+    // Final snap position
+    const pos = e.target.position();
+    const snappedX = snapWithModifiers(pos.x / GRID_PX, shiftPressed, ctrlPressed);
+    const snappedY = snapWithModifiers(pos.y / GRID_PX, shiftPressed, ctrlPressed);
+    
+    handleUpdateSource(source.id, { pos: { x: snappedX, y: snappedY } });
+    
+    // Restore overlay states
+    if (initialOverlayStates.current && currentOverlayStates.current) {
+      if (currentOverlayStates.current.grid !== initialOverlayStates.current.grid) {
+        toggleShowGrid();
+      }
+      if (currentOverlayStates.current.resolution !== initialOverlayStates.current.resolution) {
+        toggleShowResolutionOverlay();
+      }
+      initialOverlayStates.current = null;
+      currentOverlayStates.current = null;
+    }
+    
+    // Reset instruction set
+    setActiveInstructionSet('default');
+    setIsDraggingSource(false);
+  }, [snapWithModifiers, handleUpdateSource, setActiveInstructionSet, GRID_PX, toggleShowGrid, toggleShowResolutionOverlay]);
+
+  // Multi drag handlers
+  const handleMultiDragStart = React.useCallback((e: any, source: any) => {
+    setActiveInstructionSet('dragging');
+    setIsDraggingSource(true);
+    
+    // Store initial overlay states
+    if (!initialOverlayStates.current) {
+      initialOverlayStates.current = {
+        grid: showGrid,
+        resolution: showResolutionOverlay
+      };
+      currentOverlayStates.current = {
+        grid: showGrid,
+        resolution: showResolutionOverlay
+      };
+    }
+    
+    const anchorPos = e.target.position();
+    const allElements = getAllElements();
+    
+    const initialPositions = selectedIds.reduce((acc, id) => {
+      const elem = allElements.find(e => e.id === id);
+      if (elem) {
+        acc[id] = { ...elem.pos };
+      }
+      return acc;
+    }, {} as Record<string, { x: number; y: number }>);
+    
+    setMultiDragAnchor({
+      id: source.id,
+      anchor: anchorPos,
+      initialPositions,
+    });
+  }, [selectedIds, setMultiDragAnchor, setActiveInstructionSet, showGrid, showResolutionOverlay, getAllElements]);
+
+  const handleMultiDragMove = React.useCallback((e: any) => {
+    if (!multiDragAnchor) return;
+    
+    const shiftPressed = e.evt.shiftKey;
+    const ctrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+    
+    if (!currentOverlayStates.current || !initialOverlayStates.current) return;
+    
+    // Handle overlays same as single drag
+    if (shiftPressed && !currentOverlayStates.current.grid) {
+      toggleShowGrid();
+      currentOverlayStates.current.grid = true;
+    } else if (!shiftPressed && currentOverlayStates.current.grid && !initialOverlayStates.current.grid) {
+      toggleShowGrid();
+      currentOverlayStates.current.grid = false;
+    }
+    
+    if (ctrlPressed && !currentOverlayStates.current.resolution) {
+      toggleShowResolutionOverlay();
+      currentOverlayStates.current.resolution = true;
+    } else if (!ctrlPressed && currentOverlayStates.current.resolution && !initialOverlayStates.current.resolution) {
+      toggleShowResolutionOverlay();
+      currentOverlayStates.current.resolution = false;
+    }
+    
+    const currentPos = e.target.position();
+    const snappedX = snapWithModifiers(currentPos.x / GRID_PX, shiftPressed, ctrlPressed);
+    const snappedY = snapWithModifiers(currentPos.y / GRID_PX, shiftPressed, ctrlPressed);
+    const snappedPos = { x: snappedX * GRID_PX, y: snappedY * GRID_PX };
+    
+    // Calculate delta in canvas coordinates
+    const deltaX = snappedPos.x - multiDragAnchor.anchor.x;
+    const deltaY = snappedPos.y - multiDragAnchor.anchor.y;
+    
+    const { updateGeometry, updateSource } = useCanvasStore.getState();
+    const allElements = getAllElements();
+    
+    // Update all selected elements
+    selectedIds.forEach(id => {
+      const initialPos = multiDragAnchor.initialPositions[id];
+      if (initialPos) {
+        const newX = initialPos.x + deltaX / GRID_PX;
+        const newY = initialPos.y + deltaY / GRID_PX;
+        
+        const elem = allElements.find(e => e.id === id);
+        if (elem) {
+          if (elem.kind === 'cylinder' || elem.kind === 'rectangle' || elem.kind === 'triangle') {
+            updateGeometry(id, { pos: { x: newX, y: newY } });
+          } else {
+            updateSource(id, { pos: { x: newX, y: newY } });
+          }
+        }
+      }
+    });
+    
+    // Force anchor element position
+    e.target.position(snappedPos);
+  }, [multiDragAnchor, selectedIds, snapWithModifiers, GRID_PX, toggleShowGrid, toggleShowResolutionOverlay, getAllElements]);
+
+  const handleMultiDragEnd = React.useCallback((e: any) => {
+    if (!multiDragAnchor) return;
+    
+    const shiftPressed = e.evt.shiftKey;
+    const ctrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+    
+    const currentPos = e.target.position();
+    const snappedX = snapWithModifiers(currentPos.x / GRID_PX, shiftPressed, ctrlPressed);
+    const snappedY = snapWithModifiers(currentPos.y / GRID_PX, shiftPressed, ctrlPressed);
+    const snappedPos = { x: snappedX * GRID_PX, y: snappedY * GRID_PX };
+    
+    const deltaX = snappedPos.x - multiDragAnchor.anchor.x;
+    const deltaY = snappedPos.y - multiDragAnchor.anchor.y;
+    
+    const allElements = getAllElements();
+    
+    // Batch update all selected elements
+    selectedIds.forEach(id => {
+      const initialPos = multiDragAnchor.initialPositions[id];
+      if (initialPos) {
+        const newX = initialPos.x + deltaX / GRID_PX;
+        const newY = initialPos.y + deltaY / GRID_PX;
+        
+        const elem = allElements.find(e => e.id === id);
+        if (elem) {
+          if (elem.kind === 'cylinder' || elem.kind === 'rectangle' || elem.kind === 'triangle') {
+            handleUpdateGeometry(id, { pos: { x: newX, y: newY } });
+          } else {
+            handleUpdateSource(id, { pos: { x: newX, y: newY } });
+          }
+        }
+      }
+    });
+    
+    setMultiDragAnchor(null);
+    
+    // Restore overlay states
+    if (initialOverlayStates.current && currentOverlayStates.current) {
+      if (currentOverlayStates.current.grid !== initialOverlayStates.current.grid) {
+        toggleShowGrid();
+      }
+      if (currentOverlayStates.current.resolution !== initialOverlayStates.current.resolution) {
+        toggleShowResolutionOverlay();
+      }
+      initialOverlayStates.current = null;
+      currentOverlayStates.current = null;
+    }
+    
+    // Reset instruction set
+    setActiveInstructionSet('default');
+    setIsDraggingSource(false);
+  }, [multiDragAnchor, selectedIds, snapWithModifiers, handleUpdateGeometry, handleUpdateSource, setMultiDragAnchor, setActiveInstructionSet, GRID_PX, toggleShowGrid, toggleShowResolutionOverlay, getAllElements]);
+
+  // Keyboard event handlers for showing/hiding grids during drag
+  React.useEffect(() => {
+    const isDragging = !!multiDragAnchor || isDraggingSource;
+    if (!isDragging) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!currentOverlayStates.current || !initialOverlayStates.current) return;
+      
+      // Handle shift key
+      if (e.shiftKey && !currentOverlayStates.current.grid) {
+        toggleShowGrid();
+        currentOverlayStates.current.grid = true;
+      }
+      
+      // Handle ctrl/cmd key
+      if ((e.ctrlKey || e.metaKey) && !currentOverlayStates.current.resolution) {
+        toggleShowResolutionOverlay();
+        currentOverlayStates.current.resolution = true;
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!currentOverlayStates.current || !initialOverlayStates.current) return;
+      
+      // Handle shift key release
+      if (!e.shiftKey && currentOverlayStates.current.grid && !initialOverlayStates.current.grid) {
+        toggleShowGrid();
+        currentOverlayStates.current.grid = false;
+      }
+      
+      // Handle ctrl/cmd key release
+      if (!e.ctrlKey && !e.metaKey && currentOverlayStates.current.resolution && !initialOverlayStates.current.resolution) {
+        toggleShowResolutionOverlay();
+        currentOverlayStates.current.resolution = false;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [multiDragAnchor, isDraggingSource, toggleShowGrid, toggleShowResolutionOverlay]);
+
   return (
     <>
       {sources.map((source) => {
         const selected = selectedIds.includes(source.id);
+        const otherSelected = selectedIds.length > 1 && selected;
         const visualType = getSourceVisualType(source);
         
         // Convert lattice units to pixels
@@ -83,137 +409,24 @@ export const SourceLayer: React.FC<{
             rotation={(source.orientation || 0) * 180 / Math.PI}
             draggable
             onDragStart={(e) => {
-              setActiveInstructionSet('dragging');
-
-              // ensure the dragged source is selected
-              if (!selectedIds.includes(source.id)) {
-                selectElement(source.id);
-              }
-
-              // --- RE-READ the current selection from the store ---
-              const currentSel = useCanvasStore.getState().selectedGeometryIds;
-              if (currentSel.length > 1 && currentSel.includes(source.id)) {
-                const allElements = getAllElements();
-                const init: Record<string,{x:number;y:number}> = {};
-                currentSel.forEach(id=>{
-                  const el = allElements.find(e=>e.id===id);
-                  if (el) init[id] = { ...el.pos };
-                });
-                
-                // Get the anchor position in canvas coordinates (not lattice!)
-                const anchorPos = e.target.position();
-                
-                setMultiDragAnchor({
-                  id: source.id,
-                  anchor: anchorPos,  // This should be in canvas pixels!
-                  initialPositions: init,
-                });
+              if (otherSelected) {
+                handleMultiDragStart(e, source);
+              } else {
+                handleSingleDragStart(e, source);
               }
             }}
             onDragMove={(e) => {
-              const node = e.target;
-              const pos = node.position();
-              const snappedPos = snapCanvasPosToGrid(pos);
-              node.position(snappedPos);
-              
-              if (multiDragAnchor && multiDragAnchor.id === source.id) {
-                // Multi-drag logic for all elements
-                // Calculate delta in canvas coordinates
-                const deltaX = snappedPos.x - multiDragAnchor.anchor.x;
-                const deltaY = snappedPos.y - multiDragAnchor.anchor.y;
-                
-                // Convert delta to lattice units
-                const deltaLatticeX = deltaX / GRID_PX;
-                const deltaLatticeY = deltaY / GRID_PX;
-                
-                const { updateGeometry, updateSource } = useCanvasStore.getState();
-                const allElements = getAllElements();
-                
-                Object.entries(multiDragAnchor.initialPositions).forEach(([id, initPos]) => {
-                  const typedInitPos = initPos as { x: number; y: number };
-                  const newPos = {
-                    x: typedInitPos.x + deltaLatticeX,
-                    y: typedInitPos.y + deltaLatticeY,
-                  };
-                  
-                  // Check if it's a geometry or source and update accordingly
-                  const elem = allElements.find(e => e.id === id);
-                  if (elem) {
-                    if (elem.kind === 'cylinder' || elem.kind === 'rectangle' || elem.kind === 'triangle') {
-                      updateGeometry(id, { pos: newPos });
-                    } else {
-                      updateSource(id, { pos: newPos });
-                    }
-                  }
-                });
+              if (otherSelected) {
+                handleMultiDragMove(e);
               } else {
-                // Single drag
-                const newPos = {
-                  x: snappedPos.x / GRID_PX,
-                  y: snappedPos.y / GRID_PX,
-                };
-                updateSource(source.id, { pos: newPos });
+                handleSingleDragMove(e, source);
               }
             }}
             onDragEnd={(e) => {
-              setActiveInstructionSet('default');
-              const node = e.target;
-              const pos = node.position();
-              const finalPos = snapCanvasPosToGrid(pos);
-              
-              if (multiDragAnchor && multiDragAnchor.id === source.id) {
-                // Finalize multi-drag for all elements
-                // Calculate delta in canvas coordinates
-                const deltaX = finalPos.x - multiDragAnchor.anchor.x;
-                const deltaY = finalPos.y - multiDragAnchor.anchor.y;
-                
-                // Convert delta to lattice units
-                const deltaLatticeX = deltaX / GRID_PX;
-                const deltaLatticeY = deltaY / GRID_PX;
-                
-                const allElements = getAllElements();
-                
-                const geomUpdates: Array<{ id: string; pos: { x: number; y: number } }> = [];
-                const sourceUpdates: Array<{ id: string; pos: { x: number; y: number } }> = [];
-                
-                Object.entries(multiDragAnchor.initialPositions).forEach(([id, initPos]) => {
-                  const typedInitPos = initPos as { x: number; y: number };
-                  const newPos = {
-                    x: typedInitPos.x + deltaLatticeX,
-                    y: typedInitPos.y + deltaLatticeY,
-                  };
-                  
-                  const elem = allElements.find(e => e.id === id);
-                  if (elem) {
-                    if (elem.kind === 'cylinder' || elem.kind === 'rectangle' || elem.kind === 'triangle') {
-                      geomUpdates.push({ id, pos: newPos });
-                    } else {
-                      sourceUpdates.push({ id, pos: newPos });
-                    }
-                  }
-                });
-                
-                // Batch update through project
-                if (geomUpdates.length > 0 || sourceUpdates.length > 0) {
-                  // Update each geometry
-                  geomUpdates.forEach(({ id, pos }) => {
-                    handleUpdateGeometry(id, { pos });
-                  });
-                  
-                  // Update each source
-                  sourceUpdates.forEach(({ id, pos }) => {
-                    handleUpdateSource(id, { pos });
-                  });
-                }
-                
-                setMultiDragAnchor(null);
+              if (otherSelected) {
+                handleMultiDragEnd(e);
               } else {
-                // Single drag update
-                const newPos = {
-                  x: finalPos.x / GRID_PX,
-                  y: finalPos.y / GRID_PX,
-                };
-                handleUpdateSource(source.id, { pos: newPos });
+                handleSingleDragEnd(e, source);
               }
             }}
             onClick={(evt) => {

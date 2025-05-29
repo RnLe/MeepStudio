@@ -1,9 +1,10 @@
 "use client";
 import React from "react";
 import { SourceComponent } from "../../types/meepSourceTypes";
-import { Zap, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { GaussianPulsePlot } from "../plots/GaussianPulsePlot";
 import { Dial } from "../components/Dial";
+import CustomLucideIcon from "../CustomLucideIcon";
 import { LengthUnit } from "../../types/meepProjectTypes";
 import { 
   convertLength,
@@ -173,7 +174,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <Zap size={16} className="text-gray-400" />
+        <CustomLucideIcon src="/icons/gauss_wave_package.svg" size={30} className="text-gray-400" />
         <h3 className="text-sm font-medium text-gray-300">Gaussian Source</h3>
       </div>
       

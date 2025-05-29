@@ -3,9 +3,10 @@ import React from "react";
 import { useCanvasStore } from "../../providers/CanvasStore";
 import { SourceComponent } from "../../types/meepSourceTypes";
 import { LabeledVector } from "../MathVector";
-import { Zap, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { ContinuousWavePlot } from "../plots/ContinuousWavePlot";
 import { Dial } from "../components/Dial";
+import CustomLucideIcon from "../CustomLucideIcon";
 import { LengthUnit } from "../../types/meepProjectTypes";
 import { 
   convertLength,
@@ -206,7 +207,7 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <Zap size={16} className="text-gray-400" />
+        <CustomLucideIcon src="/icons/wave_icon.svg" size={30} className="text-gray-400" />
         <h3 className="text-sm font-medium text-gray-300">Continuous Source</h3>
       </div>
       
