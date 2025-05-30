@@ -19,6 +19,7 @@ import { ContinuousSourceProperties } from "./source-properties/ContinuousSource
 import { GaussianSourceProperties } from "./source-properties/GaussianSourceProperties";
 import { EigenModeSourceProperties } from "./source-properties/EigenModeSourceProperties";
 import { GaussianBeamSourceProperties } from "./source-properties/GaussianBeamSourceProperties";
+import { PMLBoundaryProperties } from "./boundary-properties/PMLBoundaryProperties";
 
 interface ObjectPropertiesPanelProps {
   project: MeepProject;
@@ -38,15 +39,19 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     selectedGeometryId, 
     geometries, 
     sources,
+    boundaries,
     updateGeometry: updateGeometryStore,
-    updateSource: updateSourceStore
+    updateSource: updateSourceStore,
+    updateBoundary: updateBoundaryStore
   } = useCanvasStore((s) => ({
     selectedGeometryIds: s.selectedGeometryIds,
     selectedGeometryId: s.selectedGeometryId,
     geometries: s.geometries,
     sources: s.sources,
+    boundaries: s.boundaries,
     updateGeometry: s.updateGeometry,
     updateSource: s.updateSource,
+    updateBoundary: s.updateBoundary,
   }));
   
   const { updateProject } = useMeepProjects({ ghPages });
@@ -81,6 +86,21 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     });
   };
 
+  // Update both local store and project for boundaries
+  const updateBoundary = (id: string, partial: Partial<any>) => {
+    updateBoundaryStore(id, partial);
+    const updatedBoundaries = useCanvasStore.getState().boundaries;
+    updateProject({
+      documentId: project.documentId,
+      project: {
+        scene: {
+          ...project.scene,
+          boundaries: updatedBoundaries,
+        }
+      },
+    });
+  };
+
   // Multi-selection: if more than one selected, just show a message
   if (selectedGeometryIds.length > 1) {
     return (
@@ -93,8 +113,8 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     );
   }
 
-  // Find the selected element from both geometries and sources
-  const allElements = [...geometries, ...sources];
+  // Find the selected element from geometries, sources, and boundaries
+  const allElements = [...geometries, ...sources, ...boundaries];
   const selected = allElements.find((elem) => elem.id === selectedGeometryId);
 
   if (!selected) {
@@ -106,14 +126,30 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     );
   }
 
-  // Determine if it's a geometry or source and create appropriate update handler
+  // Determine element type and create appropriate update handler
   const isSource = sources.some(s => s.id === selected.id);
-  const handleUpdate = isSource 
+  const isBoundary = boundaries.some(b => b.id === selected.id);
+  
+  const handleUpdate = isBoundary
+    ? (partial: Partial<any>) => updateBoundary(selected.id, partial)
+    : isSource 
     ? (partial: Partial<any>) => updateSource(selected.id, partial)
     : (partial: Partial<any>) => updateGeometry(selected.id, partial);
 
   const handleDelete = () => {
-    if (isSource) {
+    if (isBoundary) {
+      const updatedBoundaries = boundaries.filter(b => b.id !== selected.id);
+      updateProject({
+        documentId: project.documentId,
+        project: {
+          scene: {
+            ...project.scene,
+            boundaries: updatedBoundaries,
+          }
+        },
+      });
+      useCanvasStore.getState().removeBoundary(selected.id);
+    } else if (isSource) {
       const updatedSources = sources.filter(s => s.id !== selected.id);
       updateProject({
         documentId: project.documentId,
@@ -341,6 +377,14 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
           {selected.kind === "gaussianBeamSource" && (
             <GaussianBeamSourceProperties 
               source={selected} 
+              onUpdate={handleUpdate}
+            />
+          )}
+
+          {/* Boundary Properties */}
+          {selected.kind === "pmlBoundary" && (
+            <PMLBoundaryProperties 
+              boundary={selected} 
               onUpdate={handleUpdate}
             />
           )}

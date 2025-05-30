@@ -11,6 +11,7 @@ import { GeometryLayer } from "./canvasGeometry";
 import { GridOverlayLayer } from "./canvasGridOverlay";
 import { SelectionBoxLayer } from "./selectionBoxLayer";
 import { SourceLayer } from "./canvasSources";
+import { BoundaryLayer } from "./canvasBoundaries";
 
 // --- Constants ---
 const GRID_PX = 40; // Fixed size for each cell in px
@@ -75,6 +76,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     updateSource,
     removeSource,
     removeSources,
+    boundaries,
+    setBoundaries,
+    addBoundary,
+    updateBoundary,
+    removeBoundary,
+    removeBoundaries,
     getAllElements,
   } = useCanvasStore(
     (s) => ({
@@ -95,6 +102,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       updateSource: s.updateSource,
       removeSource: s.removeSource,
       removeSources: s.removeSources,
+      boundaries: s.boundaries,
+      setBoundaries: s.setBoundaries,
+      addBoundary: s.addBoundary,
+      updateBoundary: s.updateBoundary,
+      removeBoundary: s.removeBoundary,
+      removeBoundaries: s.removeBoundaries,
       getAllElements: s.getAllElements,
     }),
     shallow
@@ -126,7 +139,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     
     // Load sources
     setSources(project.scene?.sources || []);
-  }, [project.scene?.geometries, project.scene?.sources, setGeometries, setSources]);
+    setBoundaries(project.scene?.boundaries || []);
+  }, [project.scene?.geometries, project.scene?.sources, project.scene?.boundaries, setGeometries, setSources, setBoundaries]);
 
   // --- Geometry Selectors ---
   const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
@@ -135,10 +149,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
 
   // --- helper that always commits the *current* store state ---
   const commitScene = useCallback(() => {
-    const { geometries: gs, sources: ss } = useCanvasStore.getState();
+    const { geometries: gs, sources: ss, boundaries: bs } = useCanvasStore.getState();
     updateProject({
       documentId: projectId,
-      project: { scene: { ...project.scene, geometries: gs, sources: ss } }
+      project: { scene: { ...project.scene, geometries: gs, sources: ss, boundaries: bs } }
     });
   }, [updateProject, projectId, project.scene]);
 
@@ -238,15 +252,37 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     if (selectedGeometryId === id) selectGeometry(null);
   }, [removeSource, updateProject, projectId, sources, selectedGeometryId, selectGeometry, project.scene]);
 
-  // Update batch remove to handle both geometries and sources
+  // --- Boundary Actions
+  const handleUpdateBoundary = useCallback((id: string, partial: Partial<any>) => {
+    updateBoundary(id, partial);
+    commitScene();
+  }, [updateBoundary, commitScene]);
+
+  const handleRemoveBoundary = useCallback((id: string) => {
+    removeBoundary(id);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          boundaries: boundaries.filter(b => b.id !== id),
+        }
+      },
+    });
+    if (selectedGeometryId === id) selectGeometry(null);
+  }, [removeBoundary, updateProject, projectId, boundaries, selectedGeometryId, selectGeometry, project.scene]);
+
+  // Update batch remove to handle boundaries
   const handleBatchRemoveElements = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
     
     const geomIds = ids.filter(id => geometries.some(g => g.id === id));
     const sourceIds = ids.filter(id => sources.some(s => s.id === id));
+    const boundaryIds = ids.filter(id => boundaries.some(b => b.id === id));
     
     const remainingGeometries = geometries.filter(g => !geomIds.includes(g.id));
     const remainingSources = sources.filter(s => !sourceIds.includes(s.id));
+    const remainingBoundaries = boundaries.filter(b => !boundaryIds.includes(b.id));
     
     updateProject({
       documentId: projectId,
@@ -255,13 +291,15 @@ const ProjectCanvas: React.FC<Props> = (props) => {
           ...project.scene,
           geometries: remainingGeometries,
           sources: remainingSources,
+          boundaries: remainingBoundaries,
         }
       },
     });
     
     if (geomIds.length > 0) removeGeometries(geomIds);
     if (sourceIds.length > 0) removeSources(sourceIds);
-  }, [removeGeometries, removeSources, updateProject, projectId, geometries, sources, project.scene]);
+    if (boundaryIds.length > 0) removeBoundaries(boundaryIds);
+  }, [removeGeometries, removeSources, removeBoundaries, updateProject, projectId, geometries, sources, boundaries, project.scene]);
 
   // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -952,6 +990,20 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             showResolutionOverlay={showResolutionOverlay}
             toggleShowGrid={toggleShowGrid}
             toggleShowResolutionOverlay={toggleShowResolutionOverlay}
+          />
+        </Layer>
+
+        {/* --- Boundary layer - rendered on top of geometries but below selection --- */}
+        <Layer>
+          <BoundaryLayer
+            boundaries={boundaries}
+            selectedIds={selectedGeometryIds}
+            selectElement={(id: string | null, opts?: { shift?: boolean }) => selectGeometry(id, opts)}
+            GRID_PX={GRID_PX}
+            gridWidth={gridWidth}
+            gridHeight={gridHeight}
+            project={project}
+            scale={scale}
           />
         </Layer>
 

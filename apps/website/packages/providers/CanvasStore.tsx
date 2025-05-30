@@ -41,6 +41,17 @@ type CanvasState = {
   removeSource: (id: string) => void;
   removeSources: (ids: string[]) => void;
   
+  // Boundary state
+  boundaries: any[];
+  setBoundaries: (boundaries: any[]) => void;
+  addBoundary: (boundary: any) => void;
+  updateBoundary: (id: string, partial: Partial<any>) => void;
+  removeBoundary: (id: string) => void;
+  removeBoundaries: (ids: string[]) => void;
+  
+  // PML-specific management
+  updatePMLEdgeAssignment: (boundaryId: string, edge: 'top' | 'right' | 'bottom' | 'left', parameterSetIndex: number | undefined) => void;
+  
   // Combined elements getter
   getAllElements: () => any[];
   
@@ -175,10 +186,62 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
       selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
     })),
     
+    // Boundary state and actions
+    boundaries: [],
+    setBoundaries: (boundaries) => set({ 
+      boundaries: boundaries.map(b => ({
+        ...b,
+        // Boundaries don't have traditional positions
+        center: { x: 0, y: 0 }
+      }))
+    }),
+    addBoundary: (boundary) => set((s) => ({ 
+      boundaries: [...s.boundaries, { 
+        ...boundary,
+        center: { x: 0, y: 0 }
+      }] 
+    })),
+    updateBoundary: (id, partial) => set((s) => ({
+      boundaries: s.boundaries.map(b => {
+        if (b.id === id) {
+          return { ...b, ...partial };
+        }
+        return b;
+      }),
+    })),
+    removeBoundary: (id) => set((s) => ({
+      boundaries: s.boundaries.filter(b => b.id !== id),
+      selectedGeometryIds: s.selectedGeometryIds.filter(selId => selId !== id),
+      selectedGeometryId: s.selectedGeometryId === id ? null : s.selectedGeometryId,
+    })),
+    removeBoundaries: (ids) => set((s) => ({
+      boundaries: s.boundaries.filter(b => !ids.includes(b.id)),
+      selectedGeometryIds: s.selectedGeometryIds.filter(selId => !ids.includes(selId)),
+      selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
+    })),
+    
+    // PML-specific management
+    updatePMLEdgeAssignment: (boundaryId: string, edge: 'top' | 'right' | 'bottom' | 'left', parameterSetIndex: number | undefined) => {
+      set((s) => ({
+        boundaries: s.boundaries.map(b => {
+          if (b.id === boundaryId && b.kind === 'pmlBoundary') {
+            const edgeAssignments = { ...(b.edgeAssignments || {}) };
+            if (parameterSetIndex === undefined) {
+              delete edgeAssignments[edge];
+            } else {
+              edgeAssignments[edge] = parameterSetIndex;
+            }
+            return { ...b, edgeAssignments };
+          }
+          return b;
+        }),
+      }));
+    },
+    
     // Combined elements getter
     getAllElements: () => {
       const state = get();
-      return [...state.geometries, ...state.sources];
+      return [...state.geometries, ...state.sources, ...state.boundaries];
     },
     
     // Overlay toggles

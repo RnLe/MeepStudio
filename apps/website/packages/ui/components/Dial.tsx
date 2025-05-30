@@ -18,6 +18,7 @@ interface DialProps {
   allowModeSwitching?: boolean;
   defaultValue?: number;
   resetIcon?: ResetIconType;
+  disabled?: boolean;
 }
 
 export const Dial: React.FC<DialProps> = ({
@@ -32,7 +33,8 @@ export const Dial: React.FC<DialProps> = ({
   className = "",
   allowModeSwitching = true,
   defaultValue,
-  resetIcon = "reset"
+  resetIcon = "reset",
+  disabled = false
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -134,6 +136,7 @@ export const Dial: React.FC<DialProps> = ({
   };
 
   const handleClick = (e: React.MouseEvent) => {
+    if (disabled) return;
     const now = Date.now();
     const timeSinceLastClick = now - lastClickTime.current;
     
@@ -152,7 +155,7 @@ export const Dial: React.FC<DialProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (isEditing) return;
+    if (isEditing || disabled) return;
     e.preventDefault();
     setIsDragging(true);
     hasDragged.current = false;
@@ -280,9 +283,9 @@ export const Dial: React.FC<DialProps> = ({
 
   return (
     <div 
-      className={`flex flex-col items-center gap-1 ${className} ${value === 0 ? 'opacity-50' : ''}`} 
+      className={`flex flex-col items-center gap-1 ${className} ${value === 0 ? 'opacity-50' : ''} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`} 
       ref={containerRef}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => !disabled && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative">
@@ -290,23 +293,23 @@ export const Dial: React.FC<DialProps> = ({
           ref={svgRef}
           width={size}
           height={size}
-          className={`cursor-pointer select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-          onMouseDown={handleMouseDown}
-          onClick={handleClick}
+          className={`select-none ${disabled ? 'cursor-not-allowed' : (isDragging ? 'cursor-grabbing' : 'cursor-grab')}`}
+          onMouseDown={disabled ? undefined : handleMouseDown}
+          onClick={disabled ? undefined : handleClick}
         >
-          <title>{modeTooltip}</title>
+          <title>{disabled ? "Disabled" : modeTooltip}</title>
           {/* Background circle */}
           <circle
             cx={radius}
             cy={radius}
             r={innerRadius}
-            fill="#262626"
-            stroke="#404040"
+            fill={disabled ? "#1a1a1a" : "#262626"}
+            stroke={disabled ? "#2a2a2a" : "#404040"}
             strokeWidth={strokeWidth}
           />
           
           {/* Mode indicator arc */}
-          {mode === "10x" && (
+          {mode === "10x" && !disabled && (
             <circle
               cx={radius}
               cy={radius}
@@ -325,7 +328,7 @@ export const Dial: React.FC<DialProps> = ({
               y1={strokeWidth + 2}
               x2={radius}
               y2={radius - 2}
-              stroke={indicatorColor}
+              stroke={disabled ? "#4a4a4a" : indicatorColor}
               strokeWidth={2}
               strokeLinecap="round"
             />
@@ -336,12 +339,12 @@ export const Dial: React.FC<DialProps> = ({
             cx={radius}
             cy={radius}
             r={2}
-            fill="#666"
+            fill={disabled ? "#333" : "#666"}
           />
         </svg>
         
         {/* Reset button - positioned at top right */}
-        {showResetButton && defaultValue !== undefined && isHovered && (
+        {showResetButton && defaultValue !== undefined && isHovered && !disabled && (
           <button
             onClick={handleReset}
             className="absolute -top-1 -right-1 p-0.5 rounded-full flex items-center justify-center transition-colors group"
@@ -352,7 +355,7 @@ export const Dial: React.FC<DialProps> = ({
         )}
         
         {/* Manual input overlay */}
-        {isEditing && (
+        {isEditing && !disabled && (
           <input
             type="number"
             value={editValue}
@@ -368,13 +371,13 @@ export const Dial: React.FC<DialProps> = ({
       </div>
       
       {/* Value display */}
-      <div className="text-xs text-gray-300 font-mono min-w-[50px] text-center">
+      <div className={`text-xs font-mono min-w-[50px] text-center ${disabled ? 'text-gray-600' : 'text-gray-300'}`}>
         {formatValue(value)}
       </div>
       
       {/* Label */}
       {label && (
-        <div className="text-[9px] text-gray-500">
+        <div className={`text-[9px] ${disabled ? 'text-gray-600' : 'text-gray-500'}`}>
           {label}
         </div>
       )}

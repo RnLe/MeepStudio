@@ -45,6 +45,8 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
 
   const { updateProject } = useMeepProjects({ ghPages });
   const setGeometries = useCanvasStore((s) => s.setGeometries);
+  const setSources = useCanvasStore((s) => s.setSources);
+  const setBoundaries = useCanvasStore((s) => s.setBoundaries);
   const qc = useQueryClient();
 
   React.useEffect(() => {
@@ -57,7 +59,9 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       unit: project?.scene?.unit || LengthUnit.NM,
     });
     if (project?.scene?.geometries) setGeometries(project.scene.geometries);
-  }, [project, setGeometries]);
+    if (project?.scene?.sources) setSources(project.scene.sources);
+    if (project?.scene?.boundaries) setBoundaries(project.scene.boundaries);
+  }, [project, setGeometries, setSources, setBoundaries]);
 
   const handleCancel = () => {
     setEditing(false);
@@ -74,7 +78,9 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
 
   const refreshProjectInStore = React.useCallback((updatedProject: MeepProject) => {
     setGeometries(updatedProject.scene?.geometries || []);
-  }, [setGeometries]);
+    setSources(updatedProject.scene?.sources || []);
+    setBoundaries(updatedProject.scene?.boundaries || []);
+  }, [setGeometries, setSources, setBoundaries]);
 
   const handleSave = async () => {
     setEditing(false);

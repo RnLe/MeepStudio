@@ -1,44 +1,111 @@
-// PML (Perfectly Matched Layer) boundary types for Meep FDTD solver
+// Boundary types for Meep FDTD solver - Perfectly Matched Layer (PML) and others
 
-export interface PML {
-    // Spatial thickness of the PML layer extending from boundary towards inside of cell
-    thickness: number;
+import { Vector3 } from "./meepBaseTypes";
+
+export interface PMLBoundary {
+    // PML (Perfectly Matched Layer) absorbing boundary condition
+    // Always attached to simulation borders, facing inwards
     
-    // Direction of boundaries to apply PML (X, Y, Z, or ALL for all directions)
-    direction?: number; // Default: ALL (-1)
+    // Thickness of PML layer in units of distance
+    thickness: number; // Default: 1.0
     
-    // Which side of boundary (Low, High, or ALL for both sides)
-    side?: number; // Default: ALL (-1)
+    // PML direction specification (+X, -X, +Y, -Y, +Z, -Z, or ALL)
+    // ALL means PML on all boundaries
+    direction?: PMLDirection | string; // Default: ALL
     
-    // Asymptotic reflection limit for infinite resolution/thickness from air
+    // Side specification for 2D simulations (Low, High, or All)
+    side?: PMLSide | string; // Default: All
+    
+    // PML profile parameters
+    // Conductivity profile: σ(u) = σ_max * u^pml_profile.power
+    // where u goes from 0 (inner) to 1 (outer) through PML thickness
+    
+    // Maximum conductivity (strength parameter)
+    strength?: number; // Default: 1.0
+    
+    // Power law exponent for conductivity profile
+    power?: number; // Default: 2.0
+    
+    // Asymptotic reflection error for automatic strength calculation
+    // If specified, overrides manual strength setting
     R_asymptotic?: number; // Default: 1e-15
     
-    // Mean stretch parameter for PML
-    mean_stretch?: number; // Default: 1.0
-    
-    // PML profile function name - determines absorption profile shape
-    // Default is quadratic: f(u) = u^2 where u goes from 0 to 1
-    pml_profile?: string; // Function name, default: "quadratic"
+    // Mean wavelength for automatic parameter calculation
+    mean_wavelength?: number; // Optional, uses source wavelength if not specified
 }
 
 // Direction constants for PML specification
 export enum PMLDirection {
-    X = 0,
-    Y = 1,
-    Z = 2,
-    ALL = -1
+    X = "X",           // Both +X and -X boundaries
+    Y = "Y",           // Both +Y and -Y boundaries  
+    Z = "Z",           // Both +Z and -Z boundaries
+    POS_X = "+X",      // Only +X boundary
+    NEG_X = "-X",      // Only -X boundary
+    POS_Y = "+Y",      // Only +Y boundary
+    NEG_Y = "-Y",      // Only -Y boundary
+    POS_Z = "+Z",      // Only +Z boundary
+    NEG_Z = "-Z",      // Only -Z boundary
+    ALL = "ALL"        // All boundaries
 }
 
-// Side constants for PML specification  
+// Side specification for 2D simulations
 export enum PMLSide {
-    Low = 0,
-    High = 1,
-    ALL = -1
+    Low = "Low",       // Lower boundary only
+    High = "High",     // Upper boundary only
+    All = "All"        // Both boundaries
 }
 
-// Absorber interface that extends PML for alternative boundary absorption
-export interface Absorber extends PML {
-    // Drop-in replacement for PML using scalar conductivity instead of true PML
-    // Uses same parameters as PML but implements different absorption mechanism
-    // Better for: periodic media, backward-wave modes, angled waveguides
+// Base interface for all canvas boundaries
+export interface CanvasBoundaryBase {
+  id: string;
+  kind: string;
+  name?: string;
+}
+
+// Individual PML edge parameters
+export interface PMLEdgeParameters {
+  thickness: number;
+  strength: number;
+  power: number;
+  R_asymptotic: number;
+}
+
+// Canvas representation of PML boundary
+export interface CanvasPMLBoundary extends CanvasBoundaryBase {
+  kind: "pmlBoundary";
+  
+  // Legacy properties for backwards compatibility
+  thickness: number;
+  direction: PMLDirection;
+  side: PMLSide;
+  strength: number;
+  power: number;
+  R_asymptotic: number;
+  
+  // New properties for individual edge control
+  // Maps edge to parameter set index (0-3)
+  edgeAssignments?: {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  };
+  
+  // Parameter sets (up to 4 active)
+  parameterSets?: {
+    [index: number]: PMLEdgeParameters & { active: boolean };
+  };
+}
+
+// Possible future boundary types
+export interface PeriodicBoundary {
+    // Periodic/Bloch boundary conditions
+    k_point?: Vector3; // Bloch wave vector
+    direction?: string; // X, Y, Z, or ALL
+}
+
+export interface SymmetryBoundary {
+    // Mirror symmetry boundary
+    direction?: string; // X, Y, or Z
+    phase?: number; // Phase factor for symmetry
 }

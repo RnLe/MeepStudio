@@ -5,7 +5,7 @@ import { Cylinder, Rectangle, Triangle } from "../types/canvasElementTypes";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker } from "lucide-react";
+import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker, Shield } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { calculateGeometryCenter } from "../utils/geometryCalculations";
 import { getSourceDefaults } from "../constants/sourceDefaults";
@@ -139,12 +139,21 @@ const sourceTools: Tool[] = [
   },
 ];
 
+const boundaryTools: Tool[] = [
+  {
+    label: "PML Boundary",
+    icon: <Shield size={18} />,
+    onClick: (fn: () => void) => fn(),
+    fnKey: "newPMLBoundary",
+  },
+];
+
 const groupToolMap: Record<GroupKey, Tool[]> = {
   snapping: snappingTools,
   geometries: geometryTools,
   materials: [],
   sources: sourceTools,
-  boundaries: [],
+  boundaries: boundaryTools,
   regions: [],
   overlays: overlayTools,
 };
@@ -164,6 +173,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const setResolutionSnapping = (val: boolean) => useCanvasStore.setState({ resolutionSnapping: val });
   const addGeometry = useCanvasStore((s) => s.addGeometry);
   const addSource = useCanvasStore((s) => s.addSource);
+  const addBoundary = useCanvasStore((s) => s.addBoundary);
   const showGrid = useCanvasStore((s) => s.showGrid);
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
@@ -174,6 +184,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const projectId = project.documentId;
   const geometries = project.scene?.geometries || [];
   const sources = project.scene?.sources || [];
+  const boundaries = project.scene?.boundaries || [];
   const newCylinder = () => {
     const pos = { x: 1, y: 1 };
     const newGeom = {
@@ -300,6 +311,36 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
       },
     });
   };
+  const newPMLBoundary = () => {
+    // Check if PML boundary already exists
+    const existingPML = boundaries.find((b: any) => b.kind === "pmlBoundary");
+    if (existingPML) {
+      // Select the existing PML instead of creating a new one
+      useCanvasStore.getState().selectGeometry(existingPML.id);
+      return;
+    }
+    
+    const newBoundary = {
+      kind: "pmlBoundary",
+      id: nanoid(),
+      thickness: 1.0,
+      direction: "ALL",
+      side: "All",
+      strength: 1.0,
+      power: 2.0,
+      R_asymptotic: 1e-15,
+    };
+    addBoundary(newBoundary);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          boundaries: [...boundaries, newBoundary],
+        },
+      },
+    });
+  };
 
   // Tool handlers for dynamic mapping
   const toolHandlers = {
@@ -309,6 +350,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newContinuousSource,
     newGaussianSource,
     newEigenModeSource,
+    newPMLBoundary,
     toggleShowGrid,
     toggleShowResolutionOverlay,
     toggleShowCanvasInfo,

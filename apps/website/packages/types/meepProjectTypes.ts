@@ -47,6 +47,11 @@ export interface ProjectScene {
    * Each source has at least: id, kind, and source-specific fields.
    */
   sources?: GeometryObject[]; // Using GeometryObject type for now, can be refined later
+  /**
+   * All boundary objects for this scene.
+   * Each boundary has at least: id, kind, and boundary-specific fields.
+   */
+  boundaries?: GeometryObject[]; // Using GeometryObject type for now, can be refined later
 }
 
 /* ---------- Project Code Interface ---------- */

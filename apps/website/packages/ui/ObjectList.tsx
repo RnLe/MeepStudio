@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { shallow } from "zustand/shallow";
-import { Circle, Square, TriangleIcon, ChevronDown, ChevronRight } from "lucide-react";
+import { Circle, Square, TriangleIcon, ChevronDown, ChevronRight, Shield } from "lucide-react";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { MeepProject } from "../types/meepProjectTypes";
 import CustomLucideIcon from "./CustomLucideIcon";
@@ -11,13 +11,14 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
     geometries: true,
     sources: true,
     materials: false,
-    boundaries: false,
+    boundaries: true,
   });
 
-  const { geometries, sources, selectedGeometryIds, selectGeometry } = useCanvasStore(
+  const { geometries, sources, boundaries, selectedGeometryIds, selectGeometry } = useCanvasStore(
     (s) => ({
       geometries: s.geometries,
       sources: s.sources,
+      boundaries: s.boundaries,
       selectedGeometryIds: s.selectedGeometryIds,
       selectGeometry: s.selectGeometry,
     }),
@@ -103,9 +104,23 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
     {
       name: "Boundaries",
       key: "boundaries" as const,
-      items: [],
-      getIcon: () => <Square size={12} />,
-      getLabel: () => "",
+      items: boundaries,
+      getIcon: (item: any) => {
+        switch (item.kind) {
+          case "pmlBoundary":
+            return <Shield size={12} />;
+          default:
+            return <Shield size={12} />;
+        }
+      },
+      getLabel: (item: any) => {
+        switch (item.kind) {
+          case "pmlBoundary":
+            return `PML (${item.direction}, t=${item.thickness})`;
+          default:
+            return item.kind;
+        }
+      },
     },
   ].filter(group => group.items.length > 0); // Only show groups with items
 
