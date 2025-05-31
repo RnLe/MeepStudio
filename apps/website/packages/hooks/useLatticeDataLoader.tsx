@@ -83,10 +83,6 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
         const b2 = lattice.meepLattice.reciprocal_basis2;
         const b3 = lattice.meepLattice.reciprocal_basis3 || { x: 0, y: 0, z: 2 * Math.PI };
         
-        console.log('Calculating transformation matrices with:', {
-          a1, a2, a3, b1, b2, b3
-        });
-        
         let matrices;
         
         // Try 3D calculation first
@@ -129,8 +125,6 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
         } else {
           throw new Error("No WASM transformation calculation function available");
         }
-        
-        console.log('Calculated matrices:', matrices);
         
         setTransformationMatrices(matrices);
         

@@ -46,8 +46,6 @@ export default function HeatmapCalendar() {
   // sort by ISO date ascending so start/end are always correct
   data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  console.log('data', data);
-
   if (!data.length) {
     return (
       <p className="py-6 text-center text-sm">No changes available.</p>
@@ -68,8 +66,6 @@ export default function HeatmapCalendar() {
     date: new Date(d.date),
     count: versionMapping[d.value],
   }));
-
-  console.log('heatmapValues', heatmapValues);
 
   return (
     <section className="py-4 flex flex-row justify-center">

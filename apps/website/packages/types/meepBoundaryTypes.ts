@@ -65,10 +65,13 @@ export interface CanvasBoundaryBase {
 // Individual PML edge parameters
 export interface PMLEdgeParameters {
   thickness: number;
-  strength: number;
-  power: number;
   R_asymptotic: number;
+  active: boolean;
 }
+
+export type PMLParameterSets = {
+  [key: number]: PMLEdgeParameters;
+};
 
 // Canvas representation of PML boundary
 export interface CanvasPMLBoundary extends CanvasBoundaryBase {

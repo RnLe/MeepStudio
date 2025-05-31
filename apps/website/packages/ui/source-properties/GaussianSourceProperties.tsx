@@ -73,7 +73,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
   const frequency = source.frequency || defaults.frequency;
   const width = source.width || defaults.width;
   const fwidth = width > 0 ? 1 / width : Infinity;
-  const startTime = source.startTime || defaults.start_time;
+  const startTime = source.start_time ?? defaults.start_time;
   const cutoff = source.cutoff || defaults.cutoff;
   const peakTime = startTime + cutoff * width;
   const wavelength = frequency > 0 ? 1 / frequency : 0;
@@ -154,7 +154,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
       amplitude: defaults.amplitude,
       frequency: defaults.frequency,
       width: defaults.width,
-      startTime: defaults.start_time,
+      start_time: defaults.start_time,
       cutoff: defaults.cutoff
     });
   };
@@ -166,7 +166,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
       (source.amplitude?.imag !== defaults.amplitude.imag) ||
       (source.frequency !== defaults.frequency) ||
       (source.width !== defaults.width) ||
-      (source.startTime !== defaults.start_time) ||
+      (source.start_time !== defaults.start_time) ||
       (source.cutoff !== defaults.cutoff)
     );
   }, [source, defaults]);
@@ -211,7 +211,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
       <GaussianPulsePlot
         frequency={source.frequency || defaults.frequency}
         pulseWidth={source.width || defaults.width}
-        startTime={source.startTime || defaults.start_time}
+        startTime={source.start_time || defaults.start_time}
         cutoff={source.cutoff || defaults.cutoff}
         amplitude={source.amplitude || defaults.amplitude}
         showUnits={showUnits}
@@ -363,8 +363,8 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
               <div className="flex justify-center">
                 <div className="flex flex-col items-center">
                   <Dial
-                    value={source.startTime || defaults.start_time}
-                    onChange={(val) => onUpdate({ startTime: val })}
+                    value={source.start_time || defaults.start_time}
+                    onChange={(val) => onUpdate({ start_time: val })}
                     mode="linear"
                     min={0}
                     step={0.001}
@@ -373,7 +373,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
                     defaultValue={defaults.start_time}
                   />
                   <div className="text-[9px] text-blue-400 mt-0.5 h-3">
-                    {showUnits && convertTime(source.startTime || defaults.start_time, projectA, projectUnit)}
+                    {showUnits && convertTime(source.start_time || defaults.start_time, projectA, projectUnit)}
                   </div>
                 </div>
               </div>

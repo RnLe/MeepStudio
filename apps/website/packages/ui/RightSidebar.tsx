@@ -27,12 +27,6 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
   const activeProject = getActiveProject();
   const activeLattice = getActiveLattice();
 
-  // Add debugging
-  React.useEffect(() => {
-    console.log('RightSidebar - activeTab:', activeTab);
-    console.log('RightSidebar - activeProject:', activeProject);
-  }, [activeTab, activeProject]);
-
   // Determine the main tab type based on active tab
   let activeMainTabType: string | undefined = activeTab?.type;
   
@@ -54,8 +48,6 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
       activeMainTabType = "project";
     }
   }
-
-  console.log('RightSidebar - activeMainTabType:', activeMainTabType);
   
   // Determine if we're currently editing
   const isEditing = activeMainTabType === "project" ? isEditingProject : 

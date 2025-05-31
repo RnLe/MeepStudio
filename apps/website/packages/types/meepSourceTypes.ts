@@ -31,6 +31,9 @@ export interface Source {
     
     // NumPy array for amplitude function interpolation
     amp_data?: any; // numpy.ndarray with dtype=numpy.complex128, default: None
+    
+    // Optional label for identification
+    label?: string;
 }
 
 // Component constants for source specification

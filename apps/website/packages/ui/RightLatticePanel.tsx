@@ -185,7 +185,6 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
   // Calculate transformation matrices
   const getTransformationMatrices = () => {
     if (transformationMatrices) {
-      console.log('Using transformation matrices from store:', transformationMatrices);
       // Ensure matrices are properly formatted as 3D arrays
       const formatMatrix = (m: any): number[][] => {
         if (!m || !Array.isArray(m)) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
@@ -207,8 +206,6 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
         TBA: formatMatrix(transformationMatrices.reciprocalToReal)
       };
     }
-    
-    console.log('No transformation matrices found, using identity');
     // Fallback to identity matrices if not calculated yet
     const identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
     return { MA: identity, MB: identity, TAB: identity, TBA: identity };

@@ -46,15 +46,35 @@ export const BoundaryLayer: React.FC<{
   const [hoveredEdge, setHoveredEdge] = useState<'top' | 'bottom' | 'left' | 'right' | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
 
-  // Helper to get edge color based on parameter set assignment
-  const getEdgeColor = (boundary: any, edge: 'top' | 'bottom' | 'left' | 'right', selected: boolean, hovered: boolean) => {
-    const assignment = boundary.edgeAssignments?.[edge];
+  // ========== small helper ==========
+  const getEffectiveAssignment = (b: any, edge: 'top' | 'bottom' | 'left' | 'right') => {
+    const explicit = b.edgeAssignments?.[edge];
+    if (explicit !== undefined) return explicit;              // explicit mapping
+    if (b.parameterSets?.[0]?.active) return 0;               // implicit PS-0
+    return undefined;                                         // nothing active
+  };
+  // ==================================
+
+  // Helper to get edge color
+  const getEdgeColor = (
+    boundary: any,
+    edge: 'top' | 'bottom' | 'left' | 'right',
+    selected: boolean,
+    hovered: boolean
+  ) => {
+    const assignment = getEffectiveAssignment(boundary, edge);
+    if (assignment !== undefined) {
+      const base = PARAM_SET_COLORS[assignment];
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(base.slice(i, i + 2), 16));
+      const op = selected ? 0.6 : hovered ? 0.4 : 0.3;
+      return `rgba(${r},${g},${b},${op})`;
+    }
     
-    // If edge has an assigned parameter set and that set is active
-    if (assignment !== undefined && boundary.parameterSets?.[assignment]?.active) {
-      const baseColor = PARAM_SET_COLORS[assignment];
-      
-      // Parse hex color and apply opacity
+    // Check for default behavior when no assignments exist
+    if ((!boundary.edgeAssignments || Object.keys(boundary.edgeAssignments).length === 0) && 
+        boundary.parameterSets?.[0]?.active) {
+      // Use parameter set 0 color as default
+      const baseColor = PARAM_SET_COLORS[0];
       const r = parseInt(baseColor.slice(1, 3), 16);
       const g = parseInt(baseColor.slice(3, 5), 16);
       const b = parseInt(baseColor.slice(5, 7), 16);
@@ -71,20 +91,33 @@ export const BoundaryLayer: React.FC<{
       : "rgba(59, 130, 246, 0.2)";  // blue-500 with 20% opacity
   };
 
-  // Helper to get edge stroke color
+  // Helper to get stroke color
   const getEdgeStrokeColor = (boundary: any, edge: 'top' | 'bottom' | 'left' | 'right') => {
-    const assignment = boundary.edgeAssignments?.[edge];
-    
-    if (assignment !== undefined && boundary.parameterSets?.[assignment]?.active) {
-      const baseColor = PARAM_SET_COLORS[assignment];
-      // Darken the color slightly for stroke
-      const r = parseInt(baseColor.slice(1, 3), 16);
-      const g = parseInt(baseColor.slice(3, 5), 16);
-      const b = parseInt(baseColor.slice(5, 7), 16);
-      return `rgb(${Math.max(0, r - 30)}, ${Math.max(0, g - 30)}, ${Math.max(0, b - 30)})`;
+    const assignment = getEffectiveAssignment(boundary, edge);
+    if (assignment !== undefined) {
+      const base = PARAM_SET_COLORS[assignment];
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(base.slice(i, i + 2), 16));
+      return `rgb(${Math.max(0, r - 30)},${Math.max(0, g - 30)},${Math.max(0, b - 30)})`;
     }
-    
-    return "#2563eb"; // blue-600 default
+    return "#2563eb";
+  };
+
+  // Decide whether an edge must be rendered
+  const shouldRenderEdge = (boundary: any, edge: 'top'|'bottom'|'left'|'right') => {
+    // explicit assignment & active?
+    const explicit = boundary.edgeAssignments?.[edge];
+    if (explicit !== undefined) return !!boundary.parameterSets?.[explicit]?.active;
+
+    // implicit default?
+    return !!boundary.parameterSets?.[0]?.active;
+  };
+
+  // Edge-specific thickness
+  const getEdgeThickness = (boundary: any, edge: 'top'|'bottom'|'left'|'right') => {
+    const assignment = getEffectiveAssignment(boundary, edge);
+    if (assignment !== undefined)
+      return (boundary.parameterSets?.[assignment]?.thickness ?? 1) * GRID_PX;
+    return (boundary.thickness ?? 1) * GRID_PX;
   };
 
   // Helper to render PML boundaries
@@ -98,11 +131,50 @@ export const BoundaryLayer: React.FC<{
 
     const rects: React.ReactNode[] = [];
 
+    // Check which edges should be rendered based on edgeAssignments
+    const shouldRenderEdge = (edge: 'top' | 'bottom' | 'left' | 'right') => {
+      // If using new edge assignments system
+      if (boundary.edgeAssignments !== undefined) {
+        const assignment = boundary.edgeAssignments[edge];
+        // If there's an assignment and the parameter set is active
+        if (assignment !== undefined && boundary.parameterSets?.[assignment]?.active) {
+          return true;
+        }
+        // If no assignments exist at all, check if we should show default
+        if (Object.keys(boundary.edgeAssignments).length === 0 && boundary.parameterSets) {
+          // Check if parameter set 0 is active (default behavior)
+          if (boundary.parameterSets[0]?.active) {
+            // Show all edges with parameter set 0 by default
+            return true;
+          }
+        }
+        return false;
+      }
+      
+      // Fall back to legacy direction system
+      switch (boundary.direction) {
+        case "ALL": return true;
+        case "X": return edge === 'left' || edge === 'right';
+        case "Y": return edge === 'top' || edge === 'bottom';
+        case "+X": return edge === 'right';
+        case "-X": return edge === 'left';
+        case "+Y": return edge === 'bottom';
+        case "-Y": return edge === 'top';
+        default: return true;
+      }
+    };
+
     // Get thickness for a specific edge
     const getEdgeThickness = (edge: 'top' | 'bottom' | 'left' | 'right') => {
       const assignment = boundary.edgeAssignments?.[edge];
       if (assignment !== undefined && boundary.parameterSets?.[assignment]) {
         return (boundary.parameterSets[assignment].thickness || 1) * GRID_PX;
+      }
+      // If no assignment but parameter set 0 is active, use it as default
+      if (!boundary.edgeAssignments || Object.keys(boundary.edgeAssignments).length === 0) {
+        if (boundary.parameterSets?.[0]?.active) {
+          return (boundary.parameterSets[0].thickness || 1) * GRID_PX;
+        }
       }
       return (boundary.thickness || 1) * GRID_PX;
     };
@@ -157,27 +229,6 @@ export const BoundaryLayer: React.FC<{
           }}
         />
       );
-    };
-
-    // Check which edges should be rendered based on edgeAssignments
-    const shouldRenderEdge = (edge: 'top' | 'bottom' | 'left' | 'right') => {
-      // If using new edge assignments system
-      if (boundary.edgeAssignments) {
-        const assignment = boundary.edgeAssignments[edge];
-        return assignment !== undefined && boundary.parameterSets?.[assignment]?.active;
-      }
-      
-      // Fall back to legacy direction system
-      switch (boundary.direction) {
-        case "ALL": return true;
-        case "X": return edge === 'left' || edge === 'right';
-        case "Y": return edge === 'top' || edge === 'bottom';
-        case "+X": return edge === 'right';
-        case "-X": return edge === 'left';
-        case "+Y": return edge === 'bottom';
-        case "-Y": return edge === 'top';
-        default: return true;
-      }
     };
 
     // Get individual edge thicknesses

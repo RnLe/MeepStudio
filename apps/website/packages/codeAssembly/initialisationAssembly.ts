@@ -26,8 +26,9 @@ export async function generateInitializationCode(context: ConversionContext): Pr
       `cell_size = mp.Vector3(${params.cellSize.x}, ${params.cellSize.y}, ${params.cellSize.z})`,
       `resolution = ${params.resolution}`,
       '',
-      '# Initialize coordinate system',
-      `pml_layers = [mp.PML(${params.pmlThickness})]`,
+      '# Initialize boundary layers (filled later by boundaries section)',
+      'pml_layers = []',
+      ''
     ];
     
     // Add optional parameters if defined

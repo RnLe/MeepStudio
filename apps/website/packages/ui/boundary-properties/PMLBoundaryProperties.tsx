@@ -4,6 +4,11 @@ import { Dial } from "../components/Dial";
 import { PMLEdgeSelector, type EdgeAssignment } from "../components/PMLEdgeSelector";
 import { useCanvasStore } from "../../providers/CanvasStore";
 import { RotateCcw } from "lucide-react";
+import { 
+  PML_PARAMETER_SETS_DEFAULTS,
+  hasNonDefaultParameterSets,
+  hasNonDefaultEdgeAssignments
+} from "../../constants/boundaryDefaults";
 
 interface PMLBoundaryPropertiesProps {
   boundary: CanvasPMLBoundary;
@@ -24,38 +29,8 @@ export const PMLBoundaryProperties: React.FC<PMLBoundaryPropertiesProps> = ({
   boundary, 
   onUpdate 
 }) => {
-  // Initialize parameter sets if not present
-  const parameterSets = boundary.parameterSets || {
-    0: { 
-      thickness: boundary.thickness || 1, 
-      strength: boundary.strength || 1, 
-      power: boundary.power || 2, 
-      R_asymptotic: boundary.R_asymptotic || 1e-15,
-      active: true 
-    },
-    1: { 
-      thickness: 1, 
-      strength: 1, 
-      power: 2, 
-      R_asymptotic: 1e-15,
-      active: false 
-    },
-    2: { 
-      thickness: 1, 
-      strength: 1, 
-      power: 2, 
-      R_asymptotic: 1e-15,
-      active: false 
-    },
-    3: { 
-      thickness: 1, 
-      strength: 1, 
-      power: 2, 
-      R_asymptotic: 1e-15,
-      active: false 
-    }
-  };
-
+  // Initialize parameter sets from boundary or use defaults
+  const parameterSets = boundary.parameterSets || PML_PARAMETER_SETS_DEFAULTS;
   const edgeAssignments = boundary.edgeAssignments || {};
 
   // Get active parameter set indices
@@ -117,40 +92,8 @@ export const PMLBoundaryProperties: React.FC<PMLBoundaryPropertiesProps> = ({
 
   const handleResetParameterSets = () => {
     // Reset all parameter sets to defaults
-    const defaultSets = {
-      0: { 
-        thickness: 1, 
-        strength: 1, 
-        power: 2, 
-        R_asymptotic: 1e-15,
-        active: true 
-      },
-      1: { 
-        thickness: 1, 
-        strength: 1, 
-        power: 2, 
-        R_asymptotic: 1e-15,
-        active: false 
-      },
-      2: { 
-        thickness: 1, 
-        strength: 1, 
-        power: 2, 
-        R_asymptotic: 1e-15,
-        active: false 
-      },
-      3: { 
-        thickness: 1, 
-        strength: 1, 
-        power: 2, 
-        R_asymptotic: 1e-15,
-        active: false 
-      }
-    };
-    
-    // Reset edge assignments
     onUpdate({
-      parameterSets: defaultSets,
+      parameterSets: PML_PARAMETER_SETS_DEFAULTS,
       edgeAssignments: {}
     });
   };
@@ -158,23 +101,10 @@ export const PMLBoundaryProperties: React.FC<PMLBoundaryPropertiesProps> = ({
   // Check if any parameter differs from default
   const hasNonDefaultParams = React.useMemo(() => {
     // Check if edge assignments exist
-    if (Object.keys(edgeAssignments).length > 0) return true;
+    if (hasNonDefaultEdgeAssignments(edgeAssignments)) return true;
     
-    // Check if any parameter set other than 0 is active
-    if ([1, 2, 3].some(i => parameterSets[i]?.active)) return true;
-    
-    // Check if parameter set 0 has non-default values
-    const set0 = parameterSets[0];
-    if (set0) {
-      return (
-        set0.thickness !== 1 ||
-        set0.strength !== 1 ||
-        set0.power !== 2 ||
-        set0.R_asymptotic !== 1e-15
-      );
-    }
-    
-    return false;
+    // Check parameter sets
+    return hasNonDefaultParameterSets(parameterSets);
   }, [parameterSets, edgeAssignments]);
 
   return (
@@ -242,36 +172,8 @@ export const PMLBoundaryProperties: React.FC<PMLBoundaryPropertiesProps> = ({
                     max={10}
                     step={0.1}
                     size={32}
-                    label="Thick"
+                    label="Thickness"
                     defaultValue={1}
-                    disabled={!parameterSets[setIndex]?.active}
-                  />
-                </div>
-                <div className="flex justify-center">
-                  <Dial
-                    value={parameterSets[setIndex]?.strength || 1}
-                    onChange={(val) => handleParameterChange(setIndex, 'strength', val)}
-                    mode="linear"
-                    min={0.1}
-                    max={10}
-                    step={0.1}
-                    size={32}
-                    label="Str"
-                    defaultValue={1}
-                    disabled={!parameterSets[setIndex]?.active}
-                  />
-                </div>
-                <div className="flex justify-center">
-                  <Dial
-                    value={parameterSets[setIndex]?.power || 2}
-                    onChange={(val) => handleParameterChange(setIndex, 'power', val)}
-                    mode="linear"
-                    min={0.5}
-                    max={8}
-                    step={0.5}
-                    size={32}
-                    label="Pow"
-                    defaultValue={2}
                     disabled={!parameterSets[setIndex]?.active}
                   />
                 </div>

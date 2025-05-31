@@ -2,6 +2,8 @@ import { useCanvasStore } from '../providers/CanvasStore';
 import { useCodeAssemblyStore } from '../providers/CodeAssemblyStore';
 import { generateInitializationCode } from './initialisationAssembly';
 import { generateGeometryCode, convertKonvaToMeepGeometry, convertMeepToKonvaGeometry } from './geometryAssembly';
+import { generateSourcesCode } from './sourcesAssembly';
+import { generateBoundariesCode } from './boundariesAssembly';
 import { MeepGeometry } from './geometryAssembly';
 
 export interface ConversionContext {
@@ -43,10 +45,20 @@ export async function convertCanvasToMeepCode(): Promise<ConversionResult> {
       codeState.setError('geometries', geomResult.error || 'Failed to generate geometry code');
     }
     
+    // Generate sources code
+    const sourcesResult = await generateSourcesCode(context);
+    if (!sourcesResult.success) {
+      codeState.setError('sources', sourcesResult.error || 'Failed to generate sources code');
+    }
+    
+    // Generate boundaries code
+    const boundariesResult = await generateBoundariesCode(context);
+    if (!boundariesResult.success) {
+      codeState.setError('boundaries', boundariesResult.error || 'Failed to generate boundaries code');
+    }
+    
     // TODO: Generate other sections
     // - Materials
-    // - Sources
-    // - Boundaries
     // - Regions
     // - Simulation assembly
     

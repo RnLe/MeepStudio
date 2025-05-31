@@ -30,9 +30,13 @@ export default function CodeEditor({ project, ghPages }: Props) {
   const activeTab = useEditorStateStore((s) => s.getActiveTab());
   const activeProjectId = activeTab?.projectId;
   
-  // Get geometry count from canvas store
+  // Get geometry, source & boundary data from canvas store
   const geometries = useCanvasStore((s) => s.geometries);
+  const sources = useCanvasStore((s) => s.sources);
+  const boundaries = useCanvasStore((s) => s.boundaries);  // NEW
   const geometryCount = geometries.length;
+  const sourceCount = sources.length;
+  const boundaryCount = boundaries.length;                  // NEW
   
   // Get code assembly state
   const codeBlocks = useCodeAssemblyStore((s) => s.codeBlocks);
@@ -43,22 +47,22 @@ export default function CodeEditor({ project, ghPages }: Props) {
   const [isCopied, setIsCopied] = useState(false);
   const [copiedBlock, setCopiedBlock] = useState<string | null>(null);
   
-  // Auto-generate code when geometries change
+  // Auto-generate code when geometries, sources, or boundaries change
   useEffect(() => {
     convertCanvasToMeepCode();
-  }, [geometries]);
+  }, [geometries, sources, boundaries]);                   // UPDATED
   
-  // Get counts for other object types (currently hardcoded to 0)
+  // Get counts for other object types
   const getObjectCount = (groupKey: string): number => {
     switch (groupKey) {
       case "geometries":
         return geometryCount;
+      case "sources":
+        return sourceCount;
       case "materials":
         return 0; // TODO: implement when materials are added
-      case "sources":
-        return 0; // TODO: implement when sources are added
       case "boundaries":
-        return 0; // TODO: implement when boundaries are added
+        return boundaryCount;                               // UPDATED
       case "regions":
         return 0; // TODO: implement when regions are added
       default:
@@ -168,7 +172,7 @@ cell_size = mp.Vector3(${project.scene?.rectWidth || 16}, ${project.scene?.rectH
 resolution = ${project.scene?.resolution || 10}
 
 # Initialize coordinate system
-pml_layers = [mp.PML(1.0)]
+pml_layers = []            # was “[mp.PML(1.0)]”
 `;
         
       case "geometries":
@@ -332,7 +336,7 @@ sim.run(...)`;
                       <div className="text-white">resolution = {project.scene?.resolution || 10}</div>
                       <br />
                       <div className="text-[#84bf6a]"># Initialize coordinate system</div>
-                      <div className="text-white">pml_layers = [mp.PML(1.0)]</div>
+                      <div className="text-white">pml_layers = []</div>
                       <br />
                     </>
                   );
@@ -370,8 +374,14 @@ sim.run(...)`;
                     <>
                       <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} SOURCES ${'─'.repeat(60)}`}</div>
                       <br />
-                      <div className="text-[#84bf6a]"># Define sources (0 total)</div>
-                      <div className="text-gray-500"># No sources defined yet</div>
+                      <div className="text-[#84bf6a]"># Define sources ({sourceCount} total)</div>
+                      <div className="text-white">sources = []</div>
+                      <br />
+                      {sourceCount > 0 ? (
+                        <div className="text-[#84bf6a]"># Source definitions will appear here</div>
+                      ) : (
+                        <div className="text-gray-500"># No sources defined yet</div>
+                      )}
                       <br />
                     </>
                   );
@@ -381,8 +391,14 @@ sim.run(...)`;
                     <>
                       <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} BOUNDARIES ${'─'.repeat(60)}`}</div>
                       <br />
-                      <div className="text-[#84bf6a]"># Define boundary conditions (0 total)</div>
-                      <div className="text-gray-500"># No boundaries defined yet</div>
+                      <div className="text-[#84bf6a]"># Define boundary conditions ({boundaryCount} total)</div>
+                      <div className="text-white">boundaries = []</div>
+                      <br />
+                      {boundaryCount > 0 ? (
+                        <div className="text-[#84bf6a]"># Boundary definitions will appear here</div>
+                      ) : (
+                        <div className="text-gray-500"># No boundaries defined yet</div>
+                      )}
                       <br />
                     </>
                   );

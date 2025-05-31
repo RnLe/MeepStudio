@@ -9,6 +9,7 @@ import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeI
 import CustomLucideIcon from "./CustomLucideIcon";
 import { calculateGeometryCenter } from "../utils/geometryCalculations";
 import { getSourceDefaults } from "../constants/sourceDefaults";
+import { getBoundaryDefaults } from "../constants/boundaryDefaults";
 
 const GROUPS = [
   { key: "snapping", label: "Snapping", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
@@ -320,15 +321,10 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
       return;
     }
     
+    const defaults = getBoundaryDefaults('pml');
     const newBoundary = {
-      kind: "pmlBoundary",
+      ...defaults,
       id: nanoid(),
-      thickness: 1.0,
-      direction: "ALL",
-      side: "All",
-      strength: 1.0,
-      power: 2.0,
-      R_asymptotic: 1e-15,
     };
     addBoundary(newBoundary);
     updateProject({

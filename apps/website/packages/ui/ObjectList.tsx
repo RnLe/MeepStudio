@@ -50,18 +50,7 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
             return <Square size={12} />;
         }
       },
-      getLabel: (item: any) => {
-        switch (item.kind) {
-          case "cylinder":
-            return `Circle (r=${item.radius})`;
-          case "rectangle":
-            return `Rectangle (${item.width}×${item.height})`;
-          case "triangle":
-            return `Triangle`;
-          default:
-            return item.kind;
-        }
-      },
+      getLabel: (item: any) => item.name ?? item.kind, // <- only the name
     },
     {
       name: "Sources",
@@ -79,48 +68,21 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
             return <CustomLucideIcon src="/icons/wave_icon.svg" size={20} />;
         }
       },
-      getLabel: (item: any) => {
-        switch (item.kind) {
-          case "continuousSource":
-            return `CW Source (${item.component || 'Ex'})`;
-          case "gaussianSource":
-            return `Gaussian (${item.component || 'Ex'})`;
-          case "eigenModeSource":
-            return `Eigenmode (Band ${item.eigBand || 1})`;
-          case "gaussianBeamSource":
-            return `Gaussian Beam (w₀=${item.beamW0 || 1})`;
-          default:
-            return item.kind;
-        }
-      },
+      getLabel: (item: any) => item.name ?? item.kind, // <- only the name
     },
     {
       name: "Materials",
       key: "materials" as const,
       items: [],
       getIcon: () => <Square size={12} />,
-      getLabel: () => "",
+      getLabel: (item: any) => item.name ?? item.kind, // placeholder
     },
     {
       name: "Boundaries",
       key: "boundaries" as const,
       items: boundaries,
-      getIcon: (item: any) => {
-        switch (item.kind) {
-          case "pmlBoundary":
-            return <Shield size={12} />;
-          default:
-            return <Shield size={12} />;
-        }
-      },
-      getLabel: (item: any) => {
-        switch (item.kind) {
-          case "pmlBoundary":
-            return `PML (${item.direction}, t=${item.thickness})`;
-          default:
-            return item.kind;
-        }
-      },
+      getIcon: (item: any) => <Shield size={12} />,
+      getLabel: (item: any) => item.name ?? item.kind, // <- only the name
     },
   ].filter(group => group.items.length > 0); // Only show groups with items
 
