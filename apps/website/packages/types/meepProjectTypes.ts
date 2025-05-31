@@ -54,6 +54,11 @@ export interface ProjectScene {
    * Each boundary has at least: id, kind, and boundary-specific fields.
    */
   boundaries?: GeometryObject[]; // Using GeometryObject type for now, can be refined later
+  /**
+   * All lattice objects for this scene.
+   * Each lattice has at least: id, kind, and lattice-specific fields.
+   */
+  lattices?: GeometryObject[]; // Using GeometryObject type for now, can be refined later
 }
 
 /* ---------- Project Code Interface ---------- */

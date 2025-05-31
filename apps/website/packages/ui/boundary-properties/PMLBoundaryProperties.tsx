@@ -17,10 +17,10 @@ interface PMLBoundaryPropertiesProps {
 
 // Parameter set colors
 const PARAM_SET_COLORS: Record<number, string> = {
-  0: '#60a5fa',    // blue-400
-  1: '#f97316',    // orange-500
-  2: '#a855f7',    // purple-500
-  3: '#eab308'     // yellow-500
+  0: '#1e2939',    // dark blue-gray
+  1: '#392e1e',    // dark brown
+  2: '#211e39',    // dark purple
+  3: '#36391e'     // dark olive
 };
 
 const PARAM_SET_NAMES = ['Set A', 'Set B', 'Set C', 'Set D'];

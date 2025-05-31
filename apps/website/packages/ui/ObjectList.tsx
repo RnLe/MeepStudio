@@ -1,10 +1,12 @@
 "use client";
 import React, { useState } from "react";
 import { shallow } from "zustand/shallow";
-import { Circle, Square, TriangleIcon, ChevronDown, ChevronRight, Shield } from "lucide-react";
+import { Circle, Square, TriangleIcon, ChevronDown, ChevronRight, Shield, Sparkles } from "lucide-react";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { MeepProject } from "../types/meepProjectTypes";
 import CustomLucideIcon from "./CustomLucideIcon";
+import { MaterialCatalog } from "../constants/meepMaterialPresets";
+import { useMaterialColorStore } from "../providers/MaterialColorStore";
 
 const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
   const [expandedGroups, setExpandedGroups] = useState({
@@ -12,19 +14,23 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
     sources: true,
     materials: false,
     boundaries: true,
+    lattices: true,
   });
 
-  const { geometries, sources, boundaries, selectedGeometryIds, selectGeometry } = useCanvasStore(
+  const { geometries, sources, boundaries, lattices, selectedGeometryIds, selectGeometry } = useCanvasStore(
     (s) => ({
       geometries: s.geometries,
       sources: s.sources,
       boundaries: s.boundaries,
+      lattices: s.lattices,
       selectedGeometryIds: s.selectedGeometryIds,
       selectGeometry: s.selectGeometry,
     }),
     shallow
   );
 
+  const { getMaterialColor } = useMaterialColorStore();
+  
   const toggleGroup = (group: keyof typeof expandedGroups) => {
     setExpandedGroups(prev => ({
       ...prev,
@@ -37,7 +43,7 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
     {
       name: "Geometries",
       key: "geometries" as const,
-      items: geometries,
+      items: geometries.filter(g => !g.invisible),
       getIcon: (item: any) => {
         switch (item.kind) {
           case "cylinder":
@@ -84,6 +90,16 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
       getIcon: (item: any) => <Shield size={12} />,
       getLabel: (item: any) => item.name ?? item.kind, // <- only the name
     },
+    {
+      name: "Lattices",
+      key: "lattices" as const,
+      items: lattices,
+      getIcon: (item: any) => <Sparkles size={12} />,
+      getLabel: (item: any) => {
+        const mult = item.multiplier || 3;
+        return `${mult}×${mult} Lattice`;
+      }, // <- only the name
+    },
   ].filter(group => group.items.length > 0); // Only show groups with items
 
   // Multi-select: ctrl/cmd/shift+click toggles, click without modifier selects only that
@@ -128,6 +144,19 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
                   >
                     {group.getIcon(item)}
                     <span className="truncate">{group.getLabel(item)}</span>
+
+                    {/* Material color indicator for geometries */}
+                    {group.key === 'geometries' && item.material && (
+                      <div 
+                        className="w-2 h-2 rounded-full border border-neutral-600" 
+                        style={{ 
+                          backgroundColor: getMaterialColor(
+                            item.material, 
+                            MaterialCatalog[item.material as keyof typeof MaterialCatalog]?.color
+                          ) 
+                        }}
+                      />
+                    )}
                   </button>
                 ))}
               </div>

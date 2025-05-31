@@ -12,6 +12,7 @@ import { MaterialSelectionMenu } from "./MaterialSelectionMenu";
 import { MaterialCatalog } from "../constants/meepMaterialPresets";
 import { useMaterialColorStore } from "../providers/MaterialColorStore";
 import { SIMULATION_DEFAULTS } from "../constants/meepSimulationDefaults";
+import SceneLatticeProperties from "./SceneLatticeProperties";
 
 interface Props {
   project: MeepProject;
@@ -58,6 +59,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
   const setGeometries = useCanvasStore((s) => s.setGeometries);
   const setSources = useCanvasStore((s) => s.setSources);
   const setBoundaries = useCanvasStore((s) => s.setBoundaries);
+  const setLattices = useCanvasStore((s) => s.setLattices);
   const qc = useQueryClient();
 
   React.useEffect(() => {
@@ -73,8 +75,9 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     if (project?.scene?.geometries) setGeometries(project.scene.geometries);
     if (project?.scene?.sources) setSources(project.scene.sources);
     if (project?.scene?.boundaries) setBoundaries(project.scene.boundaries);
+    if (project?.scene?.lattices) setLattices(project.scene.lattices);
     if (project?.scene?.material) setSceneMaterial(project.scene.material);
-  }, [project, setGeometries, setSources, setBoundaries, setSceneMaterial]);
+  }, [project, setGeometries, setSources, setBoundaries, setLattices, setSceneMaterial]);
 
   const handleCancel = () => {
     setEditing(false);
@@ -94,8 +97,9 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     setGeometries(updatedProject.scene?.geometries || []);
     setSources(updatedProject.scene?.sources || []);
     setBoundaries(updatedProject.scene?.boundaries || []);
+    setLattices(updatedProject.scene?.lattices || []);
     setSceneMaterial(updatedProject.scene?.material || SIMULATION_DEFAULTS.scene.material);
-  }, [setGeometries, setSources, setBoundaries, setSceneMaterial]);
+  }, [setGeometries, setSources, setBoundaries, setLattices, setSceneMaterial]);
 
   const handleSave = async () => {
     setEditing(false);

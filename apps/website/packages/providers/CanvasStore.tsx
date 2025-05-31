@@ -112,6 +112,14 @@ type CanvasState = {
   // Scene material
   sceneMaterial: string;
   setSceneMaterial: (material: string) => void;
+  
+  // Lattice state
+  lattices: any[];
+  setLattices: (lattices: any[]) => void;
+  addLattice: (lattice: any) => void;
+  updateLattice: (id: string, partial: Partial<any>) => void;
+  removeLattice: (id: string) => void;
+  removeLattices: (ids: string[]) => void;
 };
 
 export const useCanvasStore = createWithEqualityFn<CanvasState>(
@@ -282,10 +290,84 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
       }));
     },
     
+    // Lattice state and actions
+    lattices: [],
+    setLattices: (lattices) => set({ 
+      lattices: lattices.map(l => ({
+        ...l,
+        center: l.center || l.pos,
+        orientation: l.orientation || 0
+      }))
+    }),
+    addLattice: (lattice) => set((s) => ({ 
+      lattices: [...s.lattices, { 
+        ...lattice, 
+        center: lattice.center || lattice.pos,
+        orientation: lattice.orientation || 0 
+      }] 
+    })),
+    updateLattice: (id, partial) => set((s) => ({
+      lattices: s.lattices.map(l => {
+        if (l.id === id) {
+          const updated = { ...l, ...partial };
+          if (partial.pos || partial.x !== undefined || partial.y !== undefined) {
+            updated.center = updated.pos || { x: updated.x, y: updated.y };
+          }
+          // If tiedGeometryId changes, update the geometry's invisible state
+          if (partial.tiedGeometryId !== undefined) {
+            const oldTiedId = l.tiedGeometryId;
+            const newTiedId = partial.tiedGeometryId;
+            
+            // Make old geometry visible again
+            if (oldTiedId) {
+              const geoms = get().geometries;
+              const oldGeom = geoms.find(g => g.id === oldTiedId);
+              if (oldGeom) {
+                get().updateGeometry(oldTiedId, { invisible: false });
+              }
+            }
+            
+            // Make new geometry invisible
+            if (newTiedId) {
+              get().updateGeometry(newTiedId, { invisible: true });
+            }
+          }
+          return updated;
+        }
+        return l;
+      }),
+    })),
+    removeLattice: (id) => set((s) => {
+      const lattice = s.lattices.find(l => l.id === id);
+      // Make tied geometry visible again when removing lattice
+      if (lattice?.tiedGeometryId) {
+        get().updateGeometry(lattice.tiedGeometryId, { invisible: false });
+      }
+      return {
+        lattices: s.lattices.filter(l => l.id !== id),
+        selectedGeometryIds: s.selectedGeometryIds.filter(selId => selId !== id),
+        selectedGeometryId: s.selectedGeometryId === id ? null : s.selectedGeometryId,
+      };
+    }),
+    removeLattices: (ids) => set((s) => {
+      // Make all tied geometries visible again
+      ids.forEach(id => {
+        const lattice = s.lattices.find(l => l.id === id);
+        if (lattice?.tiedGeometryId) {
+          get().updateGeometry(lattice.tiedGeometryId, { invisible: false });
+        }
+      });
+      return {
+        lattices: s.lattices.filter(l => !ids.includes(l.id)),
+        selectedGeometryIds: s.selectedGeometryIds.filter(selId => !ids.includes(selId)),
+        selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
+      };
+    }),
+    
     // Combined elements getter
     getAllElements: () => {
       const state = get();
-      return [...state.geometries, ...state.sources, ...state.boundaries];
+      return [...state.geometries, ...state.sources, ...state.boundaries, ...state.lattices];
     },
     
     // Overlay toggles

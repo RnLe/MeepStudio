@@ -12,6 +12,7 @@ import { GridOverlayLayer } from "./canvasGridOverlay";
 import { SelectionBoxLayer } from "./selectionBoxLayer";
 import { SourceLayer } from "./canvasSources";
 import { BoundaryLayer } from "./canvasBoundaries";
+import { LatticeLayer } from "./canvasLatticeLayer";
 import { useMaterialColorStore } from "../providers/MaterialColorStore";
 import { MaterialCatalog } from "packages/constants/meepMaterialPresets";
 
@@ -84,6 +85,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     updateBoundary,
     removeBoundary,
     removeBoundaries,
+    lattices,
+    setLattices,
+    addLattice,
+    updateLattice,
+    removeLattice,
+    removeLattices,
     getAllElements,
     sceneMaterial,
     setSceneMaterial,
@@ -112,6 +119,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       updateBoundary: s.updateBoundary,
       removeBoundary: s.removeBoundary,
       removeBoundaries: s.removeBoundaries,
+      lattices: s.lattices,
+      setLattices: s.setLattices,
+      addLattice: s.addLattice,
+      updateLattice: s.updateLattice,
+      removeLattice: s.removeLattice,
+      removeLattices: s.removeLattices,
       getAllElements: s.getAllElements,
       sceneMaterial: s.sceneMaterial,
       setSceneMaterial: s.setSceneMaterial,
@@ -146,8 +159,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     // Load sources
     setSources(project.scene?.sources || []);
     setBoundaries(project.scene?.boundaries || []);
+    setLattices(project.scene?.lattices || []);
     setSceneMaterial(project.scene?.material || "Air");
-  }, [project.scene?.geometries, project.scene?.sources, project.scene?.boundaries, project.scene?.material, setGeometries, setSources, setBoundaries, setSceneMaterial]);
+  }, [project.scene?.geometries, project.scene?.sources, project.scene?.boundaries, project.scene?.lattices, project.scene?.material, setGeometries, setSources, setBoundaries, setLattices, setSceneMaterial]);
 
   // --- Geometry Selectors ---
   const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
@@ -156,10 +170,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
 
   // --- helper that always commits the *current* store state ---
   const commitScene = useCallback(() => {
-    const { geometries: gs, sources: ss, boundaries: bs } = useCanvasStore.getState();
+    const { geometries: gs, sources: ss, boundaries: bs, lattices: ls } = useCanvasStore.getState();
     updateProject({
       documentId: projectId,
-      project: { scene: { ...project.scene, geometries: gs, sources: ss, boundaries: bs } }
+      project: { scene: { ...project.scene, geometries: gs, sources: ss, boundaries: bs, lattices: ls } }
     });
   }, [updateProject, projectId, project.scene]);
 
@@ -279,17 +293,47 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     if (selectedGeometryId === id) selectGeometry(null);
   }, [removeBoundary, updateProject, projectId, boundaries, selectedGeometryId, selectGeometry, project.scene]);
 
-  // Update batch remove to handle boundaries
+  // --- Lattice Actions ---
+  const handleUpdateLattice = useCallback((id: string, partial: Partial<any>) => {
+    updateLattice(id, partial);
+    commitScene();
+  }, [updateLattice, commitScene]);
+
+  const handleRemoveLattice = useCallback((id: string) => {
+    removeLattice(id);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          lattices: lattices.filter(l => l.id !== id),
+        }
+      },
+    });
+    if (selectedGeometryId === id) selectGeometry(null);
+  }, [removeLattice, updateProject, projectId, lattices, selectedGeometryId, selectGeometry, project.scene]);
+
+  // Make handleUpdateLattice available globally for multi-drag
+  React.useEffect(() => {
+    (window as any).__handleUpdateLattice = handleUpdateLattice;
+    return () => {
+      delete (window as any).__handleUpdateLattice;
+    };
+  }, [handleUpdateLattice]);
+
+  // Update batch remove to handle lattices
   const handleBatchRemoveElements = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
     
     const geomIds = ids.filter(id => geometries.some(g => g.id === id));
     const sourceIds = ids.filter(id => sources.some(s => s.id === id));
     const boundaryIds = ids.filter(id => boundaries.some(b => b.id === id));
+    const latticeIds = ids.filter(id => lattices.some(l => l.id === id));
     
     const remainingGeometries = geometries.filter(g => !geomIds.includes(g.id));
     const remainingSources = sources.filter(s => !sourceIds.includes(s.id));
     const remainingBoundaries = boundaries.filter(b => !boundaryIds.includes(b.id));
+    const remainingLattices = lattices.filter(l => !latticeIds.includes(l.id));
     
     updateProject({
       documentId: projectId,
@@ -299,6 +343,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
           geometries: remainingGeometries,
           sources: remainingSources,
           boundaries: remainingBoundaries,
+          lattices: remainingLattices,
         }
       },
     });
@@ -306,7 +351,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     if (geomIds.length > 0) removeGeometries(geomIds);
     if (sourceIds.length > 0) removeSources(sourceIds);
     if (boundaryIds.length > 0) removeBoundaries(boundaryIds);
-  }, [removeGeometries, removeSources, removeBoundaries, updateProject, projectId, geometries, sources, boundaries, project.scene]);
+    if (latticeIds.length > 0) removeLattices(latticeIds);
+  }, [removeGeometries, removeSources, removeBoundaries, removeLattices, updateProject, projectId, geometries, sources, boundaries, lattices, project.scene]);
 
   // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -902,7 +948,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                 height: pxToLattice(box.height),
               };
               // --- Find intersecting geometries ---
-              const selected = [...geometries, ...sources].filter(elem => {
+              const selected = [...geometries, ...sources, ...lattices].filter(elem => {
                 if (elem.kind === "rectangle") {
                   const rx = elem.pos.x - elem.width / 2;
                   const ry = elem.pos.y - elem.height / 2;
@@ -947,6 +993,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                   return rectsIntersect(
                     { x: rx, y: ry, width: elem.thickness || 1, height: elem.thickness || 1 },
                     latticeBox
+                  );
+                } else if (elem.kind === "lattice") {
+                  // Check if lattice origin is in selection box
+                  return (
+                    elem.pos.x >= latticeBox.x &&
+                    elem.pos.x <= latticeBox.x + latticeBox.width &&
+                    elem.pos.y >= latticeBox.y &&
+                    elem.pos.y <= latticeBox.y + latticeBox.height
                   );
                 }
                 return false;
@@ -1004,9 +1058,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         {/* --- Geometry elements layer --- */}
         <Layer>
           <GeometryLayer
-            cylinders={cylinders}
-            rectangles={rectangles}
-            triangles={triangles}
+            cylinders={cylinders.filter(c => !c.invisible)}
+            rectangles={rectangles.filter(r => !r.invisible)}
+            triangles={triangles.filter(t => !t.invisible)}
             selectedIds={selectedGeometryIds}
             gridSnapping={gridSnapping}
             resolutionSnapping={resolutionSnapping}
@@ -1046,6 +1100,34 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             scale={scale}
             setActiveInstructionSet={setActiveInstructionSet}
             getAllElements={getAllElements}
+            showGrid={showGrid}
+            showResolutionOverlay={showResolutionOverlay}
+            toggleShowGrid={toggleShowGrid}
+            toggleShowResolutionOverlay={toggleShowResolutionOverlay}
+          />
+        </Layer>
+
+        {/* --- Lattice layer - between geometry and boundaries --- */}
+        <Layer>
+          <LatticeLayer
+            lattices={lattices}
+            geometries={geometries}
+            selectedIds={selectedGeometryIds}
+            selectElement={selectGeometry}
+            GRID_PX={GRID_PX}
+            project={project}
+            scale={scale}
+            showXRayMode={showXRayMode}
+            showColors={showColors}
+            gridSnapping={gridSnapping}
+            resolutionSnapping={resolutionSnapping}
+            snapCanvasPosToGrid={snapCanvasPosToGrid}
+            multiDragAnchor={multiDragAnchor}
+            setMultiDragAnchor={setMultiDragAnchor}
+            updateLattice={updateLattice}
+            handleUpdateLattice={handleUpdateLattice}
+            setActiveInstructionSet={setActiveInstructionSet}
+            /* new overlay props */
             showGrid={showGrid}
             showResolutionOverlay={showResolutionOverlay}
             toggleShowGrid={toggleShowGrid}

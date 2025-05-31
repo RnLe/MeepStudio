@@ -5,7 +5,7 @@ import { Cylinder, Rectangle, Triangle } from "../types/canvasElementTypes";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker, Shield, MoreHorizontal, Eye, Palette } from "lucide-react";
+import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker, Shield, MoreHorizontal, Eye, Palette, Sparkles } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { calculateGeometryCenter } from "../utils/geometryCalculations";
 import { getSourceDefaults } from "../constants/sourceDefaults";
@@ -15,6 +15,7 @@ import { useMaterialColorStore } from "../providers/MaterialColorStore";
 import MaterialLibraryModal from "./MaterialLibraryModal";
 import { XRayTransparencySlider } from "./XRayTransparencySlider";
 import { ColorControlPopover } from "./ColorControlPopover";
+import { Vector2d } from "konva/lib/types";
 
 const GROUPS = [
   { key: "snapping", label: "Snapping", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
@@ -54,6 +55,7 @@ interface Tool {
   onClick: (handler: any) => void;
   fnKey?: string;
   isActive?: (state: ToolbarState) => boolean;
+  fullRow?: boolean; // Add this property
 }
 
 const snappingTools: Tool[] = [
@@ -99,6 +101,13 @@ const geometryTools = [
     icon: <LucideTriangle size={18} />,
     onClick: (fn: () => void) => fn(),
     fnKey: "newTriangle",
+  },
+  {
+    label: "Add Lattice",
+    icon: <Sparkles size={18} />,
+    onClick: (fn: () => void) => fn(),
+    fnKey: "newLattice",
+    fullRow: true, // Make it full width
   },
 ];
 
@@ -256,6 +265,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const addGeometry = useCanvasStore((s) => s.addGeometry);
   const addSource = useCanvasStore((s) => s.addSource);
   const addBoundary = useCanvasStore((s) => s.addBoundary);
+  const addLattice = useCanvasStore((s) => s.addLattice);
   const showGrid = useCanvasStore((s) => s.showGrid);
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
   const showResolutionOverlay = useCanvasStore((s) => s.showResolutionOverlay);
@@ -272,10 +282,14 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const geometries = project.scene?.geometries || [];
   const sources = project.scene?.sources || [];
   const boundaries = project.scene?.boundaries || [];
+  const lattices = project.scene?.lattices || [];
   const selectedGeometryIds = useCanvasStore((s) => s.selectedGeometryIds);
   const updateGeometry = useCanvasStore((s) => s.updateGeometry);
   const getAllElements = useCanvasStore((s) => s.getAllElements);
   const [showMaterialModal, setShowMaterialModal] = React.useState(false);
+  
+  // Add state for lattice modal
+  const [showLatticeModal, setShowLatticeModal] = React.useState(false);
   
   // State for X-Ray transparency slider
   const [showXRaySlider, setShowXRaySlider] = React.useState(false);
@@ -451,6 +465,9 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
       },
     });
   };
+  const newLattice = () => {
+    setShowLatticeModal(true);
+  };
 
   // Check if any selected elements are geometries
   const hasGeometriesSelected = React.useMemo(() => {
@@ -594,6 +611,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newGaussianSource,
     newEigenModeSource,
     newPMLBoundary,
+    newLattice,
     toggleShowGrid,
     toggleShowResolutionOverlay,
     toggleShowCanvasInfo,
@@ -646,6 +664,42 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                     <MoreHorizontal size={12} className="mr-1" />
                     More
                   </button>
+                </div>
+              ) : group.key === "geometries" ? (
+                <div className="flex flex-col gap-1 w-full px-1">
+                  <div className="grid grid-cols-2 gap-1 w-full justify-items-center">
+                    {groupToolMap[group.key as GroupKey].filter(tool => !tool.fullRow).map((tool, i) => (
+                      <button
+                        key={tool.label}
+                        title={tool.label}
+                        className={`flex items-center justify-center w-8 h-8 rounded transition-all hover:bg-neutral-600 active:bg-neutral-600`}
+                        onClick={() => {
+                          if (tool.onClick && tool.fnKey) {
+                            tool.onClick(toolHandlers[tool.fnKey as keyof typeof toolHandlers]);
+                          }
+                        }}
+                        aria-label={tool.label}
+                      >
+                        {tool.icon}
+                      </button>
+                    ))}
+                  </div>
+                  {groupToolMap[group.key as GroupKey].filter(tool => tool.fullRow).map((tool) => (
+                    <button
+                      key={tool.label}
+                      title={tool.label}
+                      className={`flex items-center justify-center w-full h-8 rounded transition-all hover:bg-neutral-600 active:bg-neutral-600`}
+                      onClick={() => {
+                        if (tool.onClick && tool.fnKey) {
+                          tool.onClick(toolHandlers[tool.fnKey as keyof typeof toolHandlers]);
+                        }
+                      }}
+                      aria-label={tool.label}
+                    >
+                      {tool.icon}
+                      <span className="ml-1 text-xs">{tool.label.replace('Add ', '')}</span>
+                    </button>
+                  ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-1 w-full justify-items-center min-h-8">
@@ -780,8 +834,55 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
         onToggleFavorite={handleToggleFavorite}
         disableApply={!hasGeometriesSelected}
       />
+      
+      {/* Add dynamic import for LatticeBuilderModal */}
+      {showLatticeModal && (
+        <React.Suspense fallback={<div>Loading...</div>}>
+          {/* latticeData is now typed */}
+          <LatticeBuilderModal
+            isOpen={showLatticeModal}
+            onClose={() => setShowLatticeModal(false)}
+            onCreateLattice={(latticeData: LatticeVectorData) => {
+              const pos = { x: 5, y: 5 };
+              const newLattice = {
+                kind: "lattice",
+                id: nanoid(),
+                pos,
+                basis1: latticeData.basis1,
+                basis2: latticeData.basis2,
+                multiplier: 3,
+                showMode: 'points' as const,
+              };
+              addLattice(newLattice);
+              updateProject({
+                documentId: projectId,
+                project: {
+                  scene: {
+                    ...project.scene,
+                    lattices: [...lattices, newLattice],
+                  },
+                },
+              });
+              setShowLatticeModal(false);
+            }}
+          />
+        </React.Suspense>
+      )}
     </>
   );
 };
 
+// Lazy load the modal component
+// @ts-expect-error — handled by dynamic import at runtime
+const LatticeBuilderModal = React.lazy(() => import('./LatticeBuilderModal'));
+
 export default CanvasToolbar;
+
+/**
+ * Minimal lattice-vector description passed back from LatticeBuilderModal.
+ * Keep it local – no runtime impact, just for type-checking.
+ */
+type LatticeVectorData = {
+  basis1: Vector2d;
+  basis2: Vector2d;
+};

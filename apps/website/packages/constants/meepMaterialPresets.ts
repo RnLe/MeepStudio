@@ -61,7 +61,7 @@ export const Vacuum: Medium = {
   name: "Vacuum",
   abbreviation: "Vacuum",
   hint: "Perfect vacuum with n=1. Reference medium for all optical calculations.",
-  color: "#f5f5f5",
+  color: "#ffffff",
   category: "Basic"
 };
 

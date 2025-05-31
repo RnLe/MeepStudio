@@ -9,7 +9,8 @@ export type ElementType =
   | "gaussianSource"
   | "eigenModeSource"
   | "gaussianBeamSource"
-  | "pmlBoundary";
+  | "pmlBoundary"
+  | "lattice"; // Add lattice type
 
 // Geometry types
 // Sphere, Cylinder, Wedge, Cone, Block, Ellipsoid, Prism
@@ -25,6 +26,12 @@ interface BaseElement {
   orientation: number;
   /** true ⇢ highlighted in UI (selection logic lives in context) */
   selected?: boolean;
+  /** 
+   * When true, element is hidden from canvas and excluded from simulations/code generation.
+   * Used when geometry is tied to a lattice - it becomes a template that's replicated
+   * at each lattice point rather than existing as a standalone element.
+   */
+  invisible?: boolean;
 }
 
 interface BaseGeometry extends BaseElement {
@@ -113,6 +120,20 @@ export interface PmlBoundary extends BaseElement {
   thickness: number;
 }
 
+/* ---------- lattice ---------- */
+export interface SceneLattice extends BaseElement {
+  kind: "lattice";
+  /** Base vectors defining the lattice */
+  basis1: Vector2d;
+  basis2: Vector2d;
+  /** Multiplier for how many lattice points to show */
+  multiplier: number;
+  /** ID of geometry tied to this lattice (if any) */
+  tiedGeometryId?: string;
+  /** Whether to show lattice points or replicated geometry */
+  showMode: 'points' | 'geometry';
+}
+
 export type CanvasElement =
   | Cylinder
   | Rectangle
@@ -121,4 +142,5 @@ export type CanvasElement =
   | GaussianSource
   | EigenModeSource
   | GaussianBeamSource
-  | PmlBoundary;
+  | PmlBoundary
+  | SceneLattice; // Add to union

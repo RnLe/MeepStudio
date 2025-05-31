@@ -20,6 +20,7 @@ import { GaussianSourceProperties } from "./source-properties/GaussianSourceProp
 import { EigenModeSourceProperties } from "./source-properties/EigenModeSourceProperties";
 import { GaussianBeamSourceProperties } from "./source-properties/GaussianBeamSourceProperties";
 import { PMLBoundaryProperties } from "./boundary-properties/PMLBoundaryProperties";
+import SceneLatticeProperties from "./SceneLatticeProperties";
 
 interface ObjectPropertiesPanelProps {
   project: MeepProject;
@@ -40,6 +41,7 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     geometries, 
     sources,
     boundaries,
+    lattices,
     updateGeometry: updateGeometryStore,
     updateSource: updateSourceStore,
     updateBoundary: updateBoundaryStore
@@ -49,6 +51,7 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     geometries: s.geometries,
     sources: s.sources,
     boundaries: s.boundaries,
+    lattices: s.lattices,
     updateGeometry: s.updateGeometry,
     updateSource: s.updateSource,
     updateBoundary: s.updateBoundary,
@@ -114,21 +117,13 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
   }
 
   // Find the selected element from geometries, sources, and boundaries
-  const allElements = [...geometries, ...sources, ...boundaries];
+  const allElements = [...geometries, ...sources, ...boundaries, ...lattices];
   const selected = allElements.find((elem) => elem.id === selectedGeometryId);
 
-  if (!selected) {
-    return (
-      <div className="space-y-4">
-        <h3 className="text-sm font-medium text-gray-300">Properties</h3>
-        <p className="text-sm text-gray-500">Select an object to view properties</p>
-      </div>
-    );
-  }
-
   // Determine element type and create appropriate update handler
-  const isSource = sources.some(s => s.id === selected.id);
-  const isBoundary = boundaries.some(b => b.id === selected.id);
+  const isSource = sources.some(s => s.id === selected?.id);
+  const isBoundary = boundaries.some(b => b.id === selected?.id);
+  const isLattice = lattices.some(l => l.id === selected?.id);
   
   const handleUpdate = isBoundary
     ? (partial: Partial<any>) => updateBoundary(selected.id, partial)
@@ -178,17 +173,46 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
 
   const center = getGeometryCenter(selected);
 
+  // Find selected element across all types – hook is unconditional
+  const selectedElement = React.useMemo(() => {
+    if (!selectedGeometryId) return null;
+    
+    // Check geometries
+    const geom = geometries.find(g => g.id === selectedGeometryId);
+    if (geom) return { type: 'geometry', element: geom };
+    
+    // Check sources
+    const source = sources.find(s => s.id === selectedGeometryId);
+    if (source) return { type: 'source', element: source };
+    
+    // Check boundaries
+    const boundary = boundaries.find(b => b.id === selectedGeometryId);
+    if (boundary) return { type: 'boundary', element: boundary };
+    
+    // Check lattices
+    const lattice = lattices.find(l => l.id === selectedGeometryId);
+    if (lattice) return { type: 'lattice', element: lattice };
+    
+    return null;
+  }, [selectedGeometryId, geometries, sources, boundaries, lattices]);
+  
+  /* --------------------------------------------
+   * RENDER
+   * ------------------------------------------ */
   return (
-    <div className="space-y-4">
-      <h3 className="text-sm font-medium text-gray-300">Properties</h3>
-      
-      {!selected ? (
-        <p className="text-sm text-gray-500">Select an object to view properties</p>
-      ) : (
+    <div className="space-y-3">
+      {/* nothing selected → show hint instead of early-returning */}
+      {!selectedElement && (
+        <div className="text-xs text-gray-500 italic text-center py-4">
+          Select an object to edit its properties
+        </div>
+      )}
+
+      {selectedElement?.type === 'geometry' && (
         <div className="space-y-3">
           {/* Geometry Properties */}
-          {selected.kind === "cylinder" && (() => {
-            const cyl = selected as Cylinder;
+          {selectedElement.element.kind === "cylinder" && (() => {
+            const cyl = selectedElement.element as Cylinder;
             return (
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-300">Cylinder Properties</h3>
@@ -231,8 +255,8 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
             );
           })()}
 
-          {selected.kind === "rectangle" && (() => {
-            const rect = selected as RectType;
+          {selectedElement.element.kind === "rectangle" && (() => {
+            const rect = selectedElement.element as RectType;
             return (
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-300">Rectangle Properties</h3>
@@ -286,8 +310,8 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
             );
           })()}
 
-          {selected.kind === "triangle" && (() => {
-            const tri = selected as Triangle;
+          {selectedElement.element.kind === "triangle" && (() => {
+            const tri = selectedElement.element as Triangle;
             return (
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-300">Triangle Properties</h3>
@@ -347,48 +371,59 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
               </div>
             );
           })()}
-
-          {/* Source Properties */}
-          {selected.kind === "continuousSource" && (
-            <ContinuousSourceProperties 
-              source={selected} 
-              onUpdate={handleUpdate}
-              projectA={projectA}
-              projectUnit={projectUnit}
-            />
-          )}
-          
-          {selected.kind === "gaussianSource" && (
-            <GaussianSourceProperties 
-              source={selected} 
-              onUpdate={handleUpdate}
-              projectA={projectA}
-              projectUnit={projectUnit}
-            />
-          )}
-          
-          {selected.kind === "eigenModeSource" && (
-            <EigenModeSourceProperties 
-              source={selected} 
-              onUpdate={handleUpdate}
-            />
-          )}
-          
-          {selected.kind === "gaussianBeamSource" && (
-            <GaussianBeamSourceProperties 
-              source={selected} 
-              onUpdate={handleUpdate}
-            />
-          )}
-
-          {/* Boundary Properties */}
-          {selected.kind === "pmlBoundary" && (
-            <PMLBoundaryProperties 
-              boundary={selected} 
-              onUpdate={handleUpdate}
-            />
-          )}
         </div>
+      )}
+
+      {selectedElement?.type === 'source' && (
+        <>
+          {/* Source Properties */}
+          {selectedElement.element.kind === "continuousSource" && (
+            <ContinuousSourceProperties 
+              source={selectedElement.element} 
+              onUpdate={handleUpdate}
+              projectA={projectA}
+              projectUnit={projectUnit}
+            />
+          )}
+          
+          {selectedElement.element.kind === "gaussianSource" && (
+            <GaussianSourceProperties 
+              source={selectedElement.element} 
+              onUpdate={handleUpdate}
+              projectA={projectA}
+              projectUnit={projectUnit}
+            />
+          )}
+          
+          {selectedElement.element.kind === "eigenModeSource" && (
+            <EigenModeSourceProperties 
+              source={selectedElement.element} 
+              onUpdate={handleUpdate}
+            />
+          )}
+          
+          {selectedElement.element.kind === "gaussianBeamSource" && (
+            <GaussianBeamSourceProperties 
+              source={selectedElement.element} 
+              onUpdate={handleUpdate}
+            />
+          )}
+        </>
+      )}
+
+      {selectedElement?.type === 'boundary' && (
+        <PMLBoundaryProperties 
+          boundary={selectedElement.element} 
+          onUpdate={handleUpdate}
+        />
+      )}
+
+      {selectedElement?.type === 'lattice' && (
+        <SceneLatticeProperties
+          lattice={selectedElement.element}
+          project={project}
+          ghPages={ghPages}
+        />
       )}
     </div>
   );
