@@ -88,6 +88,20 @@ export interface Medium {
     
     // Valid frequency range for material model
     valid_freq_range?: FreqRange; // Default: (-1e20, 1e20) - all frequencies
+    
+    // === UI/DISPLAY PROPERTIES ===
+    
+    // Short abbreviation for UI display (e.g., "Si", "Au", "GaN")
+    abbreviation?: string;
+    
+    // Helpful hints or notes about this material
+    hint?: string;
+    
+    // Color for visualization in UI (hex color string)
+    color?: string;
+    
+    // Category for organizing materials in UI
+    category?: "Basic" | "Semiconductors" | "Non-Linear Photonics" | "Plasmonic Metals";
 }
 
 // Frequency range specification for material validity

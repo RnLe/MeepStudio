@@ -3,6 +3,7 @@ import { Cylinder, Rectangle as RectEl, Triangle } from "../types/canvasElementT
 import { Line, Circle, Rect, Group } from "react-konva";
 import { ResizeHandles } from "./resizeHandles";
 import { useCanvasStore } from "packages/providers/CanvasStore";
+import { MaterialCatalog } from "../constants/meepMaterialPresets";
 
 /**
  * Geometry rendering components for ProjectCanvas.
@@ -447,12 +448,43 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
     };
   }, [multiDragAnchor, activeHandle, isDraggingGeometry, toggleShowGrid, toggleShowResolutionOverlay]);
 
+  // Helper function to get material color
+  const getMaterialColor = (materialKey?: string): string => {
+    if (!materialKey) return "rgba(0, 0, 0, 0.25)"; // Default transparent black
+    
+    const material = MaterialCatalog[materialKey as keyof typeof MaterialCatalog];
+    if (material && material.color) {
+      // Convert hex to rgba with transparency
+      const hex = material.color.replace("#", "");
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      return `rgba(${r}, ${g}, ${b}, 0.5)`;
+    }
+    
+    return "rgba(0, 0, 0, 0.25)"; // Fallback
+  };
+
+  // Helper function to get stroke color for selected elements
+  const getStrokeColor = (materialKey?: string): string => {
+    if (!materialKey) return "#666"; // Default gray
+    
+    const material = MaterialCatalog[materialKey as keyof typeof MaterialCatalog];
+    if (material && material.color) {
+      return material.color;
+    }
+    
+    return "#666"; // Fallback
+  };
+
   return (
     <>
       {/* Render cylinders */}
       {cylinders.map((cyl) => {
         const isSelected = selectedIds.includes(cyl.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
+        const fillColor = getMaterialColor(cyl.material);
+        const strokeColor = getStrokeColor(cyl.material);
         
         return (
           <Circle
@@ -461,10 +493,12 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
             y={cyl.pos.y * GRID_PX}
             radius={cyl.radius * GRID_PX}
             rotation={(cyl.orientation || 0) * 180 / Math.PI}
-            fill="rgba(59,130,246,0.25)"
-            stroke={isSelected ? "#3b82f6" : "transparent"}
-            strokeWidth={isSelected ? 1 / scale : 0}
+            fill={fillColor}
+            stroke={isSelected ? strokeColor : "transparent"}
+            strokeWidth={isSelected ? 2 / scale : 0}
             shadowBlur={isSelected ? 8 : 0}
+            shadowColor={strokeColor}
+            shadowOpacity={0.5}
             draggable
             onDragStart={(e) => {
               if (otherSelected) {
@@ -496,6 +530,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
       {rectangles.map((rect) => {
         const isSelected = selectedIds.includes(rect.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
+        const fillColor = getMaterialColor(rect.material);
+        const strokeColor = getStrokeColor(rect.material);
         
         return (
           <React.Fragment key={rect.id}>
@@ -532,10 +568,12 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
               <Rect
                 width={rect.width * GRID_PX}
                 height={rect.height * GRID_PX}
-                fill="rgba(16,185,129,0.25)"
-                stroke={isSelected ? "#10b981" : "transparent"}
-                strokeWidth={isSelected ? 1 / scale : 0}
+                fill={fillColor}
+                stroke={isSelected ? strokeColor : "transparent"}
+                strokeWidth={isSelected ? 2 / scale : 0}
                 shadowBlur={isSelected ? 8 : 0}
+                shadowColor={strokeColor}
+                shadowOpacity={0.5}
                 offsetX={(rect.width * GRID_PX) / 2}
                 offsetY={(rect.height * GRID_PX) / 2}
               />
@@ -567,6 +605,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
       {triangles.map((tri) => {
         const isSelected = selectedIds.includes(tri.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
+        const fillColor = getMaterialColor(tri.material);
+        const strokeColor = getStrokeColor(tri.material);
         
         return (
           <React.Fragment key={tri.id}>
@@ -601,10 +641,12 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
               <Line
                 points={tri.vertices.flatMap((v: any) => [v.x * GRID_PX, v.y * GRID_PX])}
                 closed
-                fill="rgba(236,72,153,0.25)"
-                stroke={isSelected ? "#ec4899" : "transparent"}
-                strokeWidth={isSelected ? 1 / scale : 0}
+                fill={fillColor}
+                stroke={isSelected ? strokeColor : "transparent"}
+                strokeWidth={isSelected ? 2 / scale : 0}
                 shadowBlur={isSelected ? 8 : 0}
+                shadowColor={strokeColor}
+                shadowOpacity={0.5}
               />
             </Group>
           </React.Fragment>
