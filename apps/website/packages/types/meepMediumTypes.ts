@@ -91,6 +91,9 @@ export interface Medium {
     
     // === UI/DISPLAY PROPERTIES ===
     
+    // Human-readable name for UI display (e.g., "Silicon", "Titanium Dioxide")
+    name?: string;
+    
     // Short abbreviation for UI display (e.g., "Si", "Au", "GaN")
     abbreviation?: string;
     
@@ -101,7 +104,7 @@ export interface Medium {
     color?: string;
     
     // Category for organizing materials in UI
-    category?: "Basic" | "Semiconductors" | "Non-Linear Photonics" | "Plasmonic Metals";
+    category?: "Basic" | "Semiconductors" | "Non-Linear Materials" | "Plasmonic Metals";
 }
 
 // Frequency range specification for material validity

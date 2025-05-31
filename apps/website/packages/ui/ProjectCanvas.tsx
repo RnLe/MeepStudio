@@ -12,6 +12,8 @@ import { GridOverlayLayer } from "./canvasGridOverlay";
 import { SelectionBoxLayer } from "./selectionBoxLayer";
 import { SourceLayer } from "./canvasSources";
 import { BoundaryLayer } from "./canvasBoundaries";
+import { useMaterialColorStore } from "../providers/MaterialColorStore";
+import { MaterialCatalog } from "packages/constants/meepMaterialPresets";
 
 // --- Constants ---
 const GRID_PX = 40; // Fixed size for each cell in px
@@ -52,7 +54,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   // --- Props and Store Setup ---
   const { project: propProject, ghPages, maxZoom, gridWidth, gridHeight } = props;
   
-  // ✅ Simply keep the prop as the project
+  // Simply keep the prop as the project
   const project = propProject;
   if (!project) return null;
   const projectId = project.documentId;
@@ -83,6 +85,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     removeBoundary,
     removeBoundaries,
     getAllElements,
+    sceneMaterial,
+    setSceneMaterial,
   } = useCanvasStore(
     (s) => ({
       selectedGeometryId: s.selectedGeometryId,
@@ -109,6 +113,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       removeBoundary: s.removeBoundary,
       removeBoundaries: s.removeBoundaries,
       getAllElements: s.getAllElements,
+      sceneMaterial: s.sceneMaterial,
+      setSceneMaterial: s.setSceneMaterial,
     }),
     shallow
   );  // --- Geometry Migration Effect ---
@@ -140,7 +146,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     // Load sources
     setSources(project.scene?.sources || []);
     setBoundaries(project.scene?.boundaries || []);
-  }, [project.scene?.geometries, project.scene?.sources, project.scene?.boundaries, setGeometries, setSources, setBoundaries]);
+    setSceneMaterial(project.scene?.material || "Air");
+  }, [project.scene?.geometries, project.scene?.sources, project.scene?.boundaries, project.scene?.material, setGeometries, setSources, setBoundaries, setSceneMaterial]);
 
   // --- Geometry Selectors ---
   const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
@@ -419,6 +426,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
   const toggleShowResolutionOverlay = useCanvasStore((s) => s.toggleShowResolutionOverlay);
   const showCanvasInfo = useCanvasStore((s) => s.showCanvasInfo);
+  const showXRayMode = useCanvasStore((s) => s.showXRayMode);
+  const showColors = useCanvasStore((s) => s.showColors);
 
   // --- Grid Lines (Main and Resolution) ---
   const gridLines = useMemo(() => {
@@ -637,6 +646,54 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const canvasContext = useMemo(() => ({
     setActiveInstructionSet
   }), []);
+
+  // Get X-Ray transparency from store
+  const xRayTransparency = useCanvasStore((s) => s.xRayTransparency);
+  const getElementXRayTransparency = useCanvasStore((s) => s.getElementXRayTransparency);
+
+  // Set initial X-Ray transparency value (optional - adjust as needed)
+  React.useEffect(() => {
+    // Only set if not already initialized
+    const currentTransparency = useCanvasStore.getState().xRayTransparency;
+    if (currentTransparency === 0.3) {
+      useCanvasStore.getState().setXRayTransparency(0.3);
+    }
+  }, []);
+  
+  // Get background color visibility from store
+  const getElementColorVisibility = useCanvasStore((s) => s.getElementColorVisibility);
+  const showBackgroundColor = getElementColorVisibility('background');
+  
+  // Get background color from material
+  const { getMaterialColor } = useMaterialColorStore();
+  const backgroundColor = React.useMemo(() => {
+    // Check if background colors are enabled
+    if (!showBackgroundColor) {
+      return "#d4d4d4"; // Always use default gray when colors are disabled
+    }
+    
+    if (sceneMaterial === "Air") {
+      return "#d4d4d4"; // Keep default gray for Air
+    }
+    
+    // Get the material color, handling edge cases
+    const materialColor = getMaterialColor(sceneMaterial);
+    
+    // If getMaterialColor returns undefined/null, try to get color from catalog
+    if (!materialColor) {
+      const material = MaterialCatalog[sceneMaterial as keyof typeof MaterialCatalog];
+      if (material?.color) {
+        return material.color;
+      }
+    }
+    
+    // Return the material color if found, otherwise default
+    return materialColor || "#d4d4d4";
+  }, [sceneMaterial, getMaterialColor, showBackgroundColor]);
+
+  // ← add this line (value is unused; it just triggers re-render)
+  const colorRevision = useCanvasStore((s) => s.colorSettingsRevision);
+  const xRayRevision = useCanvasStore((s) => s.xRayTransparencyRevision); // trigger re-render
 
   // --- Render ---
   return (
@@ -917,17 +974,18 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             y={-pos.y / scale}
             width={CANVAS_W / scale}
             height={CANVAS_H / scale}
-            fill="#a3a3a3"
+            fill="#e5e5e5"
             listening={false}
           />
-          {/* Draw the main rectangle area with lighter bg to "cut out" the grid area */}
+          {/* Draw the main rectangle area with material color */}
           <Rect
             x={0}
             y={0}
             width={LOGICAL_W}
             height={LOGICAL_H}
-            fill="#d4d4d4"
+            fill={backgroundColor}
             listening={false}
+            opacity={showXRayMode ? getElementXRayTransparency('background') : 1}
           />
         </Layer>
         
@@ -968,6 +1026,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
             toggleShowGrid={toggleShowGrid}
             toggleShowResolutionOverlay={toggleShowResolutionOverlay}
             setActiveInstructionSet={setActiveInstructionSet}
+            showXRayMode={showXRayMode}
+            showColors={showColors}
           />
           <SourceLayer
             sources={sources}

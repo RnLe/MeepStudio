@@ -62,12 +62,56 @@ type CanvasState = {
   toggleShowResolutionOverlay: () => void;
   showCanvasInfo: boolean;
   toggleShowCanvasInfo: () => void;
+  showXRayMode: boolean;
+  toggleShowXRayMode: () => void;
+  showColors: boolean;
+  toggleShowColors: () => void;
+  
+  // Granular color controls
+  colorSettings: {
+    offState: { background: boolean; geometries: boolean; boundaries: boolean; };
+    onState:  { background: boolean; geometries: boolean; boundaries: boolean; };
+  };
+  colorSettingsRevision: number;                   // <-- NEW
+  setColorSetting: (
+    state: 'offState' | 'onState',
+    element: 'background' | 'geometries' | 'boundaries',
+    value: boolean
+  ) => void;
+  getElementColorVisibility: (element: 'background' | 'geometries' | 'boundaries') => boolean;
+  
+  // X-Ray transparency value (used when X-Ray mode is on)
+  xRayTransparency: number;
+  xRayTransparencyRevision: number;                  // NEW
+  setXRayTransparency: (value: number) => void;
+  resetXRayTransparency: () => void;
+  
+  // Granular X-Ray transparency controls
+  xRayTransparencySettings: {
+    unified: boolean; // Whether to use unified transparency
+    background: number;
+    geometries: number;
+    boundaries: number;
+    sources: number;               // +++
+  };
+  setXRayTransparencySetting: (
+    element: 'background' | 'geometries' | 'boundaries' | 'sources', // +++
+    value: number
+  ) => void;
+  setUnifiedXRayTransparency: (unified: boolean) => void;
+  getElementXRayTransparency: (
+    element: 'background' | 'geometries' | 'boundaries' | 'sources' // +++
+  ) => number;
   
   // Scene properties
   a: number;
   setA: (a: number) => void;
   unit: LengthUnit;
   setUnit: (unit: LengthUnit) => void;
+  
+  // Scene material
+  sceneMaterial: string;
+  setSceneMaterial: (material: string) => void;
 };
 
 export const useCanvasStore = createWithEqualityFn<CanvasState>(
@@ -251,12 +295,96 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
     toggleShowResolutionOverlay: () => set((s) => ({ showResolutionOverlay: !s.showResolutionOverlay })),
     showCanvasInfo: true,
     toggleShowCanvasInfo: () => set((s) => ({ showCanvasInfo: !s.showCanvasInfo })),
+    showXRayMode: false,
+    toggleShowXRayMode: () => set((s) => ({ showXRayMode: !s.showXRayMode })),
+    showColors: true,
+    toggleShowColors: () => set({ showColors: !get().showColors }),
+    
+    colorSettings: {
+      offState: { background: false, geometries: false, boundaries: false },
+      onState:  { background: true,  geometries: true,  boundaries: true  },
+    },
+    colorSettingsRevision: 0,                          // <-- NEW
+    setColorSetting: (state, element, value) =>
+      set((s) => ({
+        colorSettings: {
+          ...s.colorSettings,
+          [state]: { ...s.colorSettings[state], [element]: value },
+        },
+        colorSettingsRevision: s.colorSettingsRevision + 1, // bump
+      })),
+    
+    getElementColorVisibility: (element) => {
+      const { showColors, colorSettings } = get();
+      const currentState = showColors ? 'onState' : 'offState';
+      return colorSettings[currentState][element];
+    },
+    
+    // X-Ray transparency value (0.3 = 30% opacity when X-Ray is on)
+    xRayTransparency: 0.3,
+    xRayTransparencyRevision: 0,                     // NEW
+    setXRayTransparency: (value) =>
+      set((s) => ({
+        xRayTransparency: Math.max(0, Math.min(1, value)),
+        xRayTransparencyRevision: s.xRayTransparencyRevision + 1,   // bump
+      })),
+    resetXRayTransparency: () =>
+      set((s) => ({
+        xRayTransparency: 0.3,
+        xRayTransparencyRevision: s.xRayTransparencyRevision + 1,
+      })),
+    
+    // Granular X-Ray transparency controls
+    xRayTransparencySettings: {
+      unified: true, // Start with unified mode
+      background: 0.3,
+      geometries: 0.3,
+      boundaries: 0.3,
+      sources: 0.3,                             // +++
+    },
+    setXRayTransparencySetting: (element, value) => {
+      const clamped = Math.max(0, Math.min(1, value));
+      set((s) => ({
+        xRayTransparencySettings: {
+          ...s.xRayTransparencySettings,
+          [element]: clamped,
+        },
+        xRayTransparencyRevision: s.xRayTransparencyRevision + 1,
+      }));
+    },
+    setUnifiedXRayTransparency: (unified) => {
+      set((s) => ({
+        xRayTransparencySettings: {
+          ...s.xRayTransparencySettings,
+          unified,
+          ...(unified
+            ? {
+                background: s.xRayTransparency,
+                geometries: s.xRayTransparency,
+                boundaries: s.xRayTransparency,
+                sources: s.xRayTransparency,          // +++
+              }
+            : {}),
+        },
+        xRayTransparencyRevision: s.xRayTransparencyRevision + 1,
+      }));
+    },
+    getElementXRayTransparency: (element) => {
+      const { xRayTransparencySettings, xRayTransparency } = get();
+      return xRayTransparencySettings.unified
+        ? xRayTransparency
+        : xRayTransparencySettings[element];
+    },
     
     // Scene properties
     a: 1.0,
     setA: (a) => set({ a }),
     unit: LengthUnit.NM,
     setUnit: (unit) => set({ unit }),
+    
+    // Scene material
+    sceneMaterial: "Air",
+    setSceneMaterial: (material) => set({ sceneMaterial: material }),
   }),
   shallow
 );

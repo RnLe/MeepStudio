@@ -375,6 +375,13 @@ export const SourceLayer: React.FC<{
     };
   }, [multiDragAnchor, isDraggingSource, toggleShowGrid, toggleShowResolutionOverlay]);
 
+  const showXRayMode = useCanvasStore((s) => s.showXRayMode);
+  const xRayTransparency = useCanvasStore((s) => s.xRayTransparency);
+  const xRayRevision = useCanvasStore((s) => s.xRayTransparencyRevision); // trigger re-render  +++
+  const getElementXRayTransparency = useCanvasStore((s) => s.getElementXRayTransparency);       // +++
+
+  const sourceTransparency = getElementXRayTransparency('sources'); // +++
+
   return (
     <>
       {sources.map((source) => {
@@ -394,12 +401,7 @@ export const SourceLayer: React.FC<{
                          source.kind === "eigenModeSource" ? "#8b5cf6" :
                          source.kind === "gaussianBeamSource" ? "#10b981" : "#6b7280";
         
-        const strokeColor = selected ? "#ef4444" : baseColor;
-        const fillColor = selected ? `${baseColor}cc` : `${baseColor}99`;
-        
-        // Fixed arrow size in screen pixels (not affected by zoom)
-        const arrowSize = 15 / scale;
-        const angle = source.orientation || 0;
+        const strokeColor = selected ? "#50a2ff" : "#000000";
         
         return (
           <Group
@@ -444,6 +446,7 @@ export const SourceLayer: React.FC<{
                   radius={6 / scale}
                   fill={selected ? "#50a2ff" : "#000000"}
                   stroke={selected ? "#50a2ff" : "#000000"}
+                  opacity={showXRayMode ? sourceTransparency : 1} // Fully opaque when X-Ray mode is off
                 />
               </>
             )}
@@ -456,19 +459,21 @@ export const SourceLayer: React.FC<{
                   stroke={selected ? "#50a2ff" : "#000000"}
                   strokeWidth={6 / scale}
                   lineCap="butt"
+                  opacity={showXRayMode ? sourceTransparency : 1} // Fully opaque when X-Ray mode is off
                 />
               </>
             )}
             
             {visualType === 'rectangle' && (
               <>
-                {/* Semi-transparent black fill */}
+                {/* Solid black fill */}
                 <Rect
                   x={-sizeX/2}
                   y={-sizeY/2}
                   width={sizeX}
                   height={sizeY}
-                  fill="rgba(0, 0, 0, 0.5)"
+                  fill="#000000" // Always black
+                  opacity={showXRayMode ? sourceTransparency : 1} // Fully opaque when X-Ray mode is off
                   stroke={selected ? "#50a2ff" : "#000000"}
                   strokeWidth={2 / scale}
                 />

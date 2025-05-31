@@ -2,8 +2,10 @@ import React, { useCallback } from "react";
 import { Cylinder, Rectangle as RectEl, Triangle } from "../types/canvasElementTypes";
 import { Line, Circle, Rect, Group } from "react-konva";
 import { ResizeHandles } from "./resizeHandles";
-import { useCanvasStore } from "packages/providers/CanvasStore";
+import { useCanvasStore } from "../providers/CanvasStore";
 import { MaterialCatalog } from "../constants/meepMaterialPresets";
+import { useMaterialColorStore } from "packages/providers/MaterialColorStore";
+import { getSelectionBorderColor, getSelectionStrokeWidth } from "../utils/colorUtils";
 
 /**
  * Geometry rendering components for ProjectCanvas.
@@ -34,32 +36,38 @@ interface GeometryLayerProps {
   toggleShowGrid: () => void;
   toggleShowResolutionOverlay: () => void;
   setActiveInstructionSet: (key: 'default' | 'rotating' | 'resizing' | 'dragging') => void;
+  showXRayMode: boolean;
+  showColors: boolean;
 }
 
-export const GeometryLayer: React.FC<GeometryLayerProps> = ({
-  cylinders,
-  rectangles,
-  triangles,
-  selectedIds,
-  gridSnapping,
-  resolutionSnapping,
-  snapCanvasPosToGrid,
-  multiDragAnchor,
-  setMultiDragAnchor,
-  geometries,
-  updateGeometry,
-  handleUpdateGeometry,
-  handleUpdateSource,
-  selectElement,
-  GRID_PX,
-  project,
-  scale,
-  showGrid,
-  showResolutionOverlay,
-  toggleShowGrid,
-  toggleShowResolutionOverlay,
-  setActiveInstructionSet,
-}) => {
+export const GeometryLayer: React.FC<GeometryLayerProps> = (props) => {
+  const {
+    cylinders,
+    rectangles,
+    triangles,
+    selectedIds,
+    gridSnapping,
+    resolutionSnapping,
+    snapCanvasPosToGrid,
+    multiDragAnchor,
+    setMultiDragAnchor,
+    geometries,
+    updateGeometry,
+    handleUpdateGeometry,
+    handleUpdateSource,
+    selectElement,
+    GRID_PX,
+    project,
+    scale,
+    showGrid,
+    showResolutionOverlay,
+    toggleShowGrid,
+    toggleShowResolutionOverlay,
+    setActiveInstructionSet,
+    showXRayMode,
+    showColors,
+  } = props;
+
   // Add state to track initial overlay states during drag
   const initialOverlayStates = React.useRef<{ grid: boolean; resolution: boolean } | null>(null);
   const currentOverlayStates = React.useRef<{ grid: boolean; resolution: boolean } | null>(null);
@@ -448,43 +456,78 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
     };
   }, [multiDragAnchor, activeHandle, isDraggingGeometry, toggleShowGrid, toggleShowResolutionOverlay]);
 
+  const xRayRevision = useCanvasStore((s) => s.xRayTransparencyRevision); // trigger re-render
+  const xRayTransparency = useCanvasStore((s) => s.xRayTransparency);
+  const getElementColorVisibility = useCanvasStore((s) => s.getElementColorVisibility);
+  const getElementXRayTransparency = useCanvasStore((s) => s.getElementXRayTransparency);
+  const { getMaterialColor } = useMaterialColorStore();
+  const colorRevision = useCanvasStore((s) => s.colorSettingsRevision); // trigger re-render
+
   // Helper function to get material color
-  const getMaterialColor = (materialKey?: string): string => {
-    if (!materialKey) return "rgba(0, 0, 0, 0.25)"; // Default transparent black
+  const getMaterialColorForGeometry = React.useCallback((materialKey?: string): string => {
+    const showGeometryColors = getElementColorVisibility('geometries');
+    const geometryTransparency = getElementXRayTransparency('geometries');
     
+    if (!showGeometryColors) {
+      // When geometry colors are disabled, use solid black
+      return showXRayMode ? `rgba(0, 0, 0, ${geometryTransparency})` : "rgba(0, 0, 0, 1)";
+    }
+    
+    if (!materialKey) {
+      // Default color when no material is assigned
+      return showXRayMode ? `rgba(128, 128, 128, ${geometryTransparency})` : "rgba(128, 128, 128, 1)";
+    }
+    
+    // Get custom color from store first
+    const customColor = getMaterialColor(materialKey);
+    if (customColor) {
+      // Convert hex to rgba based on X-Ray mode
+      const hex = customColor.replace("#", "");
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      const opacity = showXRayMode ? geometryTransparency : 1;
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+    
+    // Fall back to catalog color
     const material = MaterialCatalog[materialKey as keyof typeof MaterialCatalog];
     if (material && material.color) {
-      // Convert hex to rgba with transparency
       const hex = material.color.replace("#", "");
       const r = parseInt(hex.substr(0, 2), 16);
       const g = parseInt(hex.substr(2, 2), 16);
       const b = parseInt(hex.substr(4, 2), 16);
-      return `rgba(${r}, ${g}, ${b}, 0.5)`;
+      const opacity = showXRayMode ? geometryTransparency : 1;
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
     }
     
-    return "rgba(0, 0, 0, 0.25)"; // Fallback
-  };
+    // Fallback color
+    return showXRayMode ? `rgba(128, 128, 128, ${geometryTransparency})` : "rgba(128, 128, 128, 1)";
+  }, [getElementColorVisibility, showXRayMode, getElementXRayTransparency, getMaterialColor]);
 
   // Helper function to get stroke color for selected elements
-  const getStrokeColor = (materialKey?: string): string => {
-    if (!materialKey) return "#666"; // Default gray
+  const getStrokeColor = (materialKey?: string, isSelected?: boolean): string => {
+    if (!isSelected) return "transparent";
     
-    const material = MaterialCatalog[materialKey as keyof typeof MaterialCatalog];
-    if (material && material.color) {
-      return material.color;
-    }
+    // Get the fill color first
+    const fillColor = getMaterialColorForGeometry(materialKey);
     
-    return "#666"; // Fallback
+    // Use the smart color selection
+    return getSelectionBorderColor(fillColor);
   };
 
+  // Remove the old getMaterialColor and getElementColorVisibility declarations
+  // ...existing code...
+  
   return (
     <>
       {/* Render cylinders */}
       {cylinders.map((cyl) => {
         const isSelected = selectedIds.includes(cyl.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
-        const fillColor = getMaterialColor(cyl.material);
-        const strokeColor = getStrokeColor(cyl.material);
+        const fillColor = getMaterialColorForGeometry(cyl.material);
+        const strokeColor = getStrokeColor(cyl.material, isSelected);
+        const strokeWidth = getSelectionStrokeWidth(scale, isSelected);
         
         return (
           <Circle
@@ -494,11 +537,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
             radius={cyl.radius * GRID_PX}
             rotation={(cyl.orientation || 0) * 180 / Math.PI}
             fill={fillColor}
-            stroke={isSelected ? strokeColor : "transparent"}
-            strokeWidth={isSelected ? 2 / scale : 0}
-            shadowBlur={isSelected ? 8 : 0}
-            shadowColor={strokeColor}
-            shadowOpacity={0.5}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
             draggable
             onDragStart={(e) => {
               if (otherSelected) {
@@ -530,8 +570,9 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
       {rectangles.map((rect) => {
         const isSelected = selectedIds.includes(rect.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
-        const fillColor = getMaterialColor(rect.material);
-        const strokeColor = getStrokeColor(rect.material);
+        const fillColor = getMaterialColorForGeometry(rect.material);
+        const strokeColor = getStrokeColor(rect.material, isSelected);
+        const strokeWidth = getSelectionStrokeWidth(scale, isSelected);
         
         return (
           <React.Fragment key={rect.id}>
@@ -569,11 +610,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
                 width={rect.width * GRID_PX}
                 height={rect.height * GRID_PX}
                 fill={fillColor}
-                stroke={isSelected ? strokeColor : "transparent"}
-                strokeWidth={isSelected ? 2 / scale : 0}
-                shadowBlur={isSelected ? 8 : 0}
-                shadowColor={strokeColor}
-                shadowOpacity={0.5}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
                 offsetX={(rect.width * GRID_PX) / 2}
                 offsetY={(rect.height * GRID_PX) / 2}
               />
@@ -605,8 +643,9 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
       {triangles.map((tri) => {
         const isSelected = selectedIds.includes(tri.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
-        const fillColor = getMaterialColor(tri.material);
-        const strokeColor = getStrokeColor(tri.material);
+        const fillColor = getMaterialColorForGeometry(tri.material);
+        const strokeColor = getStrokeColor(tri.material, isSelected);
+        const strokeWidth = getSelectionStrokeWidth(scale, isSelected);
         
         return (
           <React.Fragment key={tri.id}>
@@ -642,11 +681,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
                 points={tri.vertices.flatMap((v: any) => [v.x * GRID_PX, v.y * GRID_PX])}
                 closed
                 fill={fillColor}
-                stroke={isSelected ? strokeColor : "transparent"}
-                strokeWidth={isSelected ? 2 / scale : 0}
-                shadowBlur={isSelected ? 8 : 0}
-                shadowColor={strokeColor}
-                shadowOpacity={0.5}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
               />
             </Group>
           </React.Fragment>

@@ -1,17 +1,20 @@
 "use client";
-import React from "react";
+import React, { useState, useRef } from "react";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { Cylinder, Rectangle, Triangle } from "../types/canvasElementTypes";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker, Shield, MoreHorizontal } from "lucide-react";
+import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker, Shield, MoreHorizontal, Eye, Palette } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { calculateGeometryCenter } from "../utils/geometryCalculations";
 import { getSourceDefaults } from "../constants/sourceDefaults";
 import { getBoundaryDefaults } from "../constants/boundaryDefaults";
 import { MaterialCatalog } from "../constants/meepMaterialPresets";
+import { useMaterialColorStore } from "../providers/MaterialColorStore";
 import MaterialLibraryModal from "./MaterialLibraryModal";
+import { XRayTransparencySlider } from "./XRayTransparencySlider";
+import { ColorControlPopover } from "./ColorControlPopover";
 
 const GROUPS = [
   { key: "snapping", label: "Snapping", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
@@ -41,6 +44,8 @@ type ToolbarState = {
   showGrid: boolean;
   showResolutionOverlay: boolean;
   showCanvasInfo: boolean;
+  showXRayMode: boolean;
+  showColors: boolean;
 };
 
 interface Tool {
@@ -97,7 +102,7 @@ const geometryTools = [
   },
 ];
 
-const overlayTools = [
+const overlayTools: Tool[] = [
   {
     label: "Show Grid",
     icon: <Grid2X2 size={18} className="" />,
@@ -118,6 +123,20 @@ const overlayTools = [
     onClick: (toggleShowCanvasInfo: () => void) => toggleShowCanvasInfo(),
     isActive: (state: { showCanvasInfo: boolean }) => state.showCanvasInfo,
     fnKey: "toggleShowCanvasInfo",
+  },
+  {
+    label: "X-Ray Mode",
+    icon: <Eye size={18} className="" />,
+    onClick: (toggleShowXRayMode: () => void) => toggleShowXRayMode(),
+    isActive: (state: { showXRayMode: boolean }) => state.showXRayMode,
+    fnKey: "toggleShowXRayMode",
+  },
+  {
+    label: "Show Colors",
+    icon: <Palette size={18} className="" />,
+    onClick: (toggleShowColors: () => void) => toggleShowColors(),
+    isActive: (state: { showColors: boolean }) => state.showColors,
+    fnKey: "toggleShowColors",
   },
 ];
 
@@ -164,18 +183,23 @@ function isLightColor(color: string): boolean {
 // Material icon component
 const MaterialIcon: React.FC<{ materialKey: string }> = ({ materialKey }) => {
   const material = MaterialCatalog[materialKey as keyof typeof MaterialCatalog];
+  const { getMaterialColor, getMaterialFontColor } = useMaterialColorStore();
+  
   if (!material) return null;
+  
+  const color = getMaterialColor(materialKey, material.color) || material.color || "#888";
+  const fontColor = getMaterialFontColor(materialKey) || (color && isLightColor(color) ? "#000" : "#fff");
   
   return (
     <div 
       className="w-full h-full rounded flex items-center justify-center relative overflow-hidden"
-      style={{ backgroundColor: material.color || "#888" }}
+      style={{ backgroundColor: color }}
     >
       <span 
         className="font-semibold select-none z-10 text-xs"
         style={{ 
-          color: material.color && isLightColor(material.color) ? "#000" : "#fff",
-          textShadow: material.color && isLightColor(material.color) 
+          color: fontColor,
+          textShadow: fontColor === '#000' || isLightColor(fontColor)
             ? "0 0 4px rgba(0,0,0,0.2)" 
             : "0 0 4px rgba(255,255,255,0.2)"
         }}
@@ -193,7 +217,7 @@ const DEFAULT_MATERIAL_FAVORITES = [
   "Silica",
   "Gold",
   "GalliumArsenide",
-  "SiliconNitride"
+  "SiliconCarbide"
 ];
 
 // Default material presets - can be customized later
@@ -238,6 +262,11 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const toggleShowResolutionOverlay = useCanvasStore((s) => s.toggleShowResolutionOverlay);
   const showCanvasInfo = useCanvasStore((s) => s.showCanvasInfo);
   const toggleShowCanvasInfo = useCanvasStore((s) => s.toggleShowCanvasInfo);
+  const showXRayMode = useCanvasStore((s) => s.showXRayMode);
+  const toggleShowXRayMode = useCanvasStore((s) => s.toggleShowXRayMode);
+  const showColors = useCanvasStore((s) => s.showColors);
+  const toggleShowColors = useCanvasStore((s) => s.toggleShowColors);
+  const getElementColorVisibility = useCanvasStore((s) => s.getElementColorVisibility);
   const { updateProject } = useMeepProjects({ ghPages });
   const projectId = project.documentId;
   const geometries = project.scene?.geometries || [];
@@ -245,8 +274,19 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const boundaries = project.scene?.boundaries || [];
   const selectedGeometryIds = useCanvasStore((s) => s.selectedGeometryIds);
   const updateGeometry = useCanvasStore((s) => s.updateGeometry);
+  const getAllElements = useCanvasStore((s) => s.getAllElements);
   const [showMaterialModal, setShowMaterialModal] = React.useState(false);
   
+  // State for X-Ray transparency slider
+  const [showXRaySlider, setShowXRaySlider] = React.useState(false);
+  const [sliderPosition, setSliderPosition] = React.useState({ x: 0, y: 0 });
+  const xRayButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  // Color control popover state
+  const [showColorControlPopover, setShowColorControlPopover] = useState(false);
+  const [colorControlPosition, setColorControlPosition] = useState({ x: 0, y: 0 });
+  const colorButtonRef = useRef<HTMLButtonElement>(null);
+
   // Material favorites state - sorted alphabetically
   const [materialFavorites, setMaterialFavorites] = React.useState<string[]>(
     DEFAULT_MATERIAL_FAVORITES.sort((a, b) => a.localeCompare(b))
@@ -412,18 +452,48 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     });
   };
 
+  // Check if any selected elements are geometries
+  const hasGeometriesSelected = React.useMemo(() => {
+    if (selectedGeometryIds.length === 0) return false;
+    
+    const allElements = getAllElements();
+    return selectedGeometryIds.some(id => {
+      const element = allElements.find(e => e.id === id);
+      // Geometries are: cylinder, rectangle, triangle
+      return element && (
+        element.kind === 'cylinder' || 
+        element.kind === 'rectangle' || 
+        element.kind === 'triangle'
+      );
+    });
+  }, [selectedGeometryIds, getAllElements]);
+  
   // Apply material to selected geometries
   const applyMaterial = (materialKey: string) => {
     if (selectedGeometryIds.length === 0) return;
     
+    const allElements = getAllElements();
+    
+    // Filter to only geometry IDs
+    const geometryIds = selectedGeometryIds.filter(id => {
+      const element = allElements.find(e => e.id === id);
+      return element && (
+        element.kind === 'cylinder' || 
+        element.kind === 'rectangle' || 
+        element.kind === 'triangle'
+      );
+    });
+    
+    if (geometryIds.length === 0) return;
+    
     // Update each selected geometry with the material
-    selectedGeometryIds.forEach(id => {
+    geometryIds.forEach(id => {
       updateGeometry(id, { material: materialKey });
     });
     
-    // Update project
+    // Update project - only update geometries that were actually changed
     const updatedGeometries = geometries.map(g => 
-      selectedGeometryIds.includes(g.id) 
+      geometryIds.includes(g.id) 
         ? { ...g, material: materialKey }
         : g
     );
@@ -455,6 +525,66 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     });
   };
 
+  // Handle right-click on X-Ray tool
+  const handleXRayRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (xRayButtonRef.current) {
+      const rect = xRayButtonRef.current.getBoundingClientRect();
+      setSliderPosition({
+        x: rect.right + 10, // 10px to the right of the button
+        y: rect.top - 10, // Align with top of button, offset up slightly
+      });
+      setShowXRaySlider(true);
+    }
+  };
+
+  const sceneMaterial = useCanvasStore((s) => s.sceneMaterial);
+  const { getMaterialColor } = useMaterialColorStore();
+  
+  const handleColorButtonRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (colorButtonRef.current) {
+      const rect = colorButtonRef.current.getBoundingClientRect();
+      setColorControlPosition({
+        x: rect.right + 10,
+        y: rect.top,
+      });
+      setShowColorControlPopover(true);
+    }
+  };
+  
+  // Get the canvas background color based on color mode and settings
+  const getCanvasColor = React.useCallback(() => {
+    const showBackgroundColor = useCanvasStore.getState().getElementColorVisibility('background');
+    
+    if (!showBackgroundColor) {
+      // When background color is disabled, always use default gray
+      return "#d4d4d4";
+    }
+    
+    // In color mode, use the scene material color
+    if (sceneMaterial === "Air") {
+      return "#d4d4d4"; // Keep default gray for Air
+    }
+    
+    // Get the material color
+    const materialColor = getMaterialColor(sceneMaterial);
+    
+    // If getMaterialColor returns undefined/null, try catalog
+    if (!materialColor) {
+      const material = MaterialCatalog[sceneMaterial as keyof typeof MaterialCatalog];
+      if (material?.color) {
+        return material.color;
+      }
+    }
+    
+    return materialColor || "#d4d4d4";
+  }, [sceneMaterial, getMaterialColor]);
+  
   // Tool handlers for dynamic mapping
   const toolHandlers = {
     newCylinder,
@@ -467,6 +597,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     toggleShowGrid,
     toggleShowResolutionOverlay,
     toggleShowCanvasInfo,
+    toggleShowXRayMode,
+    toggleShowColors,
     toggleGridSnapping,
     toggleResolutionSnapping,
     setGridSnapping,
@@ -495,20 +627,20 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                     <button
                       key={preset.key}
                       title={`Apply ${preset.name} material`}
-                      className={`flex items-center justify-center w-full h-5 rounded transition-all
-                        ${selectedGeometryIds.length > 0 
+                      className={`flex items-center justify-center w-full h-5 rounded transition-all cursor-pointer
+                        ${hasGeometriesSelected 
                           ? "hover:bg-neutral-600 active:bg-neutral-500" 
                           : "opacity-50 cursor-not-allowed"}
                       `}
                       onClick={() => applyMaterial(preset.key)}
-                      disabled={selectedGeometryIds.length === 0}
+                      disabled={!hasGeometriesSelected}
                       aria-label={`Apply ${preset.name} material`}
                     >
                       <MaterialIcon materialKey={preset.key} />
                     </button>
                   ))}
                   <button
-                    className="w-full h-5 flex items-center justify-center text-xs rounded bg-neutral-600 hover:bg-neutral-500 transition-all mt-0.5"
+                    className="w-full h-5 flex items-center justify-center text-xs rounded hover:bg-neutral-500 transition-all mt-0.5 cursor-pointer"
                     onClick={() => setShowMaterialModal(true)}
                   >
                     <MoreHorizontal size={12} className="mr-1" />
@@ -526,14 +658,34 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                       activeColor = "bg-[#4a7ec7] hover:bg-[#7aa5d8]";
                     }
                     
+                    const isXRayTool = tool.label === "X-Ray Mode";
+                    const isColorTool = tool.label === "Show Colors";
+                    
+                    // Check if color tool is active (any color is visible)
+                    const isColorToolActive = isColorTool && (() => {
+                      const backgroundVisible = getElementColorVisibility('background');
+                      const geometriesVisible = getElementColorVisibility('geometries');
+                      const boundariesVisible = getElementColorVisibility('boundaries');
+                      return backgroundVisible || geometriesVisible || boundariesVisible;
+                    })();
+                    
                     return (
                       <button
                         key={tool.label}
-                        title={tool.label}
+                        ref={isColorTool ? colorButtonRef : isXRayTool ? xRayButtonRef : undefined}
+                        title={
+                          isColorTool 
+                            ? `${tool.label} (Right-click for options)` 
+                            : isXRayTool 
+                            ? `${tool.label} (Right-click for transparency)` 
+                            : tool.label
+                        }
                         className={`flex items-center justify-center w-8 h-8 rounded transition-all
-                          ${tool.isActive && tool.isActive({ gridSnapping, resolutionSnapping, showGrid, showResolutionOverlay, showCanvasInfo })
+                          ${tool.isActive && tool.isActive({ gridSnapping, resolutionSnapping, showGrid, showResolutionOverlay, showCanvasInfo, showXRayMode, showColors })
                             ? activeColor
-                            : "hover:bg-neutral-600 active:bg-neutral-600"}
+                            : isColorToolActive 
+                              ? "" // No hover effect when color tool is active
+                              : "hover:bg-neutral-600 active:bg-neutral-600"}
                         `}
                         onClick={() => {
                           if (tool.fnKey === "toggleGridSnapping") {
@@ -546,9 +698,53 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                             tool.onClick(toggleGridSnapping);
                           }
                         }}
+                        onContextMenu={
+                          isColorTool 
+                            ? handleColorButtonRightClick 
+                            : isXRayTool 
+                            ? handleXRayRightClick 
+                            : undefined
+                        }
                         aria-label={tool.label}
                       >
-                        {tool.icon}
+                        {/* Show color swatch for color tool */}
+                        {isColorTool ? (
+                          <div className="relative w-5 h-5 flex items-center justify-center">
+                            {(() => {
+                              // Check if any element types are visible
+                              const backgroundVisible = getElementColorVisibility('background');
+                              const geometriesVisible = getElementColorVisibility('geometries');
+                              const boundariesVisible = getElementColorVisibility('boundaries');
+                              const anyColorVisible = backgroundVisible || geometriesVisible || boundariesVisible;
+                              
+                              if (anyColorVisible) {
+                                // Show colored palette icon when at least one element type has colors enabled
+                                return (
+                                  <CustomLucideIcon 
+                                    src="/icons/palette_colored.svg" 
+                                    size={18} 
+                                    className=""
+                                  />
+                                );
+                              } else {
+                                // Show gray palette with line through when all colors are disabled
+                                return (
+                                  <>
+                                    <Palette size={18} className="text-gray-400" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <div
+                                        className="w-0.5 h-7 bg-gray-400 rotate-45 absolute"
+                                        style={{ boxShadow: "0 0 2px rgba(0,0,0,0.5)" }}
+                                      />
+                                    </div>
+                                  </>
+                                );
+                              }
+                            })()}
+                          </div>
+                        ) : (
+                          tool.icon
+                        )}
                       </button>
                     );
                   })}
@@ -561,12 +757,28 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
           </React.Fragment>
         ))}
       </aside>
+      
+      {/* X-Ray Transparency Slider */}
+      <XRayTransparencySlider
+        isVisible={showXRaySlider}
+        onClose={() => setShowXRaySlider(false)}
+        position={sliderPosition}
+      />
+      
+      {/* Color Control Popover */}
+      <ColorControlPopover
+        isOpen={showColorControlPopover}
+        onClose={() => setShowColorControlPopover(false)}
+        anchorPosition={colorControlPosition}
+      />
+      
       <MaterialLibraryModal 
         isOpen={showMaterialModal} 
         onClose={() => setShowMaterialModal(false)}
         onSelectMaterial={applyMaterial}
         favorites={materialFavorites}
         onToggleFavorite={handleToggleFavorite}
+        disableApply={!hasGeometriesSelected}
       />
     </>
   );

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { Group, Rect, Text } from "react-konva";
+import React, { useState } from "react";
+import { Group, Rect, Line, Text } from "react-konva";
 import { useCanvasStore } from "../providers/CanvasStore";
 
-// Parameter set colors matching PMLBoundaryProperties
+// PML parameter set colors
 const PARAM_SET_COLORS: Record<number, string> = {
   0: '#60a5fa',    // blue-400
   1: '#f97316',    // orange-500
@@ -12,7 +12,7 @@ const PARAM_SET_COLORS: Record<number, string> = {
   3: '#eab308'     // yellow-500
 };
 
-export const BoundaryLayer: React.FC<{
+interface BoundaryLayerProps {
   boundaries: any[];
   selectedIds: string[];
   selectElement: (id: string | null, opts?: { shift?: boolean }) => void;
@@ -21,7 +21,9 @@ export const BoundaryLayer: React.FC<{
   gridHeight: number;
   project: any;
   scale: number;
-}> = ({
+}
+
+export const BoundaryLayer: React.FC<BoundaryLayerProps> = ({
   boundaries,
   selectedIds,
   selectElement,
@@ -31,6 +33,14 @@ export const BoundaryLayer: React.FC<{
   project,
   scale,
 }) => {
+  const showColors = useCanvasStore((s) => s.showColors);
+  const getElementColorVisibility = useCanvasStore((s) => s.getElementColorVisibility);
+  const showXRayMode = useCanvasStore((s) => s.showXRayMode);
+  const xRayTransparency = useCanvasStore((s) => s.xRayTransparency);
+  const getElementXRayTransparency = useCanvasStore((s) => s.getElementXRayTransparency);
+  const colorRevision = useCanvasStore((s) => s.colorSettingsRevision); // trigger re-render
+  const xRayRevision = useCanvasStore((s) => s.xRayTransparencyRevision); // trigger re-render
+  
   // Canvas dimensions in pixels
   const CANVAS_W = gridWidth * GRID_PX;
   const CANVAS_H = gridHeight * GRID_PX;
@@ -62,11 +72,26 @@ export const BoundaryLayer: React.FC<{
     selected: boolean,
     hovered: boolean
   ) => {
+    const showBoundaryColors = getElementColorVisibility('boundaries');
+    const boundaryTransparency = getElementXRayTransparency('boundaries');
     const assignment = getEffectiveAssignment(boundary, edge);
+    
+    // Check if boundary colors are enabled
+    if (!showBoundaryColors) {
+      if (assignment !== undefined) {
+        const opacity = showXRayMode ? boundaryTransparency : 1;
+        return `rgba(0, 0, 0, ${opacity})`; // Black for all assigned edges
+      }
+      // Default black for unassigned edges
+      const opacity = showXRayMode ? boundaryTransparency * 0.6 : 0.6;
+      return `rgba(0, 0, 0, ${opacity})`;
+    }
+    
+    // Normal color mode (existing logic)
     if (assignment !== undefined) {
       const base = PARAM_SET_COLORS[assignment];
       const [r, g, b] = [1, 3, 5].map(i => parseInt(base.slice(i, i + 2), 16));
-      const op = selected ? 0.6 : hovered ? 0.4 : 0.3;
+      const op = showXRayMode ? boundaryTransparency : 1;
       return `rgba(${r},${g},${b},${op})`;
     }
     
@@ -79,20 +104,24 @@ export const BoundaryLayer: React.FC<{
       const g = parseInt(baseColor.slice(3, 5), 16);
       const b = parseInt(baseColor.slice(5, 7), 16);
       
-      const opacity = selected ? 0.6 : hovered ? 0.4 : 0.3;
+      const opacity = showXRayMode ? boundaryTransparency : 1; // Use shared transparency
       return `rgba(${r}, ${g}, ${b}, ${opacity})`;
     }
     
     // Default blue color for unassigned or legacy boundaries
-    return selected 
-      ? "rgba(59, 130, 246, 0.4)"  // blue-500 with 40% opacity
-      : hovered 
-      ? "rgba(59, 130, 246, 0.25)" // blue-500 with 25% opacity
-      : "rgba(59, 130, 246, 0.2)";  // blue-500 with 20% opacity
+    const opacity = showXRayMode ? boundaryTransparency * 0.6 : 0.8; // Slightly more transparent
+    return `rgba(59, 130, 246, ${opacity})`;
   };
 
   // Helper to get stroke color
   const getEdgeStrokeColor = (boundary: any, edge: 'top' | 'bottom' | 'left' | 'right') => {
+    const showBoundaryColors = getElementColorVisibility('boundaries');
+    
+    // Always use blue for selected stroke regardless of color settings
+    if (!showBoundaryColors) {
+      return "#50a2ff";
+    }
+    
     const assignment = getEffectiveAssignment(boundary, edge);
     if (assignment !== undefined) {
       const base = PARAM_SET_COLORS[assignment];

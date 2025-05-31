@@ -8,6 +8,10 @@ import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEditorStateStore } from "../providers/EditorStateStore";
+import { MaterialSelectionMenu } from "./MaterialSelectionMenu";
+import { MaterialCatalog } from "../constants/meepMaterialPresets";
+import { useMaterialColorStore } from "../providers/MaterialColorStore";
+import { SIMULATION_DEFAULTS } from "../constants/meepSimulationDefaults";
 
 interface Props {
   project: MeepProject;
@@ -41,7 +45,14 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     resolution: project?.scene?.resolution || projectSettings.resolution.default,
     a: project?.scene?.a || 1.0,
     unit: project?.scene?.unit || LengthUnit.NM,
+    material: project?.scene?.material || SIMULATION_DEFAULTS.scene.material,
   });
+  
+  // Material selection state
+  const [showMaterialMenu, setShowMaterialMenu] = React.useState(false);
+  const materialButtonRef = React.useRef<HTMLDivElement>(null);
+  const { getMaterialColor } = useMaterialColorStore();
+  const setSceneMaterial = useCanvasStore((s) => s.setSceneMaterial);
 
   const { updateProject } = useMeepProjects({ ghPages });
   const setGeometries = useCanvasStore((s) => s.setGeometries);
@@ -57,11 +68,13 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       resolution: project?.scene?.resolution || projectSettings.resolution.default,
       a: project?.scene?.a || 1.0,
       unit: project?.scene?.unit || LengthUnit.NM,
+      material: project?.scene?.material || SIMULATION_DEFAULTS.scene.material,
     });
     if (project?.scene?.geometries) setGeometries(project.scene.geometries);
     if (project?.scene?.sources) setSources(project.scene.sources);
     if (project?.scene?.boundaries) setBoundaries(project.scene.boundaries);
-  }, [project, setGeometries, setSources, setBoundaries]);
+    if (project?.scene?.material) setSceneMaterial(project.scene.material);
+  }, [project, setGeometries, setSources, setBoundaries, setSceneMaterial]);
 
   const handleCancel = () => {
     setEditing(false);
@@ -72,6 +85,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       resolution: project?.scene?.resolution || projectSettings.resolution.default,
       a: project?.scene?.a || 1.0,
       unit: project?.scene?.unit || LengthUnit.NM,
+      material: project?.scene?.material || SIMULATION_DEFAULTS.scene.material,
     });
     onCancel?.();
   };
@@ -80,7 +94,8 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     setGeometries(updatedProject.scene?.geometries || []);
     setSources(updatedProject.scene?.sources || []);
     setBoundaries(updatedProject.scene?.boundaries || []);
-  }, [setGeometries, setSources, setBoundaries]);
+    setSceneMaterial(updatedProject.scene?.material || SIMULATION_DEFAULTS.scene.material);
+  }, [setGeometries, setSources, setBoundaries, setSceneMaterial]);
 
   const handleSave = async () => {
     setEditing(false);
@@ -95,6 +110,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
           resolution: editValues.resolution,
           a: editValues.a,
           unit: editValues.unit,
+          material: editValues.material,
         },
       };
       await updateProject({
@@ -186,6 +202,16 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     [LengthUnit.M]: "Meters",
     [LengthUnit.KM]: "Kilometers",
   };
+
+  const handleMaterialSelect = (materialKey: string) => {
+    setEditValues((prev) => ({ ...prev, material: materialKey }));
+    setSceneMaterial(materialKey);
+  };
+
+  // Get current material info
+  const currentMaterial = MaterialCatalog[editValues.material as keyof typeof MaterialCatalog] || MaterialCatalog["Air"];
+  const materialColor = getMaterialColor(editValues.material, currentMaterial?.color);
+  const materialDisplayName = currentMaterial?.name || editValues.material;
 
   return (
     <div className="p-4 overflow-y-auto flex-1">
@@ -287,7 +313,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
                 )}
               </div>
               <div className="flex flex-row w-full items-center justify-between">
-                <span className="w-28 text-xs text-gray-400 font-medium text-left" title="Characteristic Unit">a</span>
+                <span className="w-32 text-xs text-gray-400 font-medium text-left" title="Characteristic Length">Characteristic Length</span>
                 {editing ? (
                   <span className="flex gap-1 items-center">
                     <input
@@ -315,6 +341,32 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
                   </span>
                 ) : (
                   <span className="flex-1 text-xs text-gray-300 text-right">{project.scene?.a} {project.scene?.unit}</span>
+                )}
+              </div>
+
+              {/* Background Material */}
+              <div className="flex flex-row w-full items-center justify-between">
+                <span className="w-32 text-xs text-gray-400 font-medium text-left">Background Material</span>
+                {editing ? (
+                  <div 
+                    ref={materialButtonRef}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-neutral-700 rounded px-2 py-1 transition-colors"
+                    onClick={() => setShowMaterialMenu(true)}
+                  >
+                    <div 
+                      className="w-3 h-3 rounded border border-neutral-600"
+                      style={{ backgroundColor: materialColor }}
+                    />
+                    <span className="text-xs text-gray-300">{materialDisplayName}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded border border-neutral-600"
+                      style={{ backgroundColor: materialColor }}
+                    />
+                    <span className="flex-1 text-xs text-gray-300 text-right">{materialDisplayName}</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -389,6 +441,15 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
           </div>
         )}
       </div>
+      
+      {/* Material Selection Menu */}
+      <MaterialSelectionMenu
+        isOpen={showMaterialMenu}
+        onClose={() => setShowMaterialMenu(false)}
+        onSelect={handleMaterialSelect}
+        currentMaterial={editValues.material}
+        anchorEl={materialButtonRef.current}
+      />
     </div>
   );
 };

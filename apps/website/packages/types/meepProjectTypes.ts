@@ -37,6 +37,8 @@ export interface ProjectScene {
   a: number;
   /** Unit for the characteristic length */
   unit: LengthUnit;
+  /** Material key for the scene background (default: Air) */
+  material?: string;
   /**
    * All geometry objects for this scene (2D only for now).
    * Each geometry has at least: id, kind, and geometry-specific fields.
