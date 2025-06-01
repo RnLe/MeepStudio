@@ -32,6 +32,10 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
   const setLatticePointCache = useLatticeStore((s) => s.setLatticePointCache);
   const latticeMultiplier = useLatticeStore((s) => s.latticeMultiplier);
   
+  // Add missing store accessors
+  const showVoronoiCell = useLatticeStore((s) => s.showVoronoiCell);
+  const showVoronoiTiling = useLatticeStore((s) => s.showVoronoiTiling);
+  
   // Load existing voronoi data when lattice changes
   useEffect(() => {
     if (lattice?.voronoiData) {
@@ -177,118 +181,81 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
     calculateTransformationMatrices
   ]);
   
-  // --- helper to fetch fresh store data each time ---------------------------
-  const getStore = () => useLatticeStore.getState();
-
   // --- calculate ------------------------------------------------------------
+  // NOTE: now only needs maxZones – basis & spaceMode are taken from hooks/store
   const calculateVoronoiCells = useCallback(
-    async (maxZone: number = 1) => {
-      if (!lattice?.meepLattice || getStore().isCalculatingVoronoi) return;
+    async (maxZones: number = 5) => {
+      if (!lattice?.meepLattice) return null;
 
-      const { spaceMode } = getStore();            // ← always current
       const isRealSpace = spaceMode === 'real';
+      
+      // Check for reciprocal basis vectors in k-space mode
+      if (!isRealSpace && (!lattice.meepLattice.reciprocal_basis1 || !lattice.meepLattice.reciprocal_basis2)) {
+        console.warn('No reciprocal basis vectors available');
+        return null;
+      }
+      
+      /* pick correct basis (scaled) */
+      const basis1 = isRealSpace
+        ? {
+            x: lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x,
+            y: lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y,
+          }
+        : lattice.meepLattice.reciprocal_basis1!;
+      const basis2 = isRealSpace
+        ? {
+            x: lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x,
+            y: lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y,
+          }
+        : lattice.meepLattice.reciprocal_basis2!;
 
       try {
-        getStore().setIsCalculatingVoronoi(true);
+        setIsCalculatingVoronoi(true);
         const wasm = await getWasmModule();
-        
-        // Get appropriate basis vectors based on space mode
-        const basis = isRealSpace
-          ? {
-              a1: {
-                x: lattice.meepLattice.basis1.x * lattice.meepLattice.basis_size.x,
-                y: lattice.meepLattice.basis1.y * lattice.meepLattice.basis_size.y,
-              },
-              a2: {
-                x: lattice.meepLattice.basis2.x * lattice.meepLattice.basis_size.x,
-                y: lattice.meepLattice.basis2.y * lattice.meepLattice.basis_size.y,
-              },
-            }
-          : {
-              a1: lattice.meepLattice.reciprocal_basis1 || { x: 0, y: 0 },
-              a2: lattice.meepLattice.reciprocal_basis2 || { x: 0, y: 0 },
-            };
+        const cacheKey = `${basis1.x},${basis1.y}_${basis2.x},${basis2.y}_${isRealSpace ? 'real' : 'reciprocal'}_${maxZones}`;
 
-        // Call Rust function to calculate Brillouin zones
-        const rawResult = wasm.calculate_brillouin_zones(
-          basis.a1.x,
-          basis.a1.y,
-          basis.a2.x,
-          basis.a2.y,
-          maxZone
-        );
-
-        // Apply zone separation for both real and reciprocal space (omit for now)
-        const result = rawResult;
-
-        // Convert result to our VoronoiData format
-        const newVoronoiData: VoronoiData = {
-          calculationParams: {
-            maxZone,
-            searchRange: 5,
-            timestamp: new Date().toISOString(),
-          },
-        };
-
-        /* Handle multiple zones in both real and reciprocal space */
         if (isRealSpace) {
-          // Store first zone as wignerSeitzCell for backward compatibility
-          if ((result.zones as any).length > 0) {
-            newVoronoiData.wignerSeitzCell = {
-              vertices: (result.zones as any)[0].map((v: any) => ({ x: v.x, y: v.y })),
-              zone: 1,
-            };
-          }
-          // Store all zones in realSpaceZones
-          newVoronoiData.realSpaceZones = (result.zones as any).map(
-            (zone: any[], idx: number) => ({
-              vertices: zone.map((v: any) => ({ x: v.x, y: v.y })),
-              zone: idx + 1,
-            })
+          // Use the correct function for real space
+          const result = wasm.calculate_wigner_seitz_zones(
+            basis1.x, basis1.y,
+            basis2.x, basis2.y,
+            maxZones
           );
-        } else {
-          newVoronoiData.brillouinZones = (result.zones as any).map(
-            (zone: any[], idx: number) => ({
-              vertices: zone.map((v: any) => ({ x: v.x, y: v.y })),
-              zone: idx + 1,
-            })
-          );
-        }
-
-        getStore().setVoronoiData(newVoronoiData);
-
-        // Save to lattice
-        if (lattice) {
-          const updatedLattice: Lattice = {
-            ...lattice,
-            voronoiData: newVoronoiData
+          const data: VoronoiData = {
+            realSpaceZones: result.zones,
+            wignerSeitzCell: result.zones[0],
+            cacheKey
           };
-          await updateLattice({
-            documentId: lattice.documentId,
-            lattice: updatedLattice
-          });
+          setVoronoiData(data);
+          return data;
+        } else {
+          // Use calculate_brillouin_zones for reciprocal space
+          const result = wasm.calculate_brillouin_zones(
+            basis1.x, basis1.y,
+            basis2.x, basis2.y,
+            maxZones
+          );
+          const data: VoronoiData = {
+            brillouinZones: result.zones,
+            cacheKey
+          };
+          setVoronoiData(data);
+          return data;
         }
-        
-      } catch (e) {
-        console.error("Error calculating Voronoi cells:", e);
+      } catch (err) {
+        console.error('Failed to calculate Voronoi cells:', err);
+        return null;
       } finally {
-        getStore().setIsCalculatingVoronoi(false);
+        setIsCalculatingVoronoi(false);
       }
     },
-    [lattice, ghPages, updateLattice] // remove space-mode etc. from deps
+    [lattice, spaceMode, setVoronoiData, setIsCalculatingVoronoi]
   );
 
   // --- checker --------------------------------------------------------------
   const checkAndCalculateVoronoi = useCallback(
     async (forceRecalculate: boolean = false) => {
       if (!lattice?.meepLattice) return;
-
-      const {
-        spaceMode,
-        realSpaceZoneCount,
-        reciprocalSpaceZoneCount,
-        voronoiData,
-      } = getStore();
 
       const isRealSpace = spaceMode === 'real';
       const requiredZones = isRealSpace ? realSpaceZoneCount : reciprocalSpaceZoneCount;
@@ -313,29 +280,43 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
         await calculateVoronoiCells(requiredZones);
       }
     },
-    [lattice, calculateVoronoiCells]
+    [lattice, spaceMode, voronoiData, realSpaceZoneCount, reciprocalSpaceZoneCount, calculateVoronoiCells]
   );
 
-  // Check if Voronoi data needs calculation
+  // Check if Voronoi data needs calculation - simplified to prevent loops
   useEffect(() => {
-    if (!lattice?.meepLattice) return;
+    if (!lattice?.meepLattice || !showVoronoiCell) return;
     
     const isRealSpace = spaceMode === 'real';
     const requiredZones = isRealSpace ? realSpaceZoneCount : reciprocalSpaceZoneCount;
     
-    // Check both real and reciprocal space zones
+    // Skip if we're in reciprocal space without reciprocal vectors
+    if (!isRealSpace && (!lattice.meepLattice.reciprocal_basis1 || !lattice.meepLattice.reciprocal_basis2)) {
+      return;
+    }
+    
+    // Check if we need to calculate
+    let needsCalculation = false;
+    
     if (isRealSpace) {
       const currentZones = voronoiData?.realSpaceZones?.length || 0;
-      if (currentZones < requiredZones) {
-        calculateVoronoiCells(requiredZones);
-      }
+      needsCalculation = currentZones < requiredZones;
     } else {
       const currentZones = voronoiData?.brillouinZones?.length || 0;
-      if (currentZones < requiredZones) {
-        calculateVoronoiCells(requiredZones);
-      }
+      needsCalculation = currentZones < requiredZones;
     }
-  }, [reciprocalSpaceZoneCount, realSpaceZoneCount, spaceMode, lattice, voronoiData, calculateVoronoiCells]);
+    
+    if (needsCalculation) {
+      calculateVoronoiCells(requiredZones);
+    }
+  }, [
+    reciprocalSpaceZoneCount, 
+    realSpaceZoneCount, 
+    spaceMode, 
+    lattice?.meepLattice, 
+    showVoronoiCell,
+    // Don't include voronoiData to prevent loops
+  ]);
   
   // Calculate normalization factor
   const getNormalizationFactor = useCallback(() => {
@@ -436,6 +417,48 @@ export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderP
     latticeMultiplier // Add to dependencies
   ]);
   
+  // Include lattice type in cache key
+  const getCacheKey = useCallback(() => {
+    if (!lattice?.meepLattice) return null;
+    
+    const basis1 = lattice.meepLattice.basis1;
+    const basis2 = lattice.meepLattice.basis2;
+    const basisSize = lattice.meepLattice.basis_size;
+    const latticeType = lattice.latticeType || 'unknown';
+    
+    return `${basis1.x},${basis1.y}_${basis2.x},${basis2.y}_${basisSize.x},${basisSize.y}_${latticeType}`;
+  }, [lattice]);
+
+  // --------------------------------------------------------------------------
+  // Prevent infinite loop – only clear when data exists & key mismatches
+  useEffect(() => {
+    const currentKey = getCacheKey();
+    if (currentKey && voronoiData && voronoiData.cacheKey && voronoiData.cacheKey !== currentKey) {
+      setVoronoiData(null);
+    }
+  }, [getCacheKey, setVoronoiData]); // Remove voronoiData from deps to prevent loop
+
+  // Listen for lattice type change events
+  useEffect(() => {
+    const handleLatticeTypeChanged = () => {
+      // Clear cache and recalculate when lattice type changes
+      useLatticeStore.setState({
+        latticePointCache: null,
+        voronoiData: null,
+        transformationMatrices: null
+      });
+      
+      // Recalculate if voronoi is showing
+      const state = useLatticeStore.getState();
+      if (state.showVoronoiCell || state.showVoronoiTiling) {
+        checkAndCalculateVoronoi();
+      }
+    };
+    
+    window.addEventListener('latticeTypeChanged', handleLatticeTypeChanged);
+    return () => window.removeEventListener('latticeTypeChanged', handleLatticeTypeChanged);
+  }, [lattice, checkAndCalculateVoronoi]);
+
   return {
     voronoiData,
     isCalculatingVoronoi,

@@ -120,6 +120,12 @@ type CanvasState = {
   updateLattice: (id: string, partial: Partial<any>) => void;
   removeLattice: (id: string) => void;
   removeLattices: (ids: string[]) => void;
+  
+  // New: Lattice linking methods
+  linkLatticeToFullLattice: (canvasLatticeId: string, latticeDocumentId: string) => void;
+  unlinkLatticeFromFullLattice: (canvasLatticeId: string) => void;
+  getLinkedLatticeId: (canvasLatticeId: string) => string | undefined;
+  syncLatticeFromFullLattice: (canvasLatticeId: string, fullLattice: any) => void;
 };
 
 export const useCanvasStore = createWithEqualityFn<CanvasState>(
@@ -292,20 +298,8 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
     
     // Lattice state and actions
     lattices: [],
-    setLattices: (lattices) => set({ 
-      lattices: lattices.map(l => ({
-        ...l,
-        center: l.center || l.pos,
-        orientation: l.orientation || 0
-      }))
-    }),
-    addLattice: (lattice) => set((s) => ({ 
-      lattices: [...s.lattices, { 
-        ...lattice, 
-        center: lattice.center || lattice.pos,
-        orientation: lattice.orientation || 0 
-      }] 
-    })),
+    setLattices: (lattices) => set({ lattices }),
+    addLattice: (lattice) => set((s) => ({ lattices: [...s.lattices, lattice] })),
     updateLattice: (id, partial) => set((s) => ({
       lattices: s.lattices.map(l => {
         if (l.id === id) {
@@ -332,6 +326,12 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
               get().updateGeometry(newTiedId, { invisible: true });
             }
           }
+          
+          // If linking to a full lattice
+          if (partial.latticeDocumentId !== undefined) {
+            updated.latticeDocumentId = partial.latticeDocumentId;
+          }
+          
           return updated;
         }
         return l;
@@ -363,6 +363,31 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
         selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
       };
     }),
+    
+    // New methods for lattice linking
+    linkLatticeToFullLattice: (canvasLatticeId, latticeDocumentId) => {
+      get().updateLattice(canvasLatticeId, { latticeDocumentId });
+    },
+    
+    unlinkLatticeFromFullLattice: (canvasLatticeId) => {
+      get().updateLattice(canvasLatticeId, { latticeDocumentId: undefined });
+    },
+    
+    getLinkedLatticeId: (canvasLatticeId) => {
+      const lattice = get().lattices.find(l => l.id === canvasLatticeId);
+      return lattice?.latticeDocumentId;
+    },
+    
+    syncLatticeFromFullLattice: (canvasLatticeId, fullLattice) => {
+      if (!fullLattice?.meepLattice) return;
+      
+      const { basis1, basis2 } = fullLattice.meepLattice;
+      get().updateLattice(canvasLatticeId, {
+        basis1: { x: basis1.x, y: basis1.y },
+        basis2: { x: basis2.x, y: basis2.y },
+        // Optionally sync other properties
+      });
+    },
     
     // Combined elements getter
     getAllElements: () => {

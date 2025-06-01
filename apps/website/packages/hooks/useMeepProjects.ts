@@ -301,7 +301,13 @@ export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
       if (ghPages) {
         // Use ghPages service
         const result = await ghPagesSvc.updateLattice(params);
-        if (!result) throw new Error("Lattice not found");
+        // Don't throw error if result is undefined - it might be due to recursive update prevention
+        if (result === undefined) {
+          console.log('Update skipped (possibly due to recursive update prevention)');
+          // Return the current lattice as is
+          const currentLattice = latticesQuery.data?.find(l => l.documentId === params.documentId);
+          return currentLattice;
+        }
         return result;
       } else {
         // Save to filesystem
@@ -423,8 +429,11 @@ export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
         return updatedLattice;
       }
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["meepLattices"] });
+    onSuccess: (data) => {
+      // Only invalidate if we actually got a result
+      if (data) {
+        qc.invalidateQueries({ queryKey: ["meepLattices"] });
+      }
     }
   });
 

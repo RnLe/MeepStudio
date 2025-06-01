@@ -106,6 +106,27 @@ type LatticeState = {
   // Lattice point calculation
   latticeMultiplier: number;
   setLatticeMultiplier: (multiplier: number) => void;
+  
+  // New: Project tracking
+  linkedProjectIds: string[];
+  setLinkedProjectIds: (projectIds: string[]) => void;
+  addLinkedProject: (projectId: string) => void;
+  removeLinkedProject: (projectId: string) => void;
+  
+  // New: Canvas lattice synchronization
+  createCanvasLatticeFromActive: () => any; // Returns canvas lattice object
+  updateCanvasLatticesInProjects: (latticeId: string) => void;
+  
+  // New: Lattice basis vectors for canvas synchronization
+  currentBasis1: { x: number; y: number } | null;
+  currentBasis2: { x: number; y: number } | null;
+  currentLatticeType: string | null;
+  setCurrentBasisVectors: (basis1: { x: number; y: number }, basis2: { x: number; y: number }) => void;
+  setCurrentLatticeType: (type: string) => void;
+  
+  // New: Force canvas update flag
+  canvasUpdateTrigger: number;
+  triggerCanvasUpdate: () => void;
 };
 
 export const useLatticeStore = createWithEqualityFn<LatticeState>(
@@ -216,10 +237,98 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
     setTransformationMatrices: (matrices) => set({ transformationMatrices: matrices }),
     
     // Lattice point calculation
-    latticeMultiplier: 30,
-    setLatticeMultiplier: (multiplier) => set({ 
-      latticeMultiplier: Math.max(3, Math.min(30, multiplier)) 
+    latticeMultiplier: 10,
+    setLatticeMultiplier: (multiplier) =>
+      set((s) => ({
+        latticeMultiplier: Math.max(3, Math.min(30, multiplier)),
+        // ── force canvas redraw ────────────────────────────────
+        canvasUpdateTrigger: s.canvasUpdateTrigger + 1,
+      })),
+    
+    // New: Project tracking
+    linkedProjectIds: [],
+    setLinkedProjectIds: (projectIds) => set({ linkedProjectIds: projectIds }),
+    addLinkedProject: (projectId) => set((s) => ({
+      linkedProjectIds: s.linkedProjectIds.includes(projectId) 
+        ? s.linkedProjectIds 
+        : [...s.linkedProjectIds, projectId]
+    })),
+    removeLinkedProject: (projectId) => set((s) => ({
+      linkedProjectIds: s.linkedProjectIds.filter(id => id !== projectId)
+    })),
+    
+    // New: Create canvas lattice from active lattice
+    createCanvasLatticeFromActive: () => {
+      const state = get();
+      if (!state.activeLatticeId) return null;
+      
+      // This would normally fetch from ghPagesProjectsStore
+      // For now, return a template
+      return {
+        id: '', // Will be set by canvas
+        kind: 'lattice',
+        pos: { x: 5, y: 5 }, // Default position
+        basis1: { x: 1, y: 0 },
+        basis2: { x: 0, y: 1 },
+        multiplier: 3,
+        showMode: 'points',
+        latticeDocumentId: state.activeLatticeId,
+        orientation: 0,
+      };
+    },
+    
+    // New: Update canvas lattices in all linked projects
+    updateCanvasLatticesInProjects: (latticeId) => {
+      const state = get();
+      // Trigger canvas update when lattice changes
+      set((s) => ({ canvasUpdateTrigger: s.canvasUpdateTrigger + 1 }));
+      console.log(`Updating canvas lattices for lattice ${latticeId} in linked projects`);
+    },
+    
+    // New: Lattice basis vectors
+    currentBasis1: null,
+    currentBasis2: null,
+    currentLatticeType: null,
+    setCurrentBasisVectors: (basis1, basis2) => set({ 
+      currentBasis1: basis1, 
+      currentBasis2: basis2 
     }),
+    setCurrentLatticeType: (type) => set({ currentLatticeType: type }),
+    
+    // New: Canvas update trigger
+    canvasUpdateTrigger: 0,
+    triggerCanvasUpdate: () => set((s) => ({ canvasUpdateTrigger: s.canvasUpdateTrigger + 1 })),
   }),
   shallow
 );
+
+// Add this at the end of the file after the store creation
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  // Subscribe to specific state changes
+  const unsubscribe = useLatticeStore.subscribe(
+    (state, prevState) => {
+      // Check if relevant fields changed
+      if (
+        state.currentBasis1 !== prevState.currentBasis1 ||
+        state.currentBasis2 !== prevState.currentBasis2 ||
+        state.currentLatticeType !== prevState.currentLatticeType ||
+        state.canvasUpdateTrigger !== prevState.canvasUpdateTrigger
+      ) {
+        console.log('🏪 LatticeStore state changed:', {
+          prev: {
+            currentBasis1: prevState.currentBasis1,
+            currentBasis2: prevState.currentBasis2,
+            currentLatticeType: prevState.currentLatticeType,
+            canvasUpdateTrigger: prevState.canvasUpdateTrigger,
+          },
+          curr: {
+            currentBasis1: state.currentBasis1,
+            currentBasis2: state.currentBasis2,
+            currentLatticeType: state.currentLatticeType,
+            canvasUpdateTrigger: state.canvasUpdateTrigger,
+          },
+        });
+      }
+    }
+  );
+}

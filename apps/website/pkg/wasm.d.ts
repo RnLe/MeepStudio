@@ -5,6 +5,10 @@
  */
 export function calculate_brillouin_zones(a1_x: number, a1_y: number, a2_x: number, a2_y: number, max_zone: number): BrillouinZonesResult;
 /**
+ * WASM-exported function to calculate Wigner-Seitz zones (real space)
+ */
+export function calculate_wigner_seitz_zones(a1_x: number, a1_y: number, a2_x: number, a2_y: number, max_zone: number): BrillouinZonesResult;
+/**
  * Calculate the minimum scale needed to show n lattice points
  * Returns the scale factor that would show approximately n points
  */

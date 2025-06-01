@@ -4,9 +4,16 @@ import React, { useRef, useState, useCallback, useEffect, useMemo } from "react"
 import { Stage, Layer, Line, Circle, Text, Arrow, Rect, Group } from "react-konva";
 import { Lattice } from "../types/meepLatticeTypes";
 import { useLatticeStore } from "../providers/LatticeStore";
-import { useSpring, animated, config } from "@react-spring/konva";
 import { getWasmModule } from "../utils/wasmLoader";
 import { useLatticeDataLoader } from "../hooks/useLatticeDataLoader";
+import { 
+  getSymmetryPointsForLattice, 
+  getSymmetryPathsForLattice,
+  calculateHighSymmetryPosition,
+  HighSymmetryPoint,
+  HighSymmetryPath
+} from "../utils/latticeDefaults";
+import { LatticeType, detectLatticeType } from "../utils/latticeTypeChecker";
 
 interface Props {
   lattice: Lattice;
@@ -19,26 +26,34 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   
   // Get space mode from store
-  const spaceMode = useLatticeStore((s) => s.spaceMode);
-  const showLatticePoints = useLatticeStore((s) => s.showLatticePoints);
-  const showUnitCell = useLatticeStore((s) => s.showUnitCell);
-  const showUnitTilesLattice = useLatticeStore((s) => s.showUnitTilesLattice);
-  const showGrid = useLatticeStore((s) => s.showGrid);
-  const latticeScale = useLatticeStore((s) => s.latticeScale);
-  const gridDensity = useLatticeStore((s) => s.gridDensity);
-  const normalizeMode = useLatticeStore((s) => s.normalizeMode);
-  const showBaseVectors = useLatticeStore((s) => s.showBaseVectors);
-  
+  const spaceMode              = useLatticeStore((s) => s.spaceMode);
+  const voronoiData            = useLatticeStore((s) => s.voronoiData);
+  const showLatticePoints      = useLatticeStore((s) => s.showLatticePoints);
+  const showUnitCell           = useLatticeStore((s) => s.showUnitCell);
+  const showUnitTilesLattice   = useLatticeStore((s) => s.showUnitTilesLattice);
+  const showGrid               = useLatticeStore((s) => s.showGrid);
+  const latticeScale           = useLatticeStore((s) => s.latticeScale);
+  const gridDensity            = useLatticeStore((s) => s.gridDensity);
+  const normalizeMode          = useLatticeStore((s) => s.normalizeMode);
+  const showBaseVectors        = useLatticeStore((s) => s.showBaseVectors);
+  const showHighSymmetryPoints = useLatticeStore((s) => s.showHighSymmetryPoints);
+
+  // --- NEW: bring these selectors up here so they are declared
+  //          before any effect / code that references them
+  const currentBasis1          = useLatticeStore((s) => s.currentBasis1);
+  const currentBasis2          = useLatticeStore((s) => s.currentBasis2);
+  const currentLatticeType     = useLatticeStore((s) => s.currentLatticeType);
+  const canvasUpdateTrigger    = useLatticeStore((s) => s.canvasUpdateTrigger);
+
   // Get lattice point cache from store
   const latticePointCache = useLatticeStore((s) => s.latticePointCache);
-  
-  // Get Voronoi data from store (merged)
-  const showVoronoiCell = useLatticeStore((s) => s.showVoronoiCell);
-  const voronoiData = useLatticeStore((s) => s.voronoiData);
+
+  // Get Voronoi data flags
+  const showVoronoiCell   = useLatticeStore((s) => s.showVoronoiCell);
   const showVoronoiTiling = useLatticeStore((s) => s.showVoronoiTiling);
-  
-  // Get zone counts from store
-  const realSpaceZoneCount = useLatticeStore((s) => s.realSpaceZoneCount);
+
+  // Get zone counts
+  const realSpaceZoneCount       = useLatticeStore((s) => s.realSpaceZoneCount);
   const reciprocalSpaceZoneCount = useLatticeStore((s) => s.reciprocalSpaceZoneCount);
   
   useEffect(() => {
@@ -114,7 +129,7 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
   }, [scale, pos]);
 
   // Get normalization factor from the data loader hook
-  const { getNormalizationFactor } = useLatticeDataLoader({ lattice, ghPages });
+  const { getNormalizationFactor, checkAndCalculateVoronoi } = useLatticeDataLoader({ lattice, ghPages });
   const normalizationFactor = getNormalizationFactor();
   
   // Check if grid is sparse (for k-space typically)
@@ -133,8 +148,9 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
 
   const isSparse = checkIfSparse();
 
-  // Animated vectors with spring
-  const getVectorData = useCallback(() => {
+  // --- REVISED: Simplified vector calculation ---
+  // Calculate vectors directly without memoization to ensure reactivity
+  const calculateVectors = () => {
     if (!lattice?.meepLattice) return { v1: { x: 0, y: 0 }, v2: { x: 0, y: 0 } };
     
     const isRealSpace = spaceMode === 'real';
@@ -163,32 +179,18 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
         } : { x: 0, y: 0 }
       };
     }
-  }, [lattice, spaceMode, latticeScale, normalizeMode, normalizationFactor]);
+  };
 
-  const vectors = getVectorData();
-  
-  // Spring animations for vectors
-  const vectorSpring = useSpring({
-    v1x: vectors.v1.x,
-    v1y: vectors.v1.y,
-    v2x: vectors.v2.x,
-    v2y: vectors.v2.y,
-    config: config.gentle,
-    onChange: () => {
-      // Force re-render when spring values change to animate the arrows
-      setPos(pos => ({ ...pos }));
-    }
-  });
-
-  // --- Lattice visualization helpers ---
-  const AnimatedArrow = animated(Arrow);
-  const AnimatedText = animated(Text);
-  const AnimatedLine = animated(Line);
-  const AnimatedCircle = animated(Circle);
+  // Instead, compute vectors via useMemo (will only update when lattice or mode changes)
+  const computedVectors = useMemo(() => calculateVectors(), [
+    lattice?.meepLattice,
+    spaceMode,
+    latticeScale,
+    normalizeMode,
+    normalizationFactor
+  ]);
 
   const drawLatticeVectors = () => {
-    /* draw arrows whenever showBaseVectors is true, even when the unit cell
-       is visible, so they appear on top of the unit-cell outline */
     if (!lattice?.meepLattice || !showBaseVectors) return null;
     
     const isRealSpace = spaceMode === 'real';
@@ -198,18 +200,15 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     const v2Color = isRealSpace ? "#f59e0b" : "#a78bfa";
     const v1Label = isRealSpace ? "a₁" : "b₁";
     const v2Label = isRealSpace ? "a₂" : "b₂";
-
-    // Get current spring values for the arrows
-    const v1x = vectorSpring.v1x.get();
-    const v1y = vectorSpring.v1y.get();
-    const v2x = vectorSpring.v2x.get();
-    const v2y = vectorSpring.v2y.get();
-
+    
+    // Destructure computed vectors
+    const { v1, v2 } = computedVectors;
+    
     return (
       <>
         {/* Basis vector 1 */}
         <Arrow
-          points={[0, 0, v1x, v1y]}
+          points={[0, 0, v1.x, v1.y]}
           stroke={v1Color}
           strokeWidth={3}
           fill={v1Color}
@@ -217,8 +216,8 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           pointerWidth={10}
         />
         <Text
-          x={v1x + 15}
-          y={v1y - 15}
+          x={v1.x + 15}
+          y={v1.y - 15}
           text={v1Label}
           fontSize={16}
           fontFamily="system-ui"
@@ -228,7 +227,7 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
         
         {/* Basis vector 2 */}
         <Arrow
-          points={[0, 0, v2x, v2y]}
+          points={[0, 0, v2.x, v2.y]}
           stroke={v2Color}
           strokeWidth={3}
           fill={v2Color}
@@ -236,8 +235,8 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           pointerWidth={10}
         />
         <Text
-          x={v2x + 15}
-          y={v2y - 15}
+          x={v2.x + 15}
+          y={v2.y - 15}
           text={v2Label}
           fontSize={16}
           fontFamily="system-ui"
@@ -312,52 +311,38 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     const strokeColor = isRealSpace ? "#94a3b8" : "#c4b5fd";
     const fillColor = isRealSpace ? "rgba(148, 163, 184, 0.08)" : "rgba(196, 181, 253, 0.08)";
     
-    // Get current spring values
-    const v1x = vectorSpring.v1x.get();
-    const v1y = vectorSpring.v1y.get();
-    const v2x = vectorSpring.v2x.get();
-    const v2y = vectorSpring.v2y.get();
+    // Get current values from computed vectors
+    const { v1, v2 } = computedVectors;
     
-    // Vector colors for the dashed lines
-    const v1Color = isRealSpace ? "#10b981" : "#60a5fa";
-    const v2Color = isRealSpace ? "#f59e0b" : "#a78bfa";
-    const v1Label = isRealSpace ? "a₁" : "b₁";
-    const v2Label = isRealSpace ? "a₂" : "b₂";
+    const unitCellPoints = [
+      0, 0,
+      v1.x, v1.y,
+      v1.x + v2.x, v1.y + v2.y,
+      v2.x, v2.y,
+      0, 0
+    ];
     
     return (
       <>
         {/* Unit cell fill (drawn first so it's behind everything) - only show if unit tiles areNOT active */}
         {!showUnitTilesLattice && (
           <Line
-            points={[
-              0, 0,
-              v1x, v1y,
-              v1x + v2x, v1y + v2y,
-              v2x, v2y,
-              0, 0
-            ]}
+            points={unitCellPoints}
             fill={fillColor}
             closed
             strokeWidth={0}
           />
         )}
         
-        {/* No dashed basis lines / labels when base vectors are hidden */}
-        
         {/* Unit cell outline - only show if unit tiles are NOT active */}
         {!showUnitTilesLattice && (
           <Line
-            points={[
-              0, 0,
-              v1x, v1y,
-              v1x + v2x, v1y + v2y,
-              v2x, v2y,
-              0, 0
-            ]}
+            points={unitCellPoints}
             stroke={strokeColor}
             strokeWidth={2}
             dash={[5, 5]}
             opacity={0.5}
+            closed={false}
           />
         )}
         
@@ -383,14 +368,11 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     const strokeColor = isRealSpace ? "#94a3b8" : "#c4b5fd";
     const fillColor = isRealSpace ? "rgba(148, 163, 184, 0.05)" : "rgba(196, 181, 253, 0.05)"; // More transparent for tiling
     
-    // Get current spring values for the unit cell shape
-    const v1x = vectorSpring.v1x.get();
-    const v1y = vectorSpring.v1y.get();
-    const v2x = vectorSpring.v2x.get();
-    const v2y = vectorSpring.v2y.get();
-    
     const tiles: React.ReactNode[] = [];
     const maxDistance = latticePointCache.maxDistance * scale;
+    
+    // Get values from computed vectors
+    const { v1, v2 } = computedVectors;
     
     // Draw a unit cell at each lattice point
     latticePointCache.points.forEach((point: { x: number; y: number; i: number; j: number; distance: number }, idx: number) => {
@@ -400,7 +382,6 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
       // Calculate opacity based on distance with non-linear gradient
       const distance = point.distance * scale;
       const normalizedDistance = distance / maxDistance;
-      // Use power function for non-linear gradient (exponent 1.8 for stronger fade)
       const opacity = Math.max(0.05, 0.8 - Math.pow(normalizedDistance / 1.1, 0.8));
       
       tiles.push(
@@ -408,9 +389,9 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           key={`tile-${point.i}-${point.j}-${idx}`}
           points={[
             px, py,
-            px + v1x, py + v1y,
-            px + v1x + v2x, py + v1y + v2y,
-            px + v2x, py + v2y,
+            px + v1.x, py + v1.y,
+            px + v1.x + v2.x, py + v1.y + v2.y,
+            px + v2.x, py + v2.y,
             px, py
           ]}
           stroke={strokeColor}
@@ -418,7 +399,6 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           fill={fillColor}
           closed
           opacity={opacity}
-          // dash={[3, 3]} // Removed - now using solid lines
         />
       );
     });
@@ -604,6 +584,144 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     return <>{cells}</>;
   };
 
+  // Draw high symmetry points and paths
+  const drawHighSymmetryPoints = () => {
+    if (!lattice?.meepLattice || !showHighSymmetryPoints || spaceMode !== 'reciprocal') return null;
+    
+    const scale = latticeScale * (normalizeMode ? normalizationFactor : 1);
+    
+    // Get reciprocal basis vectors
+    const b1 = lattice.meepLattice.reciprocal_basis1;
+    const b2 = lattice.meepLattice.reciprocal_basis2;
+    if (!b1 || !b2) return null;
+    
+    // Determine lattice type - use detected type if available
+    let latticeType: LatticeType;
+    
+    // First try to use the stored latticeType
+    if (lattice.latticeType && Object.values(LatticeType).includes(lattice.latticeType as LatticeType)) {
+      latticeType = lattice.latticeType as LatticeType;
+    } else {
+      // Fallback to detection
+      try {
+        const detected = detectLatticeType(
+          lattice.meepLattice.basis1,
+          lattice.meepLattice.basis2
+        );
+        latticeType = detected.type;
+      } catch (error) {
+        console.error('Error detecting lattice type:', error);
+        latticeType = LatticeType.OBLIQUE;
+      }
+    }
+    
+    // Get symmetry points and paths
+    const symmetryPoints = getSymmetryPointsForLattice(latticeType);
+    const symmetryPaths = getSymmetryPathsForLattice(latticeType);
+    
+    if (symmetryPoints.length === 0) {
+      console.warn(`No symmetry points defined for lattice type: ${latticeType}`);
+      return null;
+    }
+    
+    // Calculate positions
+    const pointPositions = new Map<string, { x: number; y: number }>();
+    symmetryPoints.forEach(point => {
+      const pos = calculateHighSymmetryPosition(point, b1, b2);
+      pointPositions.set(point.label, {
+        x: pos.x * scale,
+        y: -pos.y * scale // Flip y for canvas
+      });
+    });
+    
+    const elements: React.ReactNode[] = [];
+    
+    // Scale-sensitive sizing - made smaller
+    const basePointRadius = normalizeMode ? 4.5 : Math.max(3, Math.min(6, latticeScale / 25));
+    const baseStrokeWidth = normalizeMode ? 1.5 : Math.max(1, Math.min(2.5, latticeScale / 50));
+    const baseFontSize = normalizeMode ? 12 : Math.max(8, Math.min(14, latticeScale / 10));
+    const basePathWidth = normalizeMode ? 1.5 : Math.max(1, Math.min(2.5, latticeScale / 50));
+    
+    // Draw paths first (so they appear behind points)
+    symmetryPaths.forEach((path, idx) => {
+      const fromPos = pointPositions.get(path.from);
+      const toPos = pointPositions.get(path.to);
+      
+      if (fromPos && toPos) {
+        elements.push(
+          <Line
+            key={`path-${idx}`}
+            points={[fromPos.x, fromPos.y, toPos.x, toPos.y]}
+            stroke="#fbbf24"
+            strokeWidth={basePathWidth}
+            opacity={0.6}
+            dash={[4, 2]}
+          />
+        );
+      }
+    });
+    
+    // Draw points and labels
+    symmetryPoints.forEach((point, idx) => {
+      const pos = pointPositions.get(point.label);
+      if (!pos) return;
+      
+      // Point circle with scale-sensitive radius
+      elements.push(
+        <Circle
+          key={`point-${idx}`}
+          x={pos.x}
+          y={pos.y}
+          radius={basePointRadius}
+          fill="#fbbf24"
+          stroke="#f59e0b"
+          strokeWidth={baseStrokeWidth}
+        />
+      );
+      
+      // Label without background - positioned closer to dot
+      const labelOffset = basePointRadius + 4;
+      elements.push(
+        <Text
+          key={`label-${idx}`}
+          x={pos.x + labelOffset}
+          y={pos.y - labelOffset}
+          text={point.label}
+          fontSize={baseFontSize}
+          fontFamily="system-ui"
+          fill="#fbbf24"
+          fontStyle="bold"
+          shadowColor="#1f2937"
+          shadowBlur={2}
+          shadowOffsetX={1}
+          shadowOffsetY={1}
+        />
+      );
+    });
+    
+    return <>{elements}</>;
+  };
+
+  // Debug log when lattice prop changes
+  React.useEffect(() => {
+    console.log('🎨 LatticeCanvas received new lattice prop:', {
+      documentId: lattice?.documentId,
+      latticeType: lattice?.latticeType,
+      basis1: lattice?.meepLattice?.basis1,
+      basis2: lattice?.meepLattice?.basis2,
+    });
+  }, [lattice]);
+  
+  // Debug log when store values change
+  React.useEffect(() => {
+    console.log('🏪 LatticeCanvas store values changed:', {
+      currentBasis1,
+      currentBasis2,
+      currentLatticeType,
+      canvasUpdateTrigger
+    });
+  }, [currentBasis1, currentBasis2, currentLatticeType, canvasUpdateTrigger]);
+  
   return (
     <div
       ref={containerRef}
@@ -675,6 +793,9 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
           
           {/* Lattice vectors (drawn last to be on top, but only if unit cell is not shown) */}
           {drawLatticeVectors()}
+          
+          {/* High symmetry points and paths (drawn last to always be on top) */}
+          {drawHighSymmetryPoints()}
         </Layer>
       </Stage>
       
@@ -690,6 +811,9 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
             <div className="text-gray-500">
               Voronoi: {spaceMode === 'real' ? 'Wigner-Seitz' : `Brillouin (${voronoiData.brillouinZones?.length || 0} zones)`}
             </div>
+          )}
+          {showHighSymmetryPoints && spaceMode === 'reciprocal' && (
+            <div className="text-gray-500">High Symmetry: {lattice.latticeType}</div>
           )}
         </div>
       </div>

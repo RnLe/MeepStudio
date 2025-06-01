@@ -100,25 +100,12 @@ const voronoiTools: Tool[] = [
 
 const symmetryTools: Tool[] = [
   {
-    label: "Point Group",
-    icon: <GitBranch size={18} />,
-    onClick: (toggleShowPointGroup: () => void) => toggleShowPointGroup(),
-    isActive: (state) => state.showPointGroup,
-    fnKey: "toggleShowPointGroup",
-  },
-  {
-    label: "Space Group",
-    icon: <Sparkles size={18} />,
-    onClick: (toggleShowSpaceGroup: () => void) => toggleShowSpaceGroup(),
-    isActive: (state) => state.showSpaceGroup,
-    fnKey: "toggleShowSpaceGroup",
-  },
-  {
     label: "High Symmetry Points",
     icon: <Eye size={18} />,
     onClick: (toggleShowHighSymmetryPoints: () => void) => toggleShowHighSymmetryPoints(),
     isActive: (state) => state.showHighSymmetryPoints,
     fnKey: "toggleShowHighSymmetryPoints",
+    fullRow: true,
   },
 ];
 
@@ -255,6 +242,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
   // Get lattice multiplier from store
   const latticeMultiplier = useLatticeStore((s) => s.latticeMultiplier);
   const setLatticeMultiplier = useLatticeStore((s) => s.setLatticeMultiplier);
+  const triggerCanvasUpdate = useLatticeStore((s) => s.triggerCanvasUpdate);
   
   // State for hover effect
   const [hoveredTool, setHoveredTool] = React.useState<string | null>(null);
@@ -285,8 +273,6 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
     setSpaceModeReciprocal: () => setSpaceMode('reciprocal'),
     toggleNormalizeMode,
     toggleShowVoronoiCell: handleVoronoiCellToggle,
-    toggleShowPointGroup,
-    toggleShowSpaceGroup,
     toggleShowHighSymmetryPoints,
     toggleShowLatticePoints,
     toggleShowUnitCell: handleUnitCellToggle,
@@ -310,6 +296,26 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
     showGrid,
     showBaseVectors,
   };
+
+  /* ---------- propagate toolbar → canvas ---------- */
+  React.useEffect(() => {
+    triggerCanvasUpdate();
+  }, [
+    spaceMode,
+    normalizeMode,
+    showVoronoiCell,
+    showVoronoiTiling,
+    showPointGroup,
+    showSpaceGroup,
+    showHighSymmetryPoints,
+    showLatticePoints,
+    showUnitCell,
+    showUnitTilesLattice,
+    showGrid,
+    showBaseVectors,
+    latticeMultiplier,          // include multiplier changes
+    triggerCanvasUpdate,
+  ]);
 
   return (
     // fixed width, never allowed to shrink

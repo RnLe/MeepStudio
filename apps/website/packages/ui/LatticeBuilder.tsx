@@ -13,7 +13,7 @@ const latticeTypes = [
   { key: "rectangle", title: "Rectangle", Icon: RectangleHorizontal },
   { key: "hexagon", title: "Hexagon", Icon: Hexagon },
   { key: "rhombic", title: "Rhombic", Icon: Diamond },
-  { key: "oblique", title: "Oblique", Icon: Diamond }, // fallback for oblique
+  { key: "oblique", title: "Oblique", Icon: Diamond },
   { key: "custom", title: "Custom", Icon: Shapes },
 ] as const;
 
@@ -62,6 +62,24 @@ export default function LatticeBuilder({ project, ghPages }: Props) {
           basis_size: { x: 1, y: 1, z: 1 }
         };
         parameters = { a: 1, b: 1, alpha: 120 };
+        break;
+      case "rhombic":
+        meepLattice = {
+          basis1: { x: 1, y: 0, z: 0 },
+          basis2: { x: 0.5, y: 0.866, z: 0 }, // 60° angle
+          basis3: { x: 0, y: 0, z: 1 },
+          basis_size: { x: 1, y: 1, z: 1 }
+        };
+        parameters = { a: 1, b: 1, alpha: 60 };
+        break;
+      case "oblique":
+        meepLattice = {
+          basis1: { x: 1, y: 0, z: 0 },
+          basis2: { x: 0.3, y: 0.8, z: 0 }, // arbitrary oblique
+          basis3: { x: 0, y: 0, z: 1 },
+          basis_size: { x: 1, y: 1, z: 1 }
+        };
+        parameters = { a: 1, b: Math.sqrt(0.3*0.3 + 0.8*0.8), alpha: Math.acos(0.3) * 180 / Math.PI };
         break;
       default:
         meepLattice = {
@@ -113,9 +131,9 @@ export default function LatticeBuilder({ project, ghPages }: Props) {
         const matrices = wasm.calculate_lattice_transformations_3d(
           a1.x, a1.y, a1.z,
           a2.x, a2.y, a2.z,
-          meepLattice.basis3.x * meepLattice.basis_size.x,
-          meepLattice.basis3.y * meepLattice.basis_size.y,
-          meepLattice.basis3.z * meepLattice.basis_size.z,
+          (meepLattice.basis3?.x ?? 0) * meepLattice.basis_size.x,
+          (meepLattice.basis3?.y ?? 0) * meepLattice.basis_size.y,
+          (meepLattice.basis3?.z ?? 0) * meepLattice.basis_size.z,
           meepLattice.reciprocal_basis1.x, meepLattice.reciprocal_basis1.y, meepLattice.reciprocal_basis1.z,
           meepLattice.reciprocal_basis2.x, meepLattice.reciprocal_basis2.y, meepLattice.reciprocal_basis2.z,
           meepLattice.reciprocal_basis3.x, meepLattice.reciprocal_basis3.y, meepLattice.reciprocal_basis3.z

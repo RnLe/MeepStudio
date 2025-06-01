@@ -68,6 +68,20 @@ pub fn calculate_brillouin_zones(
     }
 }
 
+/// WASM-exported function to calculate Wigner-Seitz zones (real space)
+#[wasm_bindgen]
+pub fn calculate_wigner_seitz_zones(
+    a1_x: f64,
+    a1_y: f64,
+    a2_x: f64,
+    a2_y: f64,
+    max_zone: usize,
+) -> Result<BrillouinZonesResult, JsValue> {
+    // Wigner-Seitz zones use the same algorithm as Brillouin zones
+    // The difference is just in the interpretation (real vs reciprocal space)
+    calculate_brillouin_zones(a1_x, a1_y, a2_x, a2_y, max_zone)
+}
+
 /// Internal function that does the actual calculation
 fn calculate_brillouin_zones_internal(
     a1: Vector2D,

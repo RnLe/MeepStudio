@@ -129,6 +129,16 @@ type EditorState = {
   getSubTabsForMainTab: (mainTabId: string) => Tab[];
   setActiveSubTab: (tabId: string | null) => void;
   closeSubTab: (tabId: string) => void;
+  
+  // Navigation helpers for lattice linking
+  navigateToTab: 'projects' | 'lattices' | 'materials';
+  setNavigateToTab: (tab: 'projects' | 'lattices' | 'materials') => void;
+  navigationTargetIds: {
+    projects: string[];
+    lattices: string[];
+    materials: string[];
+  };
+  setNavigationTargetIds: (tab: 'projects' | 'lattices' | 'materials', ids: string[]) => void;
 };
 
 export const useEditorStateStore = createWithEqualityFn<EditorState>(
@@ -155,6 +165,21 @@ export const useEditorStateStore = createWithEqualityFn<EditorState>(
     
     isEditingProject: false,
     isEditingLattice: false,
+    
+    navigateToTab: 'projects',
+    setNavigateToTab: (tab) => set({ navigateToTab: tab }),
+    
+    navigationTargetIds: {
+      projects: [],
+      lattices: [],
+      materials: [],
+    },
+    setNavigationTargetIds: (tab, ids) => set((state) => ({
+      navigationTargetIds: {
+        ...state.navigationTargetIds,
+        [tab]: ids,
+      },
+    })),
     
     getMainTabs: () => {
       const { openTabs } = get();

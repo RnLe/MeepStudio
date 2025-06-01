@@ -16,6 +16,7 @@ import MaterialLibraryModal from "./MaterialLibraryModal";
 import { XRayTransparencySlider } from "./XRayTransparencySlider";
 import { ColorControlPopover } from "./ColorControlPopover";
 import { Vector2d } from "konva/lib/types";
+import { LatticeBuilderModal } from "./LatticeBuilderModal";
 
 const GROUPS = [
   { key: "snapping", label: "Snapping", color: "#b8b5a1", border: "border-[#b8b5a1]", bg: "bg-[#b8b5a1]/20" },
@@ -104,7 +105,7 @@ const geometryTools = [
   },
   {
     label: "Add Lattice",
-    icon: <Sparkles size={18} />,
+    icon: <CustomLucideIcon src={"/icons/lattice.svg"} size={18} />,
     onClick: (fn: () => void) => fn(),
     fnKey: "newLattice",
     fullRow: true, // Make it full width
@@ -278,6 +279,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const toggleShowColors = useCanvasStore((s) => s.toggleShowColors);
   const getElementColorVisibility = useCanvasStore((s) => s.getElementColorVisibility);
   const { updateProject } = useMeepProjects({ ghPages });
+  const setLattices = useCanvasStore((s) => s.setLattices);
+  
   const projectId = project.documentId;
   const geometries = project.scene?.geometries || [];
   const sources = project.scene?.sources || [];
@@ -835,34 +838,18 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
         disableApply={!hasGeometriesSelected}
       />
       
-      {/* Add dynamic import for LatticeBuilderModal */}
+      {/* Update the LatticeBuilderModal section */}
       {showLatticeModal && (
         <React.Suspense fallback={<div>Loading...</div>}>
-          {/* latticeData is now typed */}
           <LatticeBuilderModal
             isOpen={showLatticeModal}
             onClose={() => setShowLatticeModal(false)}
-            onCreateLattice={(latticeData: LatticeVectorData) => {
-              const pos = { x: 5, y: 5 };
-              const newLattice = {
-                kind: "lattice",
-                id: nanoid(),
-                pos,
-                basis1: latticeData.basis1,
-                basis2: latticeData.basis2,
-                multiplier: 3,
-                showMode: 'points' as const,
-              };
-              addLattice(newLattice);
-              updateProject({
-                documentId: projectId,
-                project: {
-                  scene: {
-                    ...project.scene,
-                    lattices: [...lattices, newLattice],
-                  },
-                },
-              });
+            project={project}
+            onLatticeCreated={() => {
+              // Refresh lattices from the project after creation
+              if (project.scene?.lattices) {
+                setLattices(project.scene.lattices);
+              }
               setShowLatticeModal(false);
             }}
           />
@@ -872,17 +859,4 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   );
 };
 
-// Lazy load the modal component
-// @ts-expect-error — handled by dynamic import at runtime
-const LatticeBuilderModal = React.lazy(() => import('./LatticeBuilderModal'));
-
 export default CanvasToolbar;
-
-/**
- * Minimal lattice-vector description passed back from LatticeBuilderModal.
- * Keep it local – no runtime impact, just for type-checking.
- */
-type LatticeVectorData = {
-  basis1: Vector2d;
-  basis2: Vector2d;
-};

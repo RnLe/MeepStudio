@@ -53,12 +53,12 @@ export interface ProjectScene {
    * All boundary objects for this scene.
    * Each boundary has at least: id, kind, and boundary-specific fields.
    */
-  boundaries?: GeometryObject[]; // Using GeometryObject type for now, can be refined later
+  boundaries?: any[]; // Add if missing
   /**
    * All lattice objects for this scene.
    * Each lattice has at least: id, kind, and lattice-specific fields.
    */
-  lattices?: GeometryObject[]; // Using GeometryObject type for now, can be refined later
+  lattices?: any[]; // Change from GeometryObject[] to any[] for now
 }
 
 /* ---------- Project Code Interface ---------- */
@@ -75,15 +75,15 @@ export interface ProjectCode {
 
 /* ---------- Project Lattice Interface ---------- */
 export interface ProjectLattice {
-  /** Reference to a lattice by ID */
-  latticeId?: string;
+  /** References to lattices by ID */
+  latticeIds?: string[]; // Changed to array for many-to-many
   /** Inline lattice data (for backwards compatibility) */
   latticeData?: any;
 }
 
 /* ---------- Main Project Interface ---------- */
 export interface MeepProject {
-  /** Primary key = folder prefix, created with nanoid() */
+  /** Primary key, created with nanoid() */
   documentId: string;
   /** ISO strings for historical sorting */
   createdAt: string;

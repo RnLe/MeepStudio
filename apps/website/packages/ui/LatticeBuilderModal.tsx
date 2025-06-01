@@ -2,6 +2,10 @@ import React, { useState, useMemo, useCallback } from "react";
 import { X, Square, RectangleHorizontal, Hexagon, Diamond, Shapes } from "lucide-react";
 import { Vector2d } from "konva/lib/types";
 import CustomLucideIcon from "./CustomLucideIcon";
+import { useCanvasStore } from "../providers/CanvasStore";
+import { useGhPagesProjectsStore } from "../hooks/ghPagesProjectsStore";
+import { MeepProject } from "../types/meepProjectTypes";
+import { nanoid } from "nanoid";
 
 interface LatticeData {
   basis1: Vector2d;
@@ -11,7 +15,8 @@ interface LatticeData {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onCreateLattice: (data: LatticeData) => void;
+  project: MeepProject;
+  onLatticeCreated?: () => void;
 }
 
 // Lattice type definitions matching LatticeBuilder
@@ -61,13 +66,18 @@ const latticePresets: LatticePreset[] = [
   },
 ];
 
-export default function LatticeBuilderModal({ isOpen, onClose, onCreateLattice }: Props) {
+export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated }: Props) {
   const [selectedType, setSelectedType] = useState<LatticeType>("square");
   const [parameters, setParameters] = useState({
     a: 1,
     b: 1,
     alpha: 90, // angle between vectors in degrees
   });
+  const [title, setTitle] = useState("New Lattice");
+  const [isCreating, setIsCreating] = useState(false);
+
+  const addLattice = useCanvasStore((s) => s.addLattice);
+  const { addLattice: createFullLattice, updateProject, linkLatticeToProject } = useGhPagesProjectsStore();
 
   // Calculate basis vectors from parameters
   const { basis1, basis2 } = useMemo(() => {
@@ -97,8 +107,94 @@ export default function LatticeBuilderModal({ isOpen, onClose, onCreateLattice }
   }, []);
 
   // Handle create
-  const handleCreate = () => {
-    onCreateLattice({ basis1, basis2 });
+  const handleCreate = async () => {
+    // Add safety check for project
+    if (!project?.scene) {
+      console.error("Project or project.scene is undefined");
+      return;
+    }
+    
+    setIsCreating(true);
+    try {
+      // Calculate basis vectors based on lattice type
+      let basis1 = { x: 1, y: 0, z: 0 };
+      let basis2 = { x: 0, y: 1, z: 0 };
+
+      switch (selectedType) {
+        case "square":
+          basis1 = { x: parameters.a, y: 0, z: 0 };
+          basis2 = { x: 0, y: parameters.a, z: 0 };
+          break;
+        case "rectangular":
+          basis1 = { x: parameters.a, y: 0, z: 0 };
+          basis2 = { x: 0, y: parameters.b, z: 0 };
+          break;
+        case "hexagonal":
+          basis1 = { x: parameters.a, y: 0, z: 0 };
+          basis2 = { 
+            x: parameters.a * Math.cos(Math.PI / 3), 
+            y: parameters.a * Math.sin(Math.PI / 3), 
+            z: 0 
+          };
+          break;
+      }
+
+      // Create the full lattice in the store
+      const fullLattice = await createFullLattice({
+        title,
+        latticeType: selectedType,
+        parameters,
+        meepLattice: {
+          basis1,
+          basis2,
+          basis3: { x: 0, y: 0, z: 1 },
+          basis_size: { x: 1, y: 1, z: 1 },
+        },
+      });
+
+      // Create canvas lattice element with safe defaults
+      const canvasLattice = {
+        id: nanoid(),
+        kind: "lattice" as const,
+        pos: { 
+          x: (project.scene.rectWidth || 10) / 2, 
+          y: (project.scene.rectHeight || 10) / 2 
+        },
+        basis1: { x: basis1.x, y: basis1.y },
+        basis2: { x: basis2.x, y: basis2.y },
+        multiplier: 3,
+        showMode: "points" as const,
+        latticeDocumentId: fullLattice.documentId,
+        orientation: 0,
+      };
+
+      // Add to canvas
+      addLattice(canvasLattice);
+
+      // Update project with new lattice
+      const updatedLattices = [...(project.scene.lattices || []), canvasLattice];
+      await updateProject({
+        documentId: project.documentId,
+        project: {
+          scene: {
+            ...project.scene,
+            lattices: updatedLattices,
+          },
+        },
+      });
+
+      // Link lattice to project
+      linkLatticeToProject(fullLattice.documentId, project.documentId);
+
+      // After successfully creating the lattice
+      onLatticeCreated?.();
+      onClose();
+    } catch (error) {
+      console.error("Failed to create lattice:", error);
+      alert("Failed to create lattice. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -318,9 +414,10 @@ export default function LatticeBuilderModal({ isOpen, onClose, onCreateLattice }
           </button>
           <button
             onClick={handleCreate}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+            disabled={isCreating}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
           >
-            Create Lattice
+            {isCreating ? "Creating..." : "Create Lattice"}
           </button>
         </div>
       </div>

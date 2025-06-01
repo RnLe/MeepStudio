@@ -76,11 +76,33 @@ const TabBar: React.FC<TabBarProps> = ({
     }
   };
 
+  // Helper function to get current title for a tab
+  const getTabTitle = (tab: Tab): string => {
+    if (tab.type === "project" || tab.type === "scene") {
+      if (tab.projectId) {
+        const project = projects.find(p => p.documentId === tab.projectId);
+        return project ? project.title : tab.title;
+      }
+    } else if (tab.type === "lattice") {
+      if (tab.latticeId) {
+        const lattice = lattices.find(l => l.documentId === tab.latticeId);
+        return lattice ? lattice.title : tab.title;
+      }
+    } else if (tab.type === "code") {
+      if (tab.projectId) {
+        const project = projects.find(p => p.documentId === tab.projectId);
+        return project ? `${project.title} (Code)` : tab.title;
+      }
+    }
+    return tab.title;
+  };
+
   const renderTab = (tab: Tab) => {
     const IconComponent = getTabIcon(tab.type);
     const isActive = tab.id === activeTabId;
     const isHovered = hoveredTab === tab.id;
     const isClosable = tab.type !== "canvas"; // Canvas tabs are not closable
+    const currentTitle = getTabTitle(tab); // Get dynamic title
     
     // Apply dynamic width to all canvas tabs in sub tab bars when we have parent width
     const shouldHaveDynamicWidth = isSubTabBar && tab.type === "canvas" && parentTabWidth;
@@ -118,7 +140,7 @@ const TabBar: React.FC<TabBarProps> = ({
       >
         <IconComponent size={isSubTabBar ? 16 : 16} className="mr-2 text-slate-400" />
         <span className={`truncate ${shouldHaveDynamicWidth ? 'max-w-none' : 'max-w-40'} ${isSubTabBar ? 'text-sm' : 'font-semibold text-sm'} tracking-wide ${isClosable && !shouldHaveDynamicWidth ? 'mr-8' : 'mr-2'}`}>
-          {tab.title}
+          {currentTitle}
         </span>
         
         {isClosable && (

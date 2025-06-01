@@ -4,6 +4,7 @@ export const memory: WebAssembly.Memory;
 export const __wbg_brillouinzonesresult_free: (a: number, b: number) => void;
 export const brillouinzonesresult_zones: (a: number) => any;
 export const calculate_brillouin_zones: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+export const calculate_wigner_seitz_zones: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
 export const calculate_min_scale_for_points: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
 export const calculate_square_lattice_points: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
 export const add: (a: number, b: number) => number;

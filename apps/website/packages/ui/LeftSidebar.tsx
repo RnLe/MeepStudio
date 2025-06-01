@@ -52,7 +52,9 @@ export default function LeftSidebar() {
       isSpecial: true
     },
     { key: "explorer", Icon: Folder, title: "Explorer", onClick: undefined, isSpecial: false },
-    { key: "latticeBuilder", Icon: Hexagon, title: "Lattice Builder", onClick: undefined, isSpecial: false },
+    { key: "latticeBuilder", Icon: ({ className }: { className?: string }) => (
+        <CustomLucideIcon src="/icons/lattice.svg" size={25} className={className} />
+      ),  title: "Lattice Builder", onClick: undefined, isSpecial: false },
   ];
 
   return (

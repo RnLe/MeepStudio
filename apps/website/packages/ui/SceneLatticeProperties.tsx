@@ -1,8 +1,10 @@
 import React from "react";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { useMeepProjects } from "../hooks/useMeepProjects";
+import { useGhPagesProjectsStore } from "../hooks/ghPagesProjectsStore";
+import { useEditorStateStore } from "../providers/EditorStateStore";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ExternalLink, Unlink } from "lucide-react";
 
 interface Props {
   lattice: any;
@@ -14,12 +16,20 @@ export default function SceneLatticeProperties({ lattice, project, ghPages }: Pr
   const updateLattice = useCanvasStore((s) => s.updateLattice);
   const geometries = useCanvasStore((s) => s.geometries);
   const { updateProject } = useMeepProjects({ ghPages });
+  const { lattices: fullLattices, unlinkLatticeFromProject } = useGhPagesProjectsStore();
+  const { openLattice, setActiveLattice } = useEditorStateStore();
   
   const [localValues, setLocalValues] = React.useState({
     multiplier: lattice.multiplier || 3,
     showMode: lattice.showMode || 'points',
     tiedGeometryId: lattice.tiedGeometryId || '',
   });
+  
+  // Find linked full lattice
+  const linkedLattice = React.useMemo(() => {
+    if (!lattice.latticeDocumentId) return null;
+    return fullLattices.find(l => l.documentId === lattice.latticeDocumentId);
+  }, [lattice.latticeDocumentId, fullLattices]);
   
   React.useEffect(() => {
     setLocalValues({
@@ -46,6 +56,36 @@ export default function SceneLatticeProperties({ lattice, project, ghPages }: Pr
     });
   };
   
+  const handleOpenLattice = () => {
+    if (linkedLattice) {
+      // Open the lattice in the editor
+      openLattice(linkedLattice);
+      setActiveLattice(linkedLattice.documentId);
+    }
+  };
+  
+  const handleUnlinkLattice = async () => {
+    if (lattice.latticeDocumentId) {
+      // Remove link from canvas lattice
+      updateLattice(lattice.id, { latticeDocumentId: undefined });
+      
+      // Update project
+      const lattices = useCanvasStore.getState().lattices;
+      await updateProject({
+        documentId: project.documentId,
+        project: {
+          scene: {
+            ...project.scene,
+            lattices,
+          },
+        },
+      });
+      
+      // Remove project from lattice's project list
+      unlinkLatticeFromProject(lattice.latticeDocumentId, project.documentId);
+    }
+  };
+  
   // Get available geometries for tying
   const availableGeometries = geometries.filter(g => 
     g.kind === 'cylinder' || g.kind === 'rectangle' || g.kind === 'triangle'
@@ -57,6 +97,37 @@ export default function SceneLatticeProperties({ lattice, project, ghPages }: Pr
         <Sparkles size={16} className="text-gray-400" />
         <h3 className="text-sm font-medium text-gray-300">Lattice Properties</h3>
       </div>
+      
+      {/* Linked Lattice Info */}
+      {linkedLattice && (
+        <div className="bg-neutral-800 rounded p-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-gray-500">Linked to:</div>
+              <div className="text-sm text-gray-300 font-medium">{linkedLattice.title}</div>
+            </div>
+            <div className="flex gap-1">
+              <button
+                onClick={handleOpenLattice}
+                className="p-1 hover:bg-neutral-700 rounded transition-colors"
+                title="Open in Lattice Editor"
+              >
+                <ExternalLink size={14} className="text-blue-400" />
+              </button>
+              <button
+                onClick={handleUnlinkLattice}
+                className="p-1 hover:bg-neutral-700 rounded transition-colors"
+                title="Unlink Lattice"
+              >
+                <Unlink size={14} className="text-red-400" />
+              </button>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            Type: {linkedLattice.latticeType}
+          </div>
+        </div>
+      )}
       
       <div className="space-y-2">
         {/* Multiplier */}

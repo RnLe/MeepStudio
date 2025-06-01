@@ -14,6 +14,7 @@ interface LatticeVectorDisplayProps {
   };
   customAngle?: number;
   realSpaceMode?: boolean;
+  showConditions?: boolean; // New prop, defaults to true
 }
 
 interface LatticeParams {
@@ -62,10 +63,24 @@ const latticeParams: Record<LatticeType, LatticeParams> = {
   }
 };
 
-export default function LatticeVectorDisplay({ latticeType, customVectors, customAngle, realSpaceMode = true }: LatticeVectorDisplayProps) {
+export default function LatticeVectorDisplay({ 
+  latticeType, 
+  customVectors, 
+  customAngle, 
+  realSpaceMode = true,
+  showConditions = true
+}: LatticeVectorDisplayProps) {
   const params = latticeParams[latticeType];
   const centerX = 80;
   const centerY = 60;
+
+  // uniform down-scaling of the whole drawing
+  const contentScale = 0.8;
+  const offsetX = centerX * (1 - contentScale);
+  const offsetY = centerY * (1 - contentScale);
+
+  // SINGLE extra translation (negative ⇒ shift up) – keeps grid & vectors together
+  const verticalShift = -10;   // tweak pixel value as desired
 
   // Persistent state for custom rotation
   const [customRotationValue, setCustomRotationValue] = useState(0);
@@ -135,7 +150,12 @@ export default function LatticeVectorDisplay({ latticeType, customVectors, custo
   };
   
   const scaleFactor = calculateScaleFactor();
-  const gridSize = 20 * scaleFactor; // Scale grid with vectors
+  const gridSize      = 20 * scaleFactor;
+  const fineGridSize  = gridSize * 3;
+  
+  // Calculate pattern offset to align with center point
+  const patternOffsetX = centerX % fineGridSize;
+  const patternOffsetY = centerY % fineGridSize;
   
   // Calculate angle from vectors if custom vectors provided
   const calculateAngle = (v1: { x: number; y: number }, v2: { x: number; y: number }) => {
@@ -216,14 +236,25 @@ export default function LatticeVectorDisplay({ latticeType, customVectors, custo
   };
 
   return (
-    <div className="flex flex-col p-3 bg-gray-800 rounded-lg border border-gray-700">
+    <div className={`flex flex-col p-3 bg-neutral-600 rounded-lg ${!showConditions ? 'py-2' : ''}`}>
       {/* Vector visualization */}
-      <div className="flex items-center justify-center mb-3">
-        <svg width="160" height="120" className="overflow-visible">
+      <div className={`flex items-center justify-center ${showConditions ? 'mb-3' : ''}`}>
+        <svg width="160" height={showConditions ? "120" : "100"} className="overflow-visible">
           {/* Grid lines with dynamic scaling */}
           <defs>
-            <pattern id={`grid-scaled-${scaleFactor}`} width={gridSize} height={gridSize} patternUnits="userSpaceOnUse">
-              <path d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`} fill="none" stroke="#374151" strokeWidth="0.5" />
+            <pattern
+              id={`grid-scaled-${scaleFactor}-fine`}
+              width={fineGridSize}
+              height={fineGridSize}
+              patternUnits="userSpaceOnUse"
+              patternTransform={`translate(${patternOffsetX * contentScale} ${patternOffsetY * contentScale}) scale(${contentScale})`}
+            >
+              <path
+                d={`M ${fineGridSize} 0 L 0 0 0 ${fineGridSize}`}
+                fill="none"
+                stroke="#aaaaaa"
+                strokeWidth="0.8"
+              />
             </pattern>
             {/* Arrowheads */}
             <marker id={`arrowhead-v1-${realSpaceMode ? 'real' : 'reciprocal'}`} markerWidth="8" markerHeight="8" refX="6" refY="2.5" orient="auto">
@@ -233,7 +264,17 @@ export default function LatticeVectorDisplay({ latticeType, customVectors, custo
               <polygon points="0 0, 8 2.5, 0 5" fill={vector2Color} />
             </marker>
           </defs>
-          <rect x="-10" y="-10" width="180" height="140" fill={`url(#grid-scaled-${scaleFactor})`} />
+
+          {/* Everything below is translated & scaled as a whole */}
+          <g transform={`translate(${offsetX} ${offsetY + verticalShift}) scale(${contentScale})`}>
+
+            <rect
+              x="-10"
+              y="-10"
+              width="180"
+              height="140"
+              fill={`url(#grid-scaled-${scaleFactor}-fine)`}
+            />
 
           {/* Angle arc */}
           {(latticeType === 'custom' && !customVectors) ? (
@@ -413,24 +454,27 @@ export default function LatticeVectorDisplay({ latticeType, customVectors, custo
               {vector2Label}
             </animated.text>
           )}
+          </g> {/* end scaled group */}
         </svg>
       </div>
 
-      {/* Conditions below */}
-      <div className="space-y-1">
-        <h4 className="text-xs font-medium text-gray-400">Conditions:</h4>
-        <div className="flex flex-wrap gap-1">
-          {params.conditions.map((condition, index) => (
-            <animated.span
-              key={`${latticeType}-${index}`}
-              className="text-xs text-gray-300 px-2 py-0.5 bg-gray-700 rounded"
-              style={conditionSprings[index]}
-            >
-              {condition}
-            </animated.span>
-          ))}
+      {/* Conditions below - only show if showConditions is true */}
+      {showConditions && (
+        <div className="space-y-1">
+          <h4 className="text-xs font-medium text-gray-400">Conditions:</h4>
+          <div className="flex flex-wrap gap-1">
+            {params.conditions.map((condition, index) => (
+              <animated.span
+                key={`${latticeType}-${index}`}
+                className="text-xs text-gray-300 px-2 py-0.5 bg-gray-700 rounded"
+                style={conditionSprings[index]}
+              >
+                {condition}
+              </animated.span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
