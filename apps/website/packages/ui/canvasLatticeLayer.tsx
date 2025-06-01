@@ -212,15 +212,26 @@ export function LatticeLayer({
           ? geometries.find(g => g.id === lattice.tiedGeometryId)
           : null;
 
-        /* --- build lattice-point array in *local* coordinates --- */
-        const points: { x: number; y: number }[] = [];
-        const mult = lattice.multiplier ?? 3;
-        for (let i = -mult; i <= mult; i++) {
-          for (let j = -mult; j <= mult; j++) {
-            points.push({
-              x: i * lattice.basis1.x + j * lattice.basis2.x,
-              y: i * lattice.basis1.y + j * lattice.basis2.y,
-            });
+        /* --- build lattice-point array --- */
+        let points: { x: number; y: number }[] = [];
+        
+        // Check if we have WASM-calculated points for centerFill mode
+        if (lattice.fillMode === 'centerFill' && lattice.calculatedPoints) {
+          // Use WASM-calculated points (already in local coordinates)
+          points = lattice.calculatedPoints.map((p: any) => ({
+            x: p.x,
+            y: p.y
+          }));
+        } else {
+          // Use manual multiplier-based points
+          const mult = lattice.multiplier ?? 3;
+          for (let i = -mult; i <= mult; i++) {
+            for (let j = -mult; j <= mult; j++) {
+              points.push({
+                x: i * lattice.basis1.x + j * lattice.basis2.x,
+                y: i * lattice.basis1.y + j * lattice.basis2.y,
+              });
+            }
           }
         }
 
@@ -378,8 +389,6 @@ export function LatticeLayer({
                       y={p.y * GRID_PX}
                       radius={tiedGeometry.radius * GRID_PX}
                       fill={fill}
-                      stroke="#444"
-                      strokeWidth={1}
                       opacity={opacity}
                     />
                   );
@@ -396,8 +405,6 @@ export function LatticeLayer({
                       offsetY={(tiedGeometry.height * GRID_PX) / 2}
                       rotation={(tiedGeometry.orientation || 0) * 180 / Math.PI}
                       fill={fill}
-                      stroke="#444"
-                      strokeWidth={1}
                       opacity={opacity}
                     />
                   );
@@ -410,8 +417,6 @@ export function LatticeLayer({
                       y={p.y * GRID_PX}
                       rotation={(tiedGeometry.orientation || 0) * 180 / Math.PI}
                       fill={fill}
-                      stroke="#444"
-                      strokeWidth={1}
                       opacity={opacity}
                       sceneFunc={(ctx, shape) => {
                         ctx.beginPath();

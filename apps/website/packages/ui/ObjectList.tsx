@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { shallow } from "zustand/shallow";
-import { Circle, Square, TriangleIcon, ChevronDown, ChevronRight, Shield, Sparkles } from "lucide-react";
+import { Circle, Square, TriangleIcon, ChevronDown, ChevronRight, Shield, Sparkles, Eye, EyeOff } from "lucide-react";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { MeepProject } from "../types/meepProjectTypes";
 import CustomLucideIcon from "./CustomLucideIcon";
@@ -17,7 +17,7 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
     lattices: true,
   });
 
-  const { geometries, sources, boundaries, lattices, selectedGeometryIds, selectGeometry } = useCanvasStore(
+  const { geometries, sources, boundaries, lattices, selectedGeometryIds, selectGeometry, updateGeometry } = useCanvasStore(
     (s) => ({
       geometries: s.geometries,
       sources: s.sources,
@@ -25,6 +25,7 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
       lattices: s.lattices,
       selectedGeometryIds: s.selectedGeometryIds,
       selectGeometry: s.selectGeometry,
+      updateGeometry: s.updateGeometry,
     }),
     shallow
   );
@@ -37,13 +38,19 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
       [group]: !prev[group]
     }));
   };
+  
+  // Toggle geometry visibility
+  const toggleGeometryVisibility = (e: React.MouseEvent, geometryId: string, currentInvisible: boolean) => {
+    e.stopPropagation(); // Prevent selecting the geometry
+    updateGeometry(geometryId, { invisible: !currentInvisible });
+  };
 
-  // Group objects by type
+  // Group objects by type - don't filter invisible geometries anymore
   const groups = [
     {
       name: "Geometries",
       key: "geometries" as const,
-      items: geometries.filter(g => !g.invisible),
+      items: geometries, // Show all geometries, including invisible ones
       getIcon: (item: any) => {
         switch (item.kind) {
           case "cylinder":
@@ -56,7 +63,7 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
             return <Square size={12} />;
         }
       },
-      getLabel: (item: any) => item.name ?? item.kind, // <- only the name
+      getLabel: (item: any) => item.name ?? item.kind,
     },
     {
       name: "Sources",
@@ -133,31 +140,56 @@ const ObjectsList: React.FC<{ project: MeepProject }> = ({ project }) => {
             {expandedGroups[group.key] && (
               <div className="pl-2 space-y-0.5">
                 {group.items.map((item) => (
-                  <button
+                  <div
                     key={item.id}
-                    onClick={() => selectGeometry(item.id)}
-                    className={`flex items-center gap-2 w-full px-2 py-1 text-xs rounded transition-colors ${
+                    className={`flex items-center gap-2 w-full px-2 py-1 text-xs rounded transition-colors group ${
                       selectedGeometryIds.includes(item.id)
                         ? "bg-blue-600/20 text-blue-300"
                         : "text-gray-300 hover:bg-neutral-700/50"
                     }`}
                   >
-                    {group.getIcon(item)}
-                    <span className="truncate">{group.getLabel(item)}</span>
+                    <button
+                      onClick={() => selectGeometry(item.id)}
+                      className="flex items-center gap-2 flex-1 text-left"
+                    >
+                      <span className={item.invisible ? "opacity-40" : ""}>
+                        {group.getIcon(item)}
+                      </span>
+                      <span className={`truncate ${item.invisible ? "opacity-40" : ""}`}>
+                        {group.getLabel(item)}
+                      </span>
 
-                    {/* Material color indicator for geometries */}
-                    {group.key === 'geometries' && item.material && (
-                      <div 
-                        className="w-2 h-2 rounded-full border border-neutral-600" 
-                        style={{ 
-                          backgroundColor: getMaterialColor(
-                            item.material, 
-                            MaterialCatalog[item.material as keyof typeof MaterialCatalog]?.color
-                          ) 
-                        }}
-                      />
+                      {/* Material color indicator for geometries */}
+                      {group.key === 'geometries' && item.material && (
+                        <div 
+                          className={`w-2 h-2 rounded-full border border-neutral-600 ${
+                            item.invisible ? "opacity-40" : ""
+                          }`}
+                          style={{ 
+                            backgroundColor: getMaterialColor(
+                              item.material, 
+                              MaterialCatalog[item.material as keyof typeof MaterialCatalog]?.color
+                            ) 
+                          }}
+                        />
+                      )}
+                    </button>
+                    
+                    {/* Eye icon for geometries */}
+                    {group.key === 'geometries' && (
+                      <button
+                        onClick={(e) => toggleGeometryVisibility(e, item.id, item.invisible || false)}
+                        className="p-0.5 hover:bg-neutral-600 rounded transition-colors opacity-0 group-hover:opacity-100"
+                        title={item.invisible ? "Show geometry" : "Hide geometry"}
+                      >
+                        {item.invisible ? (
+                          <EyeOff size={12} className="text-gray-400" />
+                        ) : (
+                          <Eye size={12} className="text-gray-400" />
+                        )}
+                      </button>
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
             )}

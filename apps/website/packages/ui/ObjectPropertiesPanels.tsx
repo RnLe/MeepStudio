@@ -21,6 +21,7 @@ import { EigenModeSourceProperties } from "./source-properties/EigenModeSourcePr
 import { GaussianBeamSourceProperties } from "./source-properties/GaussianBeamSourceProperties";
 import { PMLBoundaryProperties } from "./boundary-properties/PMLBoundaryProperties";
 import SceneLatticeProperties from "./SceneLatticeProperties";
+import { SceneCylinderProperties } from "./geometry-properties/SceneCylinderProperties";
 
 interface ObjectPropertiesPanelProps {
   project: MeepProject;
@@ -175,6 +176,7 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
 
   // Find selected element across all types – hook is unconditional
   const selectedElement = React.useMemo(() => {
+    // RETURN early only when **no** geometry is selected
     if (!selectedGeometryId) return null;
     
     // Check geometries
@@ -211,49 +213,15 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
       {selectedElement?.type === 'geometry' && (
         <div className="space-y-3">
           {/* Geometry Properties */}
-          {selectedElement.element.kind === "cylinder" && (() => {
-            const cyl = selectedElement.element as Cylinder;
-            return (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-300">Cylinder Properties</h3>
-                
-                {/* Compact 2-column grid layout */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Left column - Parameters */}
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-400 mb-2">Parameters</h4>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
-                        <span className="text-xs text-gray-400">Radius</span>
-                        <span className="text-xs text-gray-200 font-mono">{cyl.radius.toFixed(3)}</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
-                        <span className="text-xs text-gray-400">Rotation</span>
-                        <span className="text-xs text-gray-200 font-mono">{((cyl.orientation || 0) * 180 / Math.PI).toFixed(1)}°</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-neutral-700/50 rounded px-2 py-1">
-                        <span className="text-xs text-gray-400">Material</span>
-                        <span className="text-xs text-gray-200">{cyl.material || "air"}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Right column - Position */}
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-400 mb-2">Position</h4>
-                    <div className="bg-neutral-700/50 rounded px-2 py-1">
-                      <LabeledVector
-                        label="center"
-                        values={[center.x, center.y]}
-                        color="text-blue-400"
-                        size="sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          {selectedElement.element.kind === "cylinder" && (
+            <SceneCylinderProperties
+              cylinder={selectedElement.element}
+              project={project}
+              ghPages={ghPages}
+              projectA={projectA}
+              projectUnit={projectUnit}
+            />
+          )}
 
           {selectedElement.element.kind === "rectangle" && (() => {
             const rect = selectedElement.element as RectType;

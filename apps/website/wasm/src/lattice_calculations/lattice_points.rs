@@ -103,3 +103,49 @@ pub fn calculate_square_lattice_points(
 
     serde_wasm_bindgen::to_value(&LatticePointsResult { points, max_distance }).unwrap()
 }
+
+/// Generate all lattice points inside a centred rectangle of size
+/// `rect_width` × `rect_height`.
+/// – the rectangle is centred at the origin,
+/// – returns only the list of points (no extra metadata).
+#[wasm_bindgen]
+pub fn calculate_rectangle_lattice_points(
+    b1x: f64,
+    b1y: f64,
+    b2x: f64,
+    b2y: f64,
+    rect_width: f64,
+    rect_height: f64,
+) -> JsValue {
+    // ---- 1. rectangle half-sizes -------------------------------------------
+    let half_w = (rect_width  * 0.5).max(1e-9);
+    let half_h = (rect_height * 0.5).max(1e-9);
+
+    // ---- 2. search radius  --------------------------------------------------
+    // distance from centre to rectangle corner  (hypotenuse)
+    let corner_radius = (half_w * half_w + half_h * half_h).sqrt();
+
+    // smallest basis length  → safe upper bound for |i|,|j|
+    let b1_len = (b1x * b1x + b1y * b1y).sqrt();
+    let b2_len = (b2x * b2x + b2y * b2y).sqrt();
+    let min_base_len = b1_len.min(b2_len).max(1e-9);
+
+    // cover the full radius plus a tiny margin
+    let n_max = (corner_radius / min_base_len).ceil() as i32 + 2;
+
+    // ---- 3. generate points -------------------------------------------------
+    let mut points = Vec::new();
+    for i in -n_max..=n_max {
+        for j in -n_max..=n_max {
+            let x = i as f64 * b1x + j as f64 * b2x;
+            let y = i as f64 * b1y + j as f64 * b2y;
+
+            if x.abs() <= half_w && y.abs() <= half_h {
+                let d = (x * x + y * y).sqrt();
+                points.push(LatticePoint { x, y, i, j, distance: d });
+            }
+        }
+    }
+
+    serde_wasm_bindgen::to_value(&points).unwrap()
+}

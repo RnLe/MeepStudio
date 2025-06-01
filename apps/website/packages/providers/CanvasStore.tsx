@@ -11,6 +11,11 @@ type CanvasState = {
   resolutionSnapping: boolean;
   toggleResolutionSnapping: () => void;
   
+  // Canvas properties
+  canvasSize: { width: number; height: number };
+  setCanvasSize: (size: { width: number; height: number }) => void;
+  GRID_PX: number;
+  
   // Geometry selection (renamed for clarity)
   selectedGeometryIds: string[];
   setSelectedGeometryIds: (ids: string[]) => void;
@@ -126,6 +131,7 @@ type CanvasState = {
   unlinkLatticeFromFullLattice: (canvasLatticeId: string) => void;
   getLinkedLatticeId: (canvasLatticeId: string) => string | undefined;
   syncLatticeFromFullLattice: (canvasLatticeId: string, fullLattice: any) => void;
+  syncLatticesFromProject: (project: any) => void; // New method
 };
 
 export const useCanvasStore = createWithEqualityFn<CanvasState>(
@@ -134,6 +140,11 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
     toggleGridSnapping: () => set((s) => ({ gridSnapping: !s.gridSnapping, resolutionSnapping: s.gridSnapping ? s.resolutionSnapping : false })),
     resolutionSnapping: false,
     toggleResolutionSnapping: () => set((s) => ({ resolutionSnapping: !s.resolutionSnapping, gridSnapping: s.resolutionSnapping ? s.gridSnapping : false })),
+    
+    // Canvas properties
+    canvasSize: { width: 800, height: 600 }, // Default canvas size
+    setCanvasSize: (size) => set({ canvasSize: size }),
+    GRID_PX: 40, // Fixed grid pixel size matching ProjectCanvas
     
     // Geometry selection state and actions
     selectedGeometryIds: [],
@@ -387,6 +398,21 @@ export const useCanvasStore = createWithEqualityFn<CanvasState>(
         basis2: { x: basis2.x, y: basis2.y },
         // Optionally sync other properties
       });
+    },
+    
+    // New method to sync lattices from project
+    syncLatticesFromProject: (project) => {
+      if (!project?.scene?.lattices) return;
+      
+      // Update the lattices array with project data
+      set({ 
+        lattices: project.scene.lattices.map((l: any) => ({
+          ...l,
+          center: l.center || l.pos || { x: 0, y: 0 }
+        }))
+      });
+      
+      console.log('🔄 Synced lattices from project:', project.scene.lattices);
     },
     
     // Combined elements getter

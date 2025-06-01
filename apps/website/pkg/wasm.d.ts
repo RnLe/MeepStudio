@@ -21,6 +21,13 @@ export function calculate_min_scale_for_points(b1x: number, b1y: number, b2x: nu
  */
 export function calculate_square_lattice_points(b1x: number, b1y: number, b2x: number, b2y: number, target_count: number, multiplier?: number | null): any;
 /**
+ * Generate all lattice points inside a centred rectangle of size
+ * `rect_width` × `rect_height`.
+ * – the rectangle is centred at the origin,
+ * – returns only the list of points (no extra metadata).
+ */
+export function calculate_rectangle_lattice_points(b1x: number, b1y: number, b2x: number, b2y: number, rect_width: number, rect_height: number): any;
+/**
  * Adds two 32-bit integers.
  */
 export function add(a: number, b: number): number;

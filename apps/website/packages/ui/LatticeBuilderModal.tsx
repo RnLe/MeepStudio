@@ -1,11 +1,12 @@
-import React, { useState, useMemo, useCallback } from "react";
-import { X, Square, RectangleHorizontal, Hexagon, Diamond, Shapes } from "lucide-react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { X, Square, RectangleHorizontal, Hexagon, Diamond, Shapes, Plus, Link2 } from "lucide-react";
 import { Vector2d } from "konva/lib/types";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { useGhPagesProjectsStore } from "../hooks/ghPagesProjectsStore";
 import { MeepProject } from "../types/meepProjectTypes";
 import { nanoid } from "nanoid";
+import { useLatticeStore } from "packages/providers/LatticeStore";
 
 interface LatticeData {
   basis1: Vector2d;
@@ -75,12 +76,44 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
   });
   const [title, setTitle] = useState("New Lattice");
   const [isCreating, setIsCreating] = useState(false);
+  const [mode, setMode] = useState<"create" | "existing">("create");
+  const [selectedExistingLatticeId, setSelectedExistingLatticeId] = useState<string | null>(null);
 
-  const addLattice = useCanvasStore((s) => s.addLattice);
-  const { addLattice: createFullLattice, updateProject, linkLatticeToProject } = useGhPagesProjectsStore();
+  const addLattice   = useCanvasStore((s) => s.addLattice);   // keep for canvas drawing
+  const setLattices  = useCanvasStore((s) => s.setLattices);  // <-- new explicit sync
+  const { addLattice: createFullLattice, updateProject, linkLatticeToProject, lattices } = useGhPagesProjectsStore();
+  const { setCurrentBasisVectors, setCurrentLatticeType, triggerCanvasUpdate } = useLatticeStore();
+
+  // Get lattices that are not already linked to this project
+  const availableLattices = useMemo(() => {
+    const projectLatticeIds = (project.scene?.lattices || [])
+      .map((l: any) => l.latticeDocumentId)
+      .filter(Boolean);
+    
+    return lattices.filter(lattice => !projectLatticeIds.includes(lattice.documentId));
+  }, [lattices, project.scene?.lattices]);
+
+  // Get selected existing lattice details
+  const selectedExistingLattice = useMemo(() => {
+    if (!selectedExistingLatticeId) return null;
+    return lattices.find(l => l.documentId === selectedExistingLatticeId);
+  }, [selectedExistingLatticeId, lattices]);
 
   // Calculate basis vectors from parameters
   const { basis1, basis2 } = useMemo(() => {
+    if (mode === "existing" && selectedExistingLattice) {
+      return {
+        basis1: { 
+          x: selectedExistingLattice.meepLattice.basis1.x, 
+          y: selectedExistingLattice.meepLattice.basis1.y 
+        },
+        basis2: { 
+          x: selectedExistingLattice.meepLattice.basis2.x, 
+          y: selectedExistingLattice.meepLattice.basis2.y 
+        }
+      };
+    }
+
     const alphaRad = (parameters.alpha * Math.PI) / 180;
     
     return {
@@ -93,7 +126,7 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
         y: parameters.b * Math.sin(alphaRad) 
       }
     };
-  }, [parameters]);
+  }, [parameters, mode, selectedExistingLattice]);
 
   // Handle preset selection
   const handlePresetSelect = useCallback((preset: LatticePreset) => {
@@ -105,6 +138,76 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
   const handleParameterChange = useCallback((param: 'a' | 'b' | 'alpha', value: number) => {
     setParameters(prev => ({ ...prev, [param]: value }));
   }, []);
+
+  // Handle link existing lattice
+  const handleLinkExisting = async () => {
+    if (!project?.scene || !selectedExistingLatticeId || !selectedExistingLattice) {
+      console.error("Missing required data for linking");
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      // Create canvas lattice element
+      const canvasLattice = {
+        id: nanoid(),
+        kind: "lattice" as const,
+        pos: { 
+          x: (project.scene.rectWidth || 10) / 2, 
+          y: (project.scene.rectHeight || 10) / 2 
+        },
+        basis1: { 
+          x: selectedExistingLattice.meepLattice.basis1.x, 
+          y: selectedExistingLattice.meepLattice.basis1.y 
+        },
+        basis2: { 
+          x: selectedExistingLattice.meepLattice.basis2.x, 
+          y: selectedExistingLattice.meepLattice.basis2.y 
+        },
+        multiplier: 3,
+        showMode: "points" as const,
+        latticeDocumentId: selectedExistingLatticeId,
+        orientation: 0,
+      };
+
+      // Update project with new lattice
+      const updatedLattices = [...(project.scene.lattices || []), canvasLattice];
+      await updateProject({
+        documentId: project.documentId,
+        project: {
+          scene: {
+            ...project.scene,
+            lattices: updatedLattices,
+          },
+        },
+      });
+
+      // ⚡ immediate UI refresh
+      setLattices(updatedLattices);   // <<–– was commented out
+
+      // Link lattice to project
+      linkLatticeToProject(selectedExistingLatticeId, project.documentId);
+
+      // Remove the explicit setLattices call - updateProject handles this now
+      // setLattices(updatedLattices);
+
+      // Update Lattice Store if needed
+      setCurrentBasisVectors(
+        { x: selectedExistingLattice.meepLattice.basis1.x, y: selectedExistingLattice.meepLattice.basis1.y },
+        { x: selectedExistingLattice.meepLattice.basis2.x, y: selectedExistingLattice.meepLattice.basis2.y }
+      );
+      setCurrentLatticeType(selectedExistingLattice.latticeType);
+      triggerCanvasUpdate();
+
+      onLatticeCreated?.();
+      onClose();
+    } catch (error) {
+      console.error("Failed to link lattice:", error);
+      alert("Failed to link lattice. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   // Handle create
   const handleCreate = async () => {
@@ -168,9 +271,6 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
         orientation: 0,
       };
 
-      // Add to canvas
-      addLattice(canvasLattice);
-
       // Update project with new lattice
       const updatedLattices = [...(project.scene.lattices || []), canvasLattice];
       await updateProject({
@@ -183,8 +283,21 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
         },
       });
 
-      // Link lattice to project
+      // ⚡ immediate UI refresh
+      setLattices(updatedLattices);   // <<–– was commented out
+
       linkLatticeToProject(fullLattice.documentId, project.documentId);
+
+      // Remove the explicit setLattices call - updateProject handles this now
+      // setLattices(updatedLattices);
+
+      // Update Lattice Store
+      setCurrentBasisVectors(
+        { x: basis1.x, y: basis1.y },
+        { x: basis2.x, y: basis2.y }
+      );
+      setCurrentLatticeType(selectedType);
+      triggerCanvasUpdate();
 
       // After successfully creating the lattice
       onLatticeCreated?.();
@@ -222,9 +335,9 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-gray-800 rounded-lg p-6 w-[700px] max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-800 rounded-lg p-6 w-[900px] max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-white">Create Lattice</h2>
+          <h2 className="text-xl font-semibold text-white">Add Lattice to Scene</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
@@ -233,83 +346,201 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
           </button>
         </div>
 
-        <div className="flex gap-6">
-          {/* Left side - controls */}
-          <div className="flex-1 space-y-6">
-            {/* Lattice type selection */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-300 mb-3">Lattice Type</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {latticePresets.map((preset) => (
-                  <button
-                    key={preset.key}
-                    onClick={() => handlePresetSelect(preset)}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all ${
-                      selectedType === preset.key 
-                        ? "bg-blue-600/20 border border-blue-500" 
-                        : "bg-gray-700/50 border border-transparent hover:bg-gray-700"
-                    }`}
-                  >
-                    <preset.Icon size={24} className="text-white mb-1" />
-                    <span className="text-xs text-gray-300">{preset.title}</span>
-                  </button>
-                ))}
-              </div>
+        <div className="flex gap-6 flex-1 overflow-hidden">
+          {/* Left sidebar - existing lattices */}
+          <div className="w-[200px] flex flex-col">
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setMode("create")}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  mode === "create"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                <Plus size={16} />
+                Create New
+              </button>
+              <button
+                onClick={() => setMode("existing")}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  mode === "existing"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                <Link2 size={16} />
+                Use Existing
+              </button>
             </div>
 
-            {/* Parameters */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-300 mb-3">Parameters</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-400">Length a</span>
-                    <span className="text-xs text-gray-500">{parameters.a.toFixed(2)}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="2"
-                    step="0.1"
-                    value={parameters.a}
-                    onChange={(e) => handleParameterChange('a', parseFloat(e.target.value))}
-                    className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                </div>
-                
-                <div>
-                  <label className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-400">Length b</span>
-                    <span className="text-xs text-gray-500">{parameters.b.toFixed(2)}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="2"
-                    step="0.1"
-                    value={parameters.b}
-                    onChange={(e) => handleParameterChange('b', parseFloat(e.target.value))}
-                    className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                </div>
-                
-                <div>
-                  <label className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-400">Angle α (degrees)</span>
-                    <span className="text-xs text-gray-500">{parameters.alpha.toFixed(0)}°</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="30"
-                    max="150"
-                    step="5"
-                    value={parameters.alpha}
-                    onChange={(e) => handleParameterChange('alpha', parseFloat(e.target.value))}
-                    className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-                  />
-                </div>
+            {mode === "existing" && (
+              <div className="flex-1 overflow-y-auto">
+                <h3 className="text-sm font-medium text-gray-300 mb-3">Available Lattices</h3>
+                {availableLattices.length === 0 ? (
+                  <p className="text-xs text-gray-500 text-center p-4">
+                    No available lattices. Create a new one instead.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {availableLattices.map((lattice) => {
+                      const IconComponent = latticePresets.find(p => p.key === lattice.latticeType)?.Icon || Shapes;
+                      return (
+                        <button
+                          key={lattice.documentId}
+                          onClick={() => setSelectedExistingLatticeId(lattice.documentId)}
+                          className={`w-full p-3 rounded-lg text-left transition-all ${
+                            selectedExistingLatticeId === lattice.documentId
+                              ? "bg-blue-600/20 border border-blue-500"
+                              : "bg-gray-700/50 border border-transparent hover:bg-gray-700"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <IconComponent size={20} className="text-gray-400 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-xs font-medium text-white truncate">
+                                {lattice.title}
+                              </h4>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {lattice.latticeType}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                a={(lattice.parameters?.a ?? 1).toFixed(2)}, b={(lattice.parameters?.b ?? 1).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
+          </div>
+
+          {/* Middle section - controls or details */}
+          <div className="flex-1 space-y-6 overflow-y-auto">
+            {mode === "create" ? (
+              <>
+                {/* Lattice type selection */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Lattice Type</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {latticePresets.map((preset) => (
+                      <button
+                        key={preset.key}
+                        onClick={() => handlePresetSelect(preset)}
+                        className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all ${
+                          selectedType === preset.key 
+                            ? "bg-blue-600/20 border border-blue-500" 
+                            : "bg-gray-700/50 border border-transparent hover:bg-gray-700"
+                        }`}
+                      >
+                        <preset.Icon size={24} className="text-white mb-1" />
+                        <span className="text-xs text-gray-300">{preset.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Title input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Lattice Name
+                  </label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                    placeholder="Enter lattice name..."
+                  />
+                </div>
+
+                {/* Parameters */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3">Parameters</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-400">Length a</span>
+                        <span className="text-xs text-gray-500">{parameters.a.toFixed(2)}</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="2"
+                        step="0.1"
+                        value={parameters.a}
+                        onChange={(e) => handleParameterChange('a', parseFloat(e.target.value))}
+                        className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-400">Length b</span>
+                        <span className="text-xs text-gray-500">{parameters.b.toFixed(2)}</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="2"
+                        step="0.1"
+                        value={parameters.b}
+                        onChange={(e) => handleParameterChange('b', parseFloat(e.target.value))}
+                        className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-400">Angle α (degrees)</span>
+                        <span className="text-xs text-gray-500">{parameters.alpha.toFixed(0)}°</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="30"
+                        max="150"
+                        step="5"
+                        value={parameters.alpha}
+                        onChange={(e) => handleParameterChange('alpha', parseFloat(e.target.value))}
+                        className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // Existing lattice details
+              selectedExistingLattice && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-300 mb-2">Selected Lattice</h3>
+                    <div className="bg-gray-900 rounded-lg p-4">
+                      <h4 className="text-lg font-medium text-white mb-2">{selectedExistingLattice.title}</h4>
+                      {selectedExistingLattice.description && (
+                        <p className="text-sm text-gray-400 mb-3">{selectedExistingLattice.description}</p>
+                      )}
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Type:</span>
+                          <span className="text-white">{selectedExistingLattice.latticeType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Parameters:</span>
+                          <span className="text-white">
+                            a={(selectedExistingLattice.parameters?.a ?? 1).toFixed(2)}, 
+                            b={(selectedExistingLattice.parameters?.b ?? 1).toFixed(2)}, 
+                            α={(selectedExistingLattice.parameters?.alpha ?? 90).toFixed(0)}°
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
 
             {/* Vector display */}
             <div>
@@ -412,13 +643,23 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
           >
             Cancel
           </button>
-          <button
-            onClick={handleCreate}
-            disabled={isCreating}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
-          >
-            {isCreating ? "Creating..." : "Create Lattice"}
-          </button>
+          {mode === "create" ? (
+            <button
+              onClick={handleCreate}
+              disabled={isCreating}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
+            >
+              {isCreating ? "Creating..." : "Create Lattice"}
+            </button>
+          ) : (
+            <button
+              onClick={handleLinkExisting}
+              disabled={isCreating || !selectedExistingLatticeId}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50"
+            >
+              {isCreating ? "Linking..." : "Link Lattice"}
+            </button>
+          )}
         </div>
       </div>
 

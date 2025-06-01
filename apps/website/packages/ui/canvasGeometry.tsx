@@ -516,13 +516,13 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = (props) => {
     return getSelectionBorderColor(fillColor);
   };
 
-  // Remove the old getMaterialColor and getElementColorVisibility declarations
-  // ...existing code...
-  
   return (
     <>
       {/* Render cylinders */}
       {cylinders.map((cyl) => {
+        // Skip rendering if invisible
+        if (cyl.invisible) return null;
+        
         const isSelected = selectedIds.includes(cyl.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
         const fillColor = getMaterialColorForGeometry(cyl.material);
@@ -568,6 +568,9 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = (props) => {
       
       {/* Render rectangles */}
       {rectangles.map((rect) => {
+        // Skip rendering if invisible
+        if (rect.invisible) return null;
+        
         const isSelected = selectedIds.includes(rect.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
         const fillColor = getMaterialColorForGeometry(rect.material);
@@ -641,6 +644,9 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = (props) => {
       
       {/* Render triangles */}
       {triangles.map((tri) => {
+        // Skip rendering if invisible
+        if (tri.invisible) return null;
+        
         const isSelected = selectedIds.includes(tri.id);
         const otherSelected = selectedIds.length > 1 && isSelected;
         const fillColor = getMaterialColorForGeometry(tri.material);

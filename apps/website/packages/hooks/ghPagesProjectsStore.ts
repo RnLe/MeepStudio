@@ -243,6 +243,19 @@ export const useGhPagesProjectsStore = create<StoreState>()(
                 : pr,
             ),
           }));
+          
+          // If lattices were updated, notify the CanvasStore
+          if (project.scene?.lattices !== undefined) {
+            // Get the updated project from state to ensure we have the latest data
+            const updatedProject = get().projects.find(p => p.documentId === documentId);
+            if (updatedProject) {
+              // Import at the top of the file if not already there
+              const { useCanvasStore } = require('../providers/CanvasStore');
+              const canvasStore = useCanvasStore.getState();
+              canvasStore.syncLatticesFromProject(updatedProject);
+            }
+          }
+          
           return updated;
         },
 

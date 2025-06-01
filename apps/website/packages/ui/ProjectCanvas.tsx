@@ -94,6 +94,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     getAllElements,
     sceneMaterial,
     setSceneMaterial,
+    setCanvasSize,
   } = useCanvasStore(
     (s) => ({
       selectedGeometryId: s.selectedGeometryId,
@@ -128,6 +129,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       getAllElements: s.getAllElements,
       sceneMaterial: s.sceneMaterial,
       setSceneMaterial: s.setSceneMaterial,
+      setCanvasSize: s.setCanvasSize,
     }),
     shallow
   );  // --- Geometry Migration Effect ---
@@ -357,6 +359,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
+  
+  // Sync container size with store
+  useEffect(() => {
+    setCanvasSize(containerSize);
+  }, [containerSize, setCanvasSize]);
+  
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {

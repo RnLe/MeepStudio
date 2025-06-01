@@ -250,6 +250,24 @@ export function calculate_square_lattice_points(b1x, b1y, b2x, b2y, target_count
 }
 
 /**
+ * Generate all lattice points inside a centred rectangle of size
+ * `rect_width` × `rect_height`.
+ * – the rectangle is centred at the origin,
+ * – returns only the list of points (no extra metadata).
+ * @param {number} b1x
+ * @param {number} b1y
+ * @param {number} b2x
+ * @param {number} b2y
+ * @param {number} rect_width
+ * @param {number} rect_height
+ * @returns {any}
+ */
+export function calculate_rectangle_lattice_points(b1x, b1y, b2x, b2y, rect_width, rect_height) {
+    const ret = wasm.calculate_rectangle_lattice_points(b1x, b1y, b2x, b2y, rect_width, rect_height);
+    return ret;
+}
+
+/**
  * Adds two 32-bit integers.
  * @param {number} a
  * @param {number} b
