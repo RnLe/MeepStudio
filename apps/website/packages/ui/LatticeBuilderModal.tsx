@@ -3,7 +3,7 @@ import { X, Square, RectangleHorizontal, Hexagon, Diamond, Shapes, Plus, Link2 }
 import { Vector2d } from "konva/lib/types";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { useCanvasStore } from "../providers/CanvasStore";
-import { useGhPagesProjectsStore } from "../hooks/ghPagesProjectsStore";
+import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
 import { nanoid } from "nanoid";
 import { useLatticeStore } from "packages/providers/LatticeStore";
@@ -81,7 +81,7 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
 
   const addLattice   = useCanvasStore((s) => s.addLattice);   // keep for canvas drawing
   const setLattices  = useCanvasStore((s) => s.setLattices);  // <-- new explicit sync
-  const { addLattice: createFullLattice, updateProject, linkLatticeToProject, lattices } = useGhPagesProjectsStore();
+  const { createLattice: createFullLattice, updateProject, linkLatticeToProject, lattices } = useMeepProjects({ ghPages: true });
   const { setCurrentBasisVectors, setCurrentLatticeType, triggerCanvasUpdate } = useLatticeStore();
 
   // Get lattices that are not already linked to this project
@@ -401,7 +401,7 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
                               <h4 className="text-xs font-medium text-white truncate">
                                 {lattice.title}
                               </h4>
-                              <p className="text-xs text-gray-400 mt-1">
+                              <p className="text-xs text-gray-500 truncate">
                                 {lattice.latticeType}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">

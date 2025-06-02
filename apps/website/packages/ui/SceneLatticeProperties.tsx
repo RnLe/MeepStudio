@@ -1,7 +1,6 @@
 import React from "react";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { useMeepProjects } from "../hooks/useMeepProjects";
-import { useGhPagesProjectsStore } from "../hooks/ghPagesProjectsStore";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import { MeepProject } from "../types/meepProjectTypes";
 import { Sparkles, Eye, EyeOff, Grid3x3, Maximize2 } from "lucide-react";
@@ -21,7 +20,7 @@ export default function SceneLatticeProperties({ lattice, project, ghPages }: Pr
   const updateLattice = useCanvasStore((s) => s.updateLattice);
   const geometries = useCanvasStore((s) => s.geometries);
   const { updateProject } = useMeepProjects({ ghPages });
-  const { lattices: fullLattices } = useGhPagesProjectsStore();
+  const { lattices: fullLattices } = useMeepProjects({ ghPages: true });
   const { openLattice, setActiveLattice } = useEditorStateStore();
   
   const [localValues, setLocalValues] = React.useState({

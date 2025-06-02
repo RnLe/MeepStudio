@@ -58,20 +58,14 @@ export const createRelationshipSlice: StateCreator<
       return canvasLattices.some((l: any) => l.latticeDocumentId === latticeId);
     });
     
-    // Update each affected project
+    // Update each affected project in the store
     affectedProjects.forEach(project => {
       const updatedLattices = (project.scene?.lattices || []).map((l: any) => {
         if (l.latticeDocumentId === latticeId) {
           return {
             ...l,
-            basis1: { 
-              x: fullLattice.meepLattice.basis1.x, 
-              y: fullLattice.meepLattice.basis1.y 
-            },
-            basis2: { 
-              x: fullLattice.meepLattice.basis2.x, 
-              y: fullLattice.meepLattice.basis2.y 
-            },
+            basis1: { x: fullLattice.meepLattice.basis1.x, y: fullLattice.meepLattice.basis1.y },
+            basis2: { x: fullLattice.meepLattice.basis2.x, y: fullLattice.meepLattice.basis2.y },
           };
         }
         return l;
@@ -94,27 +88,6 @@ export const createRelationshipSlice: StateCreator<
       }));
     });
     
-    // Notify external stores if needed
-    if (typeof window !== 'undefined') {
-      const { useCanvasStore } = require('../../providers/CanvasStore');
-      const { useLatticeStore } = require('../../providers/LatticeStore');
-      
-      // Update canvas store
-      const canvasStore = useCanvasStore.getState();
-      affectedProjects.forEach(project => {
-        canvasStore.syncLatticesFromProject(project);
-      });
-      
-      // Update lattice store
-      const latticeStore = useLatticeStore.getState();
-      if (fullLattice.meepLattice) {
-        latticeStore.setCurrentBasisVectors(
-          { x: fullLattice.meepLattice.basis1.x, y: fullLattice.meepLattice.basis1.y },
-          { x: fullLattice.meepLattice.basis2.x, y: fullLattice.meepLattice.basis2.y }
-        );
-        latticeStore.setCurrentLatticeType(fullLattice.latticeType || 'square');
-        latticeStore.triggerCanvasUpdate();
-      }
-    }
+    // No direct CanvasStore or LatticeStore update here; UI should subscribe to store changes.
   },
 });

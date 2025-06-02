@@ -6,14 +6,13 @@ import { Lattice } from "../types/meepLatticeTypes";
 import { MoreHorizontal, Plus, ChevronDown, ChevronRight, Layers, Hexagon, CodeXml, FileText, Trash2, Edit, Grid3x3 } from "lucide-react";
 import ContextMenu from "./ContextMenu";
 import { useEditorStateStore } from "../providers/EditorStateStore";
-import { useGhPagesProjectsStore } from "../hooks/ghPagesProjectsStore";
+import { useMeepProjects } from "../hooks/useMeepProjects";
 import CreateProjectModal from "./CreateProjectModal";
 import CustomLucideIcon from "./CustomLucideIcon";
 
 export default function LeftExplorer() {
   const { 
     projects, 
-    lattices,
     openProject, 
     openLattice,
     deleteProject,
@@ -35,8 +34,7 @@ export default function LeftExplorer() {
     createLattice
   } = useEditorStateStore();
   
-  // Get update methods from ghPagesProjectsStore
-  const { updateProject, updateLattice } = useGhPagesProjectsStore();
+  const { updateProject, updateLattice, lattices } = useMeepProjects({ ghPages: true });
   
   const containerRef = useRef<HTMLDivElement>(null);
   const explorerRef = useRef<HTMLDivElement>(null);

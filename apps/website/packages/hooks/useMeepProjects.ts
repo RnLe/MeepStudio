@@ -92,14 +92,13 @@ export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
   // Initialize store functions
   React.useEffect(() => {
     const createFn = async (lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) => {
-      const result = await createLatticeMutation.mutateAsync({ lattice });
+      // Correct usage: pass lattice directly, not as { lattice }
+      const result = await createLatticeMutation.mutateAsync(lattice);
       return result;
     };
-    
     const deleteFn = async (id: string) => {
       await deleteLatticeMutation.mutateAsync(id);
     };
-    
     setLatticeManagementFunctions(createFn, deleteFn);
   }, [setLatticeManagementFunctions]);
 
@@ -122,5 +121,10 @@ export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
     // Store methods for computed values
     getProjectsUsingLattice: useProjectsStore.getState().getProjectsUsingLattice,
     getLatticesUsedByProject: useProjectsStore.getState().getLatticesUsedByProject,
+
+    // Relationship methods from store
+    linkLatticeToProject: useProjectsStore.getState().linkLatticeToProject,
+    unlinkLatticeFromProject: useProjectsStore.getState().unlinkLatticeFromProject,
+    syncCanvasLatticesWithFullLattice: useProjectsStore.getState().syncCanvasLatticesWithFullLattice,
   };
 };

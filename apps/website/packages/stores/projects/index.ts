@@ -1,9 +1,6 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
-import { createProjectStateSlice } from './slices/projectStateSlice';
-import { createLatticeStateSlice } from './slices/latticeStateSlice';
-import { createRelationshipSlice } from './slices/relationshipSlice';
-import { createUpdateTrackingSlice } from './slices/updateTrackingSlice';
+import { createProjectStateSlice, createLatticeStateSlice, createRelationshipSlice, createUpdateTrackingSlice } from './slices';
 import { ProjectsStore } from './types';
 
 export const useProjectsStore = create<ProjectsStore>()(

@@ -142,32 +142,28 @@ export const createLocalStorageService = (): ProjectService => {
     
     updateProject: async ({ documentId, project }) => {
       const store = getStore();
-      const existing = store.projects.find(p => p.documentId === documentId);
+      const existing = store.projects.find((p: MeepProject) => p.documentId === documentId);
       if (!existing) return undefined;
-      
       const updated = {
         ...existing,
         ...project,
         updatedAt: nowISO(),
       };
-      
       store.setProjects(
-        store.projects.map(p => p.documentId === documentId ? updated : p)
+        store.projects.map((p: MeepProject) => p.documentId === documentId ? updated : p)
       );
-      
       // Handle lattice syncing if scene was updated
       if (project.scene?.lattices !== undefined) {
         const { useCanvasStore } = require('../providers/CanvasStore');
         const canvasStore = useCanvasStore.getState();
         canvasStore.syncLatticesFromProject(updated);
       }
-      
       return updated;
     },
     
     deleteProject: async (id) => {
       const store = getStore();
-      store.setProjects(store.projects.filter(p => p.documentId !== id));
+      store.setProjects(store.projects.filter((p: MeepProject) => p.documentId !== id));
     },
     
     fetchLattices: async () => {
@@ -184,46 +180,33 @@ export const createLocalStorageService = (): ProjectService => {
     
     updateLattice: async ({ documentId, lattice }) => {
       const store = getStore();
-      
-      // Prevent recursive updates
       if (store.isUpdatingLattice) {
         console.log('⚠️ Skipping recursive updateLattice call');
         return undefined;
       }
-      
       store.setIsUpdatingLattice(true);
-      
       try {
-        const existing = store.lattices.find(l => l.documentId === documentId);
+        const existing = store.lattices.find((l: Lattice) => l.documentId === documentId);
         if (!existing) return undefined;
-        
         const updated = {
           ...existing,
           ...lattice,
           updatedAt: nowISO(),
         };
-        
-        // Recalculate reciprocal lattice if needed
-        // ...existing calculation code...
-        
         store.setLattices(
-          store.lattices.map(l => l.documentId === documentId ? updated : l)
+          store.lattices.map((l: Lattice) => l.documentId === documentId ? updated : l)
         );
-        
-        // Sync canvas lattices
         setTimeout(() => {
           store.syncCanvasLatticesWithFullLattice(documentId);
         }, 0);
-        
         return updated;
       } finally {
         store.setIsUpdatingLattice(false);
       }
     },
-    
     deleteLattice: async (id) => {
       const store = getStore();
-      store.setLattices(store.lattices.filter(l => l.documentId !== id));
+      store.setLattices(store.lattices.filter((l: Lattice) => l.documentId !== id));
     },
   };
 };
