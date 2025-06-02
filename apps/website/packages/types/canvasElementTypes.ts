@@ -10,7 +10,8 @@ export type ElementType =
   | "eigenModeSource"
   | "gaussianBeamSource"
   | "pmlBoundary"
-  | "lattice"; // Add lattice type
+  | "lattice"
+  | "group";
 
 // Geometry types
 // Sphere, Cylinder, Wedge, Cone, Block, Ellipsoid, Prism
@@ -32,10 +33,29 @@ interface BaseElement {
    * at each lattice point rather than existing as a standalone element.
    */
   invisible?: boolean;
+  /** Visual opacity (0-1) for rendering */
+  opacity?: number;
+  /** Prevents modification when true */
+  locked?: boolean;
+  /** Calculated bounding box for efficient rendering/selection */
+  boundingBox?: { x: number; y: number; width: number; height: number };
+  /** ID of parent group element */
+  parent?: string;
 }
 
 interface BaseGeometry extends BaseElement {
   material?: string;
+}
+
+/* ---------- group ---------- */
+export interface Group extends BaseGeometry {
+  type: "group";
+  /** Child elements contained in this group */
+  children: CanvasElement[];
+  /** Whether the group is expanded in the UI (for tree views) */
+  expanded?: boolean;
+  /** Whether to apply transformations to children */
+  transformChildren?: boolean;
 }
 
 /* ---------- geometry ---------- */
@@ -143,4 +163,5 @@ export type CanvasElement =
   | EigenModeSource
   | GaussianBeamSource
   | PmlBoundary
-  | SceneLattice; // Add to union
+  | SceneLattice
+  | Group;
