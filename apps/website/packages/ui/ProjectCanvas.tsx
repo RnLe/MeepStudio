@@ -7,14 +7,11 @@ import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
 import { Stage, Layer, Line, Rect } from "react-konva";
 import { nanoid } from "nanoid";
-import { GeometryLayer } from "./canvasGeometry";
-import { GridOverlayLayer } from "./canvasGridOverlay";
+import { GridOverlayRenderer } from "../canvas/renderers/GridOverlayRenderer";
 import { SelectionBoxLayer } from "./selectionBoxLayer";
-import { SourceLayer } from "./canvasSources";
-import { BoundaryLayer } from "./canvasBoundaries";
-import { LatticeLayer } from "./canvasLatticeLayer";
 import { useMaterialColorStore } from "../providers/MaterialColorStore";
 import { MaterialCatalog } from "packages/constants/meepMaterialPresets";
+import { ElementLayer } from "../canvas/layers/ElementLayer";
 
 // --- Constants ---
 const GRID_PX = 40; // Fixed size for each cell in px
@@ -749,6 +746,75 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   const colorRevision = useCanvasStore((s) => s.colorSettingsRevision);
   const xRayRevision = useCanvasStore((s) => s.xRayTransparencyRevision); // trigger re-render
 
+  // Combine all elements into single array
+  const allElements = React.useMemo(() => {
+    // Map to ensure all elements have correct type field
+    const mappedGeometries = geometries.map(g => ({ ...g, type: g.kind }));
+    const mappedSources = sources.map(s => ({ ...s, type: s.kind }));
+    const mappedBoundaries = boundaries.map(b => ({ ...b, type: b.kind }));
+    const mappedLattices = lattices.map(l => ({ ...l, type: 'lattice' }));
+    
+    return [...mappedGeometries, ...mappedSources, ...mappedBoundaries, ...mappedLattices];
+  }, [geometries, sources, boundaries, lattices]);
+
+  // Unified update handler
+  const handleUpdateElement = useCallback((id: string, updates: Partial<any>) => {
+    const element = allElements.find(e => e.id === id);
+    if (!element) return;
+    
+    // Check by kind first, then by type
+    const elementType = element.kind || element.type;
+    
+    switch (elementType) {
+      case 'cylinder':
+      case 'rectangle':
+      case 'triangle':
+        updateGeometry(id, updates);
+        break;
+      case 'continuousSource':
+      case 'gaussianSource':
+      case 'eigenModeSource':
+      case 'gaussianBeamSource':
+        updateSource(id, updates);
+        break;
+      case 'pmlBoundary':
+        updateBoundary(id, updates);
+        break;
+      case 'lattice':
+        updateLattice(id, updates);
+        break;
+    }
+  }, [allElements, updateGeometry, updateSource, updateBoundary, updateLattice]);
+
+  // Unified commit handler
+  const handleCommitElement = useCallback((id: string, updates: Partial<any>) => {
+    const element = allElements.find(e => e.id === id);
+    if (!element) return;
+    
+    // Check by kind first, then by type
+    const elementType = element.kind || element.type;
+    
+    switch (elementType) {
+      case 'cylinder':
+      case 'rectangle':
+      case 'triangle':
+        handleUpdateGeometry(id, updates);
+        break;
+      case 'continuousSource':
+      case 'gaussianSource':
+      case 'eigenModeSource':
+      case 'gaussianBeamSource':
+        handleUpdateSource(id, updates);
+        break;
+      case 'pmlBoundary':
+        handleUpdateBoundary(id, updates);
+        break;
+      case 'lattice':
+        handleUpdateLattice(id, updates);
+        break;
+    }
+  }, [allElements, handleUpdateGeometry, handleUpdateSource, handleUpdateBoundary, handleUpdateLattice]);
+
   // --- Render ---
   return (
     <div
@@ -1054,7 +1120,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         {/* --- Grid and border layer --- */}
         <Layer>
           {/* Draw subgrid (resolution) lines first, then main grid lines above */}
-          <GridOverlayLayer
+          <GridOverlayRenderer
             resolutionLines={resolutionLines}
             gridLines={gridLines}
             LOGICAL_W={LOGICAL_W}
@@ -1063,100 +1129,21 @@ const ProjectCanvas: React.FC<Props> = (props) => {
           />
         </Layer>
         
-        {/* --- Geometry elements layer --- */}
-        <Layer>
-          <GeometryLayer
-            cylinders={cylinders.filter(c => !c.invisible)}
-            rectangles={rectangles.filter(r => !r.invisible)}
-            triangles={triangles.filter(t => !t.invisible)}
-            selectedIds={selectedGeometryIds}
-            gridSnapping={gridSnapping}
-            resolutionSnapping={resolutionSnapping}
-            snapCanvasPosToGrid={snapCanvasPosToGrid}
-            multiDragAnchor={multiDragAnchor}
-            setMultiDragAnchor={setMultiDragAnchor}
-            geometries={geometries}
-            updateGeometry={updateGeometry}
-            handleUpdateGeometry={handleUpdateGeometry}
-            handleUpdateSource={handleUpdateSource}
-            selectElement={(id: string | null, opts?: { shift?: boolean }) => selectGeometry(id, opts)}
-            GRID_PX={GRID_PX}
-            project={project}
-            scale={scale}
-            showGrid={showGrid}
-            showResolutionOverlay={showResolutionOverlay}
-            toggleShowGrid={toggleShowGrid}
-            toggleShowResolutionOverlay={toggleShowResolutionOverlay}
-            setActiveInstructionSet={setActiveInstructionSet}
-            showXRayMode={showXRayMode}
-            showColors={showColors}
-          />
-          <SourceLayer
-            sources={sources}
-            selectedIds={selectedGeometryIds}
-            gridSnapping={gridSnapping}
-            resolutionSnapping={resolutionSnapping}
-            snapCanvasPosToGrid={snapCanvasPosToGrid}
-            multiDragAnchor={multiDragAnchor}
-            setMultiDragAnchor={setMultiDragAnchor}
-            updateSource={updateSource}
-            handleUpdateSource={handleUpdateSource}
-            handleUpdateGeometry={handleUpdateGeometry}
-            selectElement={(id: string | null, opts?: { shift?: boolean }) => selectGeometry(id, opts)}
-            GRID_PX={GRID_PX}
-            project={project}
-            scale={scale}
-            setActiveInstructionSet={setActiveInstructionSet}
-            getAllElements={getAllElements}
-            showGrid={showGrid}
-            showResolutionOverlay={showResolutionOverlay}
-            toggleShowGrid={toggleShowGrid}
-            toggleShowResolutionOverlay={toggleShowResolutionOverlay}
-          />
-        </Layer>
-
-        {/* --- Lattice layer - between geometry and boundaries --- */}
-        <Layer>
-          <LatticeLayer
-            lattices={lattices}
-            geometries={geometries}
-            selectedIds={selectedGeometryIds}
-            selectElement={selectGeometry}
-            GRID_PX={GRID_PX}
-            project={project}
-            scale={scale}
-            showXRayMode={showXRayMode}
-            showColors={showColors}
-            gridSnapping={gridSnapping}
-            resolutionSnapping={resolutionSnapping}
-            snapCanvasPosToGrid={snapCanvasPosToGrid}
-            multiDragAnchor={multiDragAnchor}
-            setMultiDragAnchor={setMultiDragAnchor}
-            updateLattice={updateLattice}
-            handleUpdateLattice={handleUpdateLattice}
-            setActiveInstructionSet={setActiveInstructionSet}
-            /* new overlay props */
-            showGrid={showGrid}
-            showResolutionOverlay={showResolutionOverlay}
-            toggleShowGrid={toggleShowGrid}
-            toggleShowResolutionOverlay={toggleShowResolutionOverlay}
-          />
-        </Layer>
-
-        {/* --- Boundary layer - rendered on top of geometries but below selection --- */}
-        <Layer>
-          <BoundaryLayer
-            boundaries={boundaries}
-            selectedIds={selectedGeometryIds}
-            selectElement={(id: string | null, opts?: { shift?: boolean }) => selectGeometry(id, opts)}
-            GRID_PX={GRID_PX}
-            gridWidth={gridWidth}
-            gridHeight={gridHeight}
-            project={project}
-            scale={scale}
-          />
-        </Layer>
-
+        {/* --- All elements in unified layer --- */}
+        <ElementLayer
+          elements={allElements}
+          selectedIds={selectedGeometryIds}
+          onSelect={selectGeometry}
+          onUpdate={handleUpdateElement}
+          onCommit={handleCommitElement}
+          GRID_PX={GRID_PX}
+          scale={scale}
+          gridWidth={gridWidth}
+          gridHeight={gridHeight}
+          onSetActiveInstructionSet={(set) => setActiveInstructionSet(set as InstructionSetKey)}
+          resolution={project.scene?.resolution}
+        />
+        
         {/* --- Selection rectangle overlay --- */}
         <SelectionBoxLayer selBox={selBox} />
       </Stage>

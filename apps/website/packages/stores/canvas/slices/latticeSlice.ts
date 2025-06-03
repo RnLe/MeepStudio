@@ -45,6 +45,14 @@ export const createLatticeSlice: StateCreator<
           updated.latticeDocumentId = partial.latticeDocumentId;
         }
         
+        // Handle fillMode and calculatedPoints updates
+        if (partial.fillMode !== undefined) {
+          updated.fillMode = partial.fillMode;
+        }
+        if (partial.calculatedPoints !== undefined) {
+          updated.calculatedPoints = partial.calculatedPoints;
+        }
+        
         return updated;
       }
       return l;

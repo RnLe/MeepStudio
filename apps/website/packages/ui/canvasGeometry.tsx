@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import { Cylinder, Rectangle as RectEl, Triangle } from "../types/canvasElementTypes";
 import { Line, Circle, Rect, Group } from "react-konva";
-import { ResizeHandles } from "./resizeHandles";
+import { ResizeHandles } from "../canvas/utils/resizeHandles";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { MaterialCatalog } from "../constants/meepMaterialPresets";
 import { useMaterialColorStore } from "packages/providers/MaterialColorStore";

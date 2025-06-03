@@ -105,7 +105,9 @@ export interface CanvasLatticeElement {
   multiplier?: number;
   showMode?: "points" | "geometry";
   tiedGeometryId?: string;
-  latticeDocumentId?: string; // Link to full Lattice object
+  latticeDocumentId?: string;
   material?: string;
   orientation?: number;
+  fillMode?: "manual" | "centerFill";
+  calculatedPoints?: { x: number; y: number }[];
 }
