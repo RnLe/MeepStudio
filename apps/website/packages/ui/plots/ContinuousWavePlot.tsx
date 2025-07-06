@@ -8,7 +8,7 @@ import { Grid } from "@visx/grid";
 import { useSpring, animated } from "@react-spring/web";
 import { curveMonotoneX } from "@visx/curve";
 import { LengthUnit } from "../../types/meepProjectTypes";
-import { convertTime, convertFrequency } from "../../utils/physicalUnitsHelper";
+import { convertTime, convertFrequency, convertWavelength } from "../../utils/physicalUnitsHelper";
 
 interface ContinuousWavePlotProps {
   frequency: number;
@@ -25,6 +25,8 @@ interface ContinuousWavePlotProps {
   assemblyDuration?: number;
 }
 
+type PlotDomain = 'time' | 'frequency' | 'spatial';
+
 export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
   frequency,
   startTime,
@@ -39,8 +41,8 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
   projectA = 1,
   assemblyDuration = 600,
 }) => {
-  const [isTimeDomain, setIsTimeDomain] = useState(true);
-  const [pendingDomain, setPendingDomain] = useState<boolean | null>(null);
+  const [currentDomain, setCurrentDomain] = useState<PlotDomain>('time');
+  const [pendingDomain, setPendingDomain] = useState<PlotDomain | null>(null);
   const [hasAnimated, setHasAnimated] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const margin = { top: 20, right: 20, bottom: 35, left: 45 };
@@ -48,14 +50,14 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
   const innerHeight = plotHeight - margin.top - margin.bottom;
 
   // Handle domain switch with proper sequencing
-  const switchDomain = useCallback((newDomain: boolean) => {
-    if (newDomain === isTimeDomain) return;
+  const switchDomain = useCallback((newDomain: PlotDomain) => {
+    if (newDomain === currentDomain) return;
     
     setIsTransitioning(true);
     setPendingDomain(newDomain);
     
     setTimeout(() => {
-      setIsTimeDomain(newDomain);
+      setCurrentDomain(newDomain);
       setHasAnimated(false);
       
       setTimeout(() => {
@@ -64,7 +66,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
         setPendingDomain(null);
       }, 50);
     }, 50);
-  }, [isTimeDomain]);
+  }, [currentDomain]);
 
   // Initial animation on mount
   useEffect(() => {
@@ -90,6 +92,9 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
 
   // Calculate wavelength for display
   const wavelength = safeFrequency > 0 ? 1 / safeFrequency : 0;
+  
+  // Calculate wavelength values for spatial domain
+  const centralWavelength = 1 / safeFrequency;
 
   // Helper function to format values
   const formatValue = (value: number, decimals: number = 2) => {
@@ -155,10 +160,13 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
   }, [safeFrequency, safeStartTime, safeEndTime, safeWidth, safeSlowness, ampMagnitude, plotStartTime, plotEndTime]);
 
   // ---- frequency-domain helpers -----------------------------------------
+  // ---- frequency-domain helpers -----------------------------------------
   const effectiveTimeConstant = safeWidth > 0 ? safeWidth * safeSlowness : 0.1;
   const sigma        = 1 / (2 * Math.PI * effectiveTimeConstant);   // previously spectralWidth
   const fwhmBandwidth = 2 * Math.sqrt(2 * Math.log(2)) * sigma;     // Δf  (FWHM)
-
+  
+  // Calculate wavelength values for spatial domain
+  const spectralWidthWavelength = sigma / (safeFrequency * safeFrequency); // dλ = df/f²
   // Generate frequency-domain data
   const frequencyData = useMemo(() => {
     const points = [];
@@ -188,8 +196,43 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
     return points;
   }, [safeFrequency, safeWidth, safeSlowness, ampMagnitude, sigma]);
 
+  // Generate spatial domain data
+  const spatialData = useMemo(() => {
+    const points = [];
+    // Center around the central wavelength
+    const lambdaMin = Math.max(0.1, centralWavelength * 0.8);
+    const lambdaMax = centralWavelength * 1.2;
+    const steps = 200;
+    
+    for (let i = 0; i <= steps; i++) {
+      const lambda = lambdaMin + (i / steps) * (lambdaMax - lambdaMin);
+      const f = 1 / lambda; // frequency from wavelength
+      
+      let spectrumF;
+      if (safeWidth === 0) {
+        // When width is 0, we have infinite spectral width - show flat line
+        spectrumF = ampMagnitude;
+      } else {
+        // Gaussian spectrum in frequency domain
+        const deltaF = f - safeFrequency;
+        spectrumF = ampMagnitude * Math.exp(-deltaF * deltaF / (2 * sigma * sigma));
+      }
+      
+      // Jacobian for f → λ transformation: |df/dλ| = 1/λ²
+      const spectrum = spectrumF / (lambda * lambda);
+      
+      points.push({
+        lambda,
+        spectrum,
+      });
+    }
+    
+    return points;
+  }, [safeFrequency, safeWidth, ampMagnitude, sigma, centralWavelength]);
+
   // Choose data based on domain
-  const data = isTimeDomain ? timeData : frequencyData;
+  const data = currentDomain === 'time' ? timeData : 
+               currentDomain === 'frequency' ? frequencyData : spatialData;
 
   // Scales for time domain
   const xScaleTime = scaleLinear({
@@ -214,10 +257,23 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
     range: [innerHeight, 0],
   });
 
+  // Scales for spatial domain
+  const xScaleSpatial = scaleLinear({
+    domain: [Math.max(0.1, centralWavelength * 0.8), centralWavelength * 1.2],
+    range: [0, innerWidth],
+  });
+
+  const yScaleSpatial = scaleLinear({
+    domain: [0, Math.max(...spatialData.map(d => d.spectrum)) * 1.2],
+    range: [innerHeight, 0],
+  });
+
   // Use the pending domain for scale calculations during transition
-  const effectiveDomain = pendingDomain !== null ? pendingDomain : isTimeDomain;
-  const xScale = effectiveDomain ? xScaleTime : xScaleFreq;
-  const yScale = effectiveDomain ? yScaleTime : yScaleFreq;
+  const effectiveDomain = pendingDomain !== null ? pendingDomain : currentDomain;
+  const xScale = effectiveDomain === 'time' ? xScaleTime : 
+                 effectiveDomain === 'frequency' ? xScaleFreq : xScaleSpatial;
+  const yScale = effectiveDomain === 'time' ? yScaleTime : 
+                 effectiveDomain === 'frequency' ? yScaleFreq : yScaleSpatial;
 
   // Animation springs
   const drawAnimation = useSpring({
@@ -246,11 +302,12 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
     startTimeX: xScaleTime(safeStartTime),
     endTimeX: xScaleTime(isFinite(safeEndTime) ? safeEndTime : plotEndTime),
     freqCenterX: xScaleFreq(safeFrequency),
+    lambdaCenterX: xScaleSpatial(centralWavelength),
     config: { tension: 120, friction: 14 },
   });
 
   // Helper function to format axis tick labels
-  const formatAxisValue = (value: number, isTime: boolean = true): string => {
+  const formatAxisValue = (value: number, domain: PlotDomain = 'time'): string => {
     if (!showUnits) {
       if (Math.abs(value) >= 1000) {
         return value.toExponential(1);
@@ -259,7 +316,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
       }
       return value.toFixed(2);
     } else {
-      if (isTime) {
+      if (domain === 'time') {
         const converted = convertTime(value, projectA, projectUnit);
         const match = converted.match(/^([\d.]+)\s*(.*)$/);
         if (match) {
@@ -273,8 +330,22 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
           }
           return match[1];
         }
-      } else {
+      } else if (domain === 'frequency') {
         const converted = convertFrequency(value, projectA, projectUnit);
+        const match = converted.match(/^([\d.]+)\s*(.*)$/);
+        if (match) {
+          const num = parseFloat(match[1]);
+          if (num >= 100) {
+            return num.toFixed(0);
+          } else if (num >= 10) {
+            return num.toFixed(1);
+          } else if (num >= 1) {
+            return num.toFixed(2);
+          }
+          return match[1];
+        }
+      } else if (domain === 'spatial') {
+        const converted = convertWavelength(value, projectA, projectUnit);
         const match = converted.match(/^([\d.]+)\s*(.*)$/);
         if (match) {
           const num = parseFloat(match[1]);
@@ -296,7 +367,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
   const calculateOptimalTicks = (scale: any, availableWidth: number): number => {
     const domain = scale.domain();
     const sampleValue = domain[1];
-    const formattedSample = formatAxisValue(sampleValue, isTimeDomain);
+    const formattedSample = formatAxisValue(sampleValue, currentDomain);
     const estimatedLabelWidth = formattedSample.length * 8 + 10;
     const maxTicks = Math.floor(availableWidth / estimatedLabelWidth);
     const minTicks = 3;
@@ -308,7 +379,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
 
   const xTickCount = useMemo(() => {
     return calculateOptimalTicks(xScale, innerWidth);
-  }, [xScale, innerWidth, isTimeDomain]);
+  }, [xScale, innerWidth, currentDomain]);
 
   // Get axis labels
   const getTimeAxisLabel = () => {
@@ -331,29 +402,49 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
     }
   };
 
+  const getWavelengthAxisLabel = () => {
+    if (!showUnits) {
+      return "Wavelength (λ)";
+    } else {
+      const sampleWavelength = convertWavelength(1, projectA, projectUnit);
+      const unitMatch = sampleWavelength.match(/\s+(.+)$/);
+      return `Wavelength (${unitMatch ? unitMatch[1] : 'λ'})`;
+    }
+  };
+
   return (
     <div>
       {/* Domain toggle buttons */}
       <div className="flex w-full gap-1 mb-2">
         <button
-          onClick={() => switchDomain(true)}
+          onClick={() => switchDomain('time')}
           className={`flex-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
-            isTimeDomain 
+            currentDomain === 'time'
               ? "bg-neutral-600 text-white" 
               : "bg-neutral-700/30 text-gray-400 hover:bg-neutral-700/50"
           }`}
         >
-          Time Domain
+          Time
         </button>
         <button
-          onClick={() => switchDomain(false)}
+          onClick={() => switchDomain('frequency')}
           className={`flex-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
-            !isTimeDomain 
+            currentDomain === 'frequency'
               ? "bg-neutral-600 text-white" 
               : "bg-neutral-700/30 text-gray-400 hover:bg-neutral-700/50"
           }`}
         >
-          Frequency Domain
+          Frequency
+        </button>
+        <button
+          onClick={() => switchDomain('spatial')}
+          className={`flex-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
+            currentDomain === 'spatial'
+              ? "bg-neutral-600 text-white" 
+              : "bg-neutral-700/30 text-gray-400 hover:bg-neutral-700/50"
+          }`}
+        >
+          Spatial
         </button>
       </div>
 
@@ -398,7 +489,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                 stroke="#9CA3AF"
                 tickStroke="#9CA3AF"
                 numTicks={xTickCount}
-                tickFormat={(value) => formatAxisValue(value as number, isTimeDomain)}
+                tickFormat={(value) => formatAxisValue(value as number, currentDomain)}
                 tickLabelProps={() => ({
                   fill: "#9CA3AF",
                   fontSize: 10,
@@ -433,7 +524,8 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                 fill="#9CA3AF"
                 style={{ userSelect: 'none', cursor: 'default' }}
               >
-                {isTimeDomain ? getTimeAxisLabel() : getFrequencyAxisLabel()}
+                {currentDomain === 'time' ? getTimeAxisLabel() : 
+                 currentDomain === 'frequency' ? getFrequencyAxisLabel() : getWavelengthAxisLabel()}
               </text>
               <text
                 transform={`translate(-35, ${innerHeight / 2}) rotate(-90)`}
@@ -442,7 +534,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                 fill="#9CA3AF"
                 style={{ userSelect: 'none', cursor: 'default' }}
               >
-                {isTimeDomain ? "Amplitude" : "Spectral Magnitude"}
+                {currentDomain === 'time' ? "Amplitude" : "Spectral Magnitude"}
               </text>
             </>
           )}
@@ -451,7 +543,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
           <g clipPath="url(#cw-plot-area)">
             {!isTransitioning && (
               <>
-                {isTimeDomain ? (
+                {currentDomain === 'time' ? (
                   <g mask="url(#cw-line-reveal-mask)">
                     {/* Envelope */}
                     <LinePath
@@ -485,7 +577,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                       curve={curveMonotoneX}
                     />
                   </g>
-                ) : (
+                ) : currentDomain === 'frequency' ? (
                   <>
                     {/* Frequency domain visualization */}
                     {safeWidth === 0 ? (
@@ -512,6 +604,33 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                       </g>
                     )}
                   </>
+                ) : (
+                  <>
+                    {/* Spatial domain visualization */}
+                    {safeWidth === 0 ? (
+                      /* Flat spectrum (∞ bandwidth) – draw a plain line without the reveal mask */
+                      <line
+                        x1={0}
+                        y1={yScaleSpatial(ampMagnitude / (centralWavelength * centralWavelength))}
+                        x2={innerWidth}
+                        y2={yScaleSpatial(ampMagnitude / (centralWavelength * centralWavelength))}
+                        stroke="#60A5FA"
+                        strokeWidth={2}
+                      />
+                    ) : (
+                      /* Gaussian-shaped spectrum – keep mask/animation */
+                      <g mask="url(#cw-line-reveal-mask)">
+                        <LinePath
+                          data={spatialData}
+                          x={(d) => xScaleSpatial(d.lambda)}
+                          y={(d) => yScaleSpatial(d.spectrum)}
+                          stroke="#60A5FA"
+                          strokeWidth={2}
+                          curve={curveMonotoneX}
+                        />
+                      </g>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -519,7 +638,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
             {/* Markers with animated assembly */}
             {!isTransitioning && (
               <>
-                {isTimeDomain ? (
+                {currentDomain === 'time' ? (
                   <>
                     {/* Time markers - grow from bottom to top */}
                     <animated.line
@@ -546,7 +665,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                       />
                     )}
                   </>
-                ) : (
+                ) : currentDomain === 'frequency' ? (
                   <>
                     {/* Center frequency marker */}
                     <animated.g opacity={verticalLineAnimation.progress}>
@@ -554,6 +673,20 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                         x1={springProps.freqCenterX}
                         y1={verticalLineAnimation.progress.to(p => innerHeight / 2 - (innerHeight / 2) * p)}
                         x2={springProps.freqCenterX}
+                        y2={verticalLineAnimation.progress.to(p => innerHeight / 2 + (innerHeight / 2) * p)}
+                        stroke="#EF4444"
+                        strokeWidth={2}
+                      />
+                    </animated.g>
+                  </>
+                ) : (
+                  <>
+                    {/* Center wavelength marker */}
+                    <animated.g opacity={verticalLineAnimation.progress}>
+                      <animated.line
+                        x1={springProps.lambdaCenterX}
+                        y1={verticalLineAnimation.progress.to(p => innerHeight / 2 - (innerHeight / 2) * p)}
+                        x2={springProps.lambdaCenterX}
                         y2={verticalLineAnimation.progress.to(p => innerHeight / 2 + (innerHeight / 2) * p)}
                         stroke="#EF4444"
                         strokeWidth={2}
@@ -568,7 +701,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
           {/* Labels with fade and slide animation */}
           {!isTransitioning && (
             <>
-              {isTimeDomain ? (
+              {currentDomain === 'time' ? (
                 <>
                   <animated.text
                     x={springProps.startTimeX}
@@ -595,7 +728,7 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                     </animated.text>
                   )}
                 </>
-              ) : (
+              ) : currentDomain === 'frequency' ? (
                 <>
                   <animated.text
                     x={springProps.freqCenterX}
@@ -626,6 +759,40 @@ export const ContinuousWavePlot: React.FC<ContinuousWavePlotProps> = ({
                             ? `Δf = ${convertFrequency(fwhmBandwidth, projectA, projectUnit)}`
                             : `Δω = ${fwhmBandwidth.toExponential(2)}`)
                         : (showUnits ? "Δf = ∞" : "Δω = ∞")}
+                    </text>
+                  </animated.g>
+                </>
+              ) : (
+                <>
+                  <animated.text
+                    x={springProps.lambdaCenterX}
+                    y={labelAnimation.y.to(y => -5 - y)}
+                    fontSize={10}
+                    fill="#EF4444"
+                    textAnchor="middle"
+                    opacity={labelAnimation.opacity}
+                    style={{ userSelect: 'none', cursor: 'default' }}
+                  >
+                    {showUnits 
+                      ? `λ₀ = ${convertWavelength(centralWavelength, projectA, projectUnit)}`
+                      : `λ₀ = ${centralWavelength.toFixed(3)}`}
+                  </animated.text>
+                  {/* Frequency spectrum legend (top-right) */}
+                  <animated.g opacity={labelAnimation.opacity}>
+                    <line  x1={innerWidth - 60} y1={5} x2={innerWidth - 47} y2={5} stroke="#60A5FA" strokeWidth={2}/>
+                    <text x={innerWidth - 42}  y={9} fontSize={9} fill="#9CA3AF" textAnchor="start"
+                          style={{ userSelect:'none', cursor:'default' }}>Spectrum</text>
+                  </animated.g>
+                  {/* Band-width legend (top-left) */}
+                  <animated.g opacity={labelAnimation.opacity}>
+                    <line  x1={0} y1={5} x2={13} y2={5} stroke="#A78BFA" strokeWidth={2}/>
+                    <text x={18} y={9} fontSize={9} fill="#9CA3AF" textAnchor="start"
+                          style={{ userSelect:'none', cursor:'default' }}>
+                      {safeWidth > 0 
+                        ? (showUnits
+                            ? `Δλ = ${convertWavelength(spectralWidthWavelength, projectA, projectUnit)}`
+                            : `Δλ = ${spectralWidthWavelength.toExponential(2)}`)
+                        : (showUnits ? "Δλ = ∞" : "Δλ = ∞")}
                     </text>
                   </animated.g>
                 </>

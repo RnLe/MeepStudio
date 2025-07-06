@@ -15,6 +15,9 @@ interface ElementLayerProps {
   onSelect: (id: string | null, opts?: { shift?: boolean }) => void;
   onUpdate: (id: string, updates: Partial<CanvasElement>) => void;
   onCommit: (id: string, updates: Partial<CanvasElement>) => void;
+  onBatchUpdate?: (ids: string[], draggedElementUpdate: Partial<CanvasElement>, delta: { deltaX: number; deltaY: number }) => void;
+  onBatchCommit?: (ids: string[], draggedElementUpdate: Partial<CanvasElement>, delta: { deltaX: number; deltaY: number }) => void;
+  onBatchDragStart?: (selectedIds: string[]) => void;
   GRID_PX: number;
   scale: number;
   gridWidth: number;
@@ -29,6 +32,9 @@ export const ElementLayer: React.FC<ElementLayerProps> = ({
   onSelect,
   onUpdate,
   onCommit,
+  onBatchUpdate,
+  onBatchCommit,
+  onBatchDragStart,
   GRID_PX,
   scale,
   gridWidth,
@@ -54,6 +60,34 @@ export const ElementLayer: React.FC<ElementLayerProps> = ({
       {sortedElements.map((element) => {
         const isSelected = selectedIds.includes(element.id);
         
+        // Boundaries don't need CanvasElementComponent wrapper since they don't have position/drag behavior
+        if (element.type === 'pmlBoundary') {
+          return (
+            <React.Fragment key={element.id}>
+              {renderElement(
+                element, 
+                isSelected, 
+                scale, 
+                GRID_PX,
+                resolution || 1,
+                gridWidth, 
+                gridHeight,
+                onUpdate,
+                onCommit,
+                onSetActiveInstructionSet,
+                selectedIds,
+                gridSnapping,
+                resolutionSnapping,
+                showGrid,
+                showResolutionOverlay,
+                toggleShowGrid,
+                toggleShowResolutionOverlay,
+                onSelect
+              )}
+            </React.Fragment>
+          );
+        }
+        
         return (
           <CanvasElementComponent
             key={element.id}
@@ -63,6 +97,9 @@ export const ElementLayer: React.FC<ElementLayerProps> = ({
             onSelect={onSelect}
             onUpdate={onUpdate}
             onCommit={onCommit}
+            onBatchUpdate={onBatchUpdate}
+            onBatchCommit={onBatchCommit}
+            onBatchDragStart={onBatchDragStart}
             GRID_PX={GRID_PX}
             scale={scale}
             onSetActiveInstructionSet={onSetActiveInstructionSet}
@@ -85,7 +122,8 @@ export const ElementLayer: React.FC<ElementLayerProps> = ({
               showGrid,
               showResolutionOverlay,
               toggleShowGrid,
-              toggleShowResolutionOverlay
+              toggleShowResolutionOverlay,
+              onSelect
             )}
           </CanvasElementComponent>
         );
@@ -118,7 +156,8 @@ function renderElement(
   showGrid?: boolean,
   showResolutionOverlay?: boolean,
   toggleShowGrid?: () => void,
-  toggleShowResolutionOverlay?: () => void
+  toggleShowResolutionOverlay?: () => void,
+  onSelect?: (id: string, options?: { shift?: boolean }) => void
 ): React.ReactNode {
   // Type guards for proper type narrowing
   if (element.type === 'cylinder' || element.type === 'rectangle' || element.type === 'triangle') {
@@ -202,6 +241,7 @@ function renderElement(
         GRID_PX={GRID_PX}
         gridWidth={gridWidth}
         gridHeight={gridHeight}
+        onSelect={onSelect}
       />
     );
   }

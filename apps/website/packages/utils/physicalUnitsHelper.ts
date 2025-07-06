@@ -165,3 +165,22 @@ export function convertToPhysicalUnit(
       return `${value.toPrecision(3)} ${unitHint}`;
   }
 }
+
+/* ---------- Numeric converters (scale-free → SI) ---------- */
+
+/** scale-free length → meters */
+export function lengthToMetersSF(value: number, projectA: number, projectUnit: LengthUnit): number {
+  return value * projectA * lengthToMeters[projectUnit];
+}
+
+/** scale-free frequency → hertz */
+export function frequencyToHzSF(value: number, projectA: number, projectUnit: LengthUnit): number {
+  const aInMeters = projectA * lengthToMeters[projectUnit];
+  return value * C / aInMeters;
+}
+
+/** scale-free time → seconds */
+export function timeToSecondsSF(value: number, projectA: number, projectUnit: LengthUnit): number {
+  const aInMeters = projectA * lengthToMeters[projectUnit];
+  return value * aInMeters / C;
+}

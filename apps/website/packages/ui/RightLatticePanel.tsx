@@ -8,7 +8,6 @@ import { useLatticeStore } from "../providers/LatticeStore";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { TransformationTooltip, TooltipWrapper } from "./TransformationTooltip";
 import { Code2, Layers, Download, LucideIcon, ArrowRight } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import { detectLatticeType, getLatticeDescription, LatticeType } from "../utils/latticeTypeChecker";
 import { getWasmModule } from "../utils/wasmLoader";
@@ -25,8 +24,7 @@ interface Props {
 }
 
 const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
-  const { updateLattice } = useMeepProjects({ ghPages });
-  const qc = useQueryClient();
+  const { updateLattice } = useMeepProjects();
   
   const { 
     isEditingLattice: editing,
@@ -89,7 +87,7 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
         documentId: lattice.documentId,
         lattice: updated
       });
-      qc.invalidateQueries({ queryKey: ["meepProjects"] });
+      // Lattice updated automatically through Zustand store
     }
   };
   
@@ -330,10 +328,7 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
     
     console.log('✅ updateLattice result:', updateResult);
     
-    // Don't invalidate queries immediately - let the store update propagate
-    setTimeout(() => {
-      qc.invalidateQueries({ queryKey: ["meepProjects"] });
-    }, 100);
+    // Store update propagates automatically via Zustand
     
     // Trigger canvas update
     triggerCanvasUpdate();

@@ -68,3 +68,14 @@ dev: clean
 prod: clean down
 	docker compose up meepstudio_website_prod --build && \
 	npx serve out -l 3001
+
+# Build production-ready WASM module
+build-wasm:
+	@echo "🦀 Building production-ready WASM module…"
+	@cd apps/website && pnpm run build:wasm
+	@echo "✅ WASM module built successfully at apps/website/pkg/"
+
+# Build and watch WASM module for development
+build-wasm-dev:
+	@echo "🦀 Building WASM module in watch mode for development…"
+	@cd apps/website && pnpm run build:wasm:watch

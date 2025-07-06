@@ -23,7 +23,7 @@ interface Props {
 }
 
 export default function LatticeBuilder({ project, ghPages }: Props) {
-  const { updateProject } = useMeepProjects({ ghPages });
+  const { updateProject } = useMeepProjects();
   const [selectedType, setSelectedType] = useState<string>(
     project.lattice?.latticeData?.latticeType || "square"
   );

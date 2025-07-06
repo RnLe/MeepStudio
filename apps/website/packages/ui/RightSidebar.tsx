@@ -1,7 +1,9 @@
 // src/components/layout/RightSidebar.tsx
 import React from "react";
 import { X, Pen } from "lucide-react";
-import { useEditorStateStore } from "../providers/EditorStateStore";
+import { useEditorStateStore, Tab } from "../providers/EditorStateStore";
+import { useMeepProjects } from "../hooks/useMeepProjects";
+import { useProjectsStore } from "../stores/projects";
 import RightProjectPanel from "./RightProjectPanel";
 import RightLatticePanel from "./RightLatticePanel";
 
@@ -10,22 +12,29 @@ interface Props {
 }
 
 const RightSidebar: React.FC<Props> = ({ onClose }) => {
-  const { 
-    getActiveTab,
-    getActiveProject,
-    getActiveLattice,
-    ghPages,
-    isEditingProject,
-    isEditingLattice,
-    setIsEditingProject,
-    setIsEditingLattice,
-    openTabs,
-    activeTabId
-  } = useEditorStateStore();
+  // Use individual selectors to avoid object creation
+  const getActiveTab = useEditorStateStore((state) => state.getActiveTab);
+  const ghPages = useEditorStateStore((state) => state.ghPages);
+  const isEditingProject = useEditorStateStore((state) => state.isEditingProject);
+  const isEditingLattice = useEditorStateStore((state) => state.isEditingLattice);
+  const setIsEditingProject = useEditorStateStore((state) => state.setIsEditingProject);
+  const setIsEditingLattice = useEditorStateStore((state) => state.setIsEditingLattice);
+  const openTabs = useEditorStateStore((state) => state.openTabs);
+  const activeTabId = useEditorStateStore((state) => state.activeTabId);
+
+  const getProjectById = useProjectsStore((state) => state.getProjectById);
+  const getLatticeById = useProjectsStore((state) => state.getLatticeById);
 
   const activeTab = getActiveTab();
-  const activeProject = getActiveProject();
-  const activeLattice = getActiveLattice();
+  
+  // Get project and lattice data from the correct store
+  const activeProject = activeTab?.projectId ? getProjectById(activeTab.projectId) : undefined;
+  const activeLattice = activeTab?.latticeId ? getLatticeById(activeTab.latticeId) : undefined;
+
+  // Debug logging
+  if (activeTab && !activeProject && !activeLattice) {
+    console.warn(`No project/lattice found for tab: ${activeTab.title} (type: ${activeTab.type}, projectId: ${activeTab.projectId}, latticeId: ${activeTab.latticeId})`);
+  }
 
   // Determine the main tab type based on active tab
   let activeMainTabType: string | undefined = activeTab?.type;
@@ -37,7 +46,7 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
       activeMainTabType = "project";
     } else if (activeTab.parentId) {
       // Find parent tab for other sub-tabs
-      const parentTab = openTabs.find(t => t.id === activeTab.parentId);
+      const parentTab = openTabs.find((t: Tab) => t.id === activeTab.parentId);
       if (parentTab?.type === "scene") {
         activeMainTabType = "project";
       } else if (parentTab) {

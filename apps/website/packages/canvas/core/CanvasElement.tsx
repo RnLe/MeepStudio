@@ -10,6 +10,9 @@ interface CanvasElementProps {
   onSelect: (id: string | null, opts?: { shift?: boolean }) => void;
   onUpdate: (id: string, updates: Partial<ElementType>) => void;
   onCommit: (id: string, updates: Partial<ElementType>) => void;
+  onBatchUpdate?: (ids: string[], draggedElementUpdate: Partial<ElementType>, delta: { deltaX: number; deltaY: number }) => void;
+  onBatchCommit?: (ids: string[], draggedElementUpdate: Partial<ElementType>, delta: { deltaX: number; deltaY: number }) => void;
+  onBatchDragStart?: (selectedIds: string[]) => void;
   GRID_PX: number;
   scale: number;
   children: React.ReactNode;
@@ -24,6 +27,9 @@ export const CanvasElementComponent: React.FC<CanvasElementProps> = ({
   onSelect,
   onUpdate,
   onCommit,
+  onBatchUpdate,
+  onBatchCommit,
+  onBatchDragStart,
   GRID_PX,
   scale,
   onSetActiveInstructionSet,
@@ -48,17 +54,27 @@ export const CanvasElementComponent: React.FC<CanvasElementProps> = ({
     return value;
   }, [gridSnapping, resolutionSnapping, resolution]);
 
+  // Track initial position for batch moving
+  const initialPosRef = React.useRef<{ x: number; y: number } | null>(null);
+
   const handleDragStart = React.useCallback((e: any) => {
     onSetActiveInstructionSet?.('dragging');
     if (!selectedIds.includes(element.id)) {
       onSelect(element.id);
     }
-  }, [element.id, selectedIds, onSelect, onSetActiveInstructionSet]);
+    // Store initial position for delta calculation
+    initialPosRef.current = { x: element.pos.x, y: element.pos.y };
+    
+    // Initialize batch drag positions for all selected elements
+    if (selectedIds.length > 1) {
+      onBatchDragStart?.(selectedIds);
+    }
+  }, [element.id, element.pos.x, element.pos.y, selectedIds, onSelect, onSetActiveInstructionSet, onBatchDragStart]);
 
   const handleDragMove = React.useCallback((e: any) => {
     const node = e.target;
-    const shiftPressed = e.evt.shiftKey;
-    const ctrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+    const shiftPressed = e.evt?.shiftKey || false;
+    const ctrlPressed = e.evt?.ctrlKey || e.evt?.metaKey || false;
     
     // Get position in lattice units
     const x = node.x() / GRID_PX;
@@ -70,13 +86,29 @@ export const CanvasElementComponent: React.FC<CanvasElementProps> = ({
     
     // Update position
     node.position({ x: snappedX * GRID_PX, y: snappedY * GRID_PX });
-    onUpdate(element.id, { pos: { x: snappedX, y: snappedY } });
-  }, [element.id, GRID_PX, snapToGrid, onUpdate]);
+    
+    // Calculate delta from initial position
+    if (initialPosRef.current && selectedIds.length > 1) {
+      const deltaX = snappedX - initialPosRef.current.x;
+      const deltaY = snappedY - initialPosRef.current.y;
+      // Use new onBatchUpdate callback if multiple elements are selected
+      // Exclude the currently dragged element to avoid double-updates
+      const otherSelectedIds = selectedIds.filter(id => id !== element.id);
+      if (otherSelectedIds.length > 0) {
+        onBatchUpdate?.(otherSelectedIds, { pos: { x: snappedX, y: snappedY } }, { deltaX, deltaY });
+      }
+      // Update the dragged element normally
+      onUpdate(element.id, { pos: { x: snappedX, y: snappedY } });
+    } else {
+      // Single element update
+      onUpdate(element.id, { pos: { x: snappedX, y: snappedY } });
+    }
+  }, [element.id, GRID_PX, snapToGrid, onUpdate, onBatchUpdate, selectedIds]);
 
   const handleDragEnd = React.useCallback((e: any) => {
     const node = e.target;
-    const shiftPressed = e.evt.shiftKey;
-    const ctrlPressed = e.evt.ctrlKey || e.evt.metaKey;
+    const shiftPressed = e.evt?.shiftKey || false;
+    const ctrlPressed = e.evt?.ctrlKey || e.evt?.metaKey || false;
     
     // Final position in lattice units
     const x = node.x() / GRID_PX;
@@ -86,10 +118,26 @@ export const CanvasElementComponent: React.FC<CanvasElementProps> = ({
     const snappedX = snapToGrid(x, shiftPressed, ctrlPressed);
     const snappedY = snapToGrid(y, shiftPressed, ctrlPressed);
     
-    // Commit the change
-    onCommit(element.id, { pos: { x: snappedX, y: snappedY } });
+    // Calculate final delta from initial position
+    if (initialPosRef.current && selectedIds.length > 1) {
+      const deltaX = snappedX - initialPosRef.current.x;
+      const deltaY = snappedY - initialPosRef.current.y;
+      // Use new onBatchCommit callback if multiple elements are selected
+      // Exclude the currently dragged element to avoid double-updates
+      const otherSelectedIds = selectedIds.filter(id => id !== element.id);
+      if (otherSelectedIds.length > 0) {
+        onBatchCommit?.(otherSelectedIds, { pos: { x: snappedX, y: snappedY } }, { deltaX, deltaY });
+      }
+      // Commit the dragged element normally
+      onCommit(element.id, { pos: { x: snappedX, y: snappedY } });
+    } else {
+      // Single element commit
+      onCommit(element.id, { pos: { x: snappedX, y: snappedY } });
+    }
+    
     onSetActiveInstructionSet?.('default');
-  }, [element.id, GRID_PX, snapToGrid, onCommit, onSetActiveInstructionSet]);
+    initialPosRef.current = null; // Reset initial position
+  }, [element.id, GRID_PX, snapToGrid, onCommit, onBatchCommit, selectedIds, onSetActiveInstructionSet]);
 
   // (1) remove the special-case that split shape / handles
   // (2) always render every child inside the one draggable group
@@ -106,7 +154,7 @@ export const CanvasElementComponent: React.FC<CanvasElementProps> = ({
       onClick={(e) => {
         e.cancelBubble = true;
         onSelect(element.id, {
-          shift: e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey,
+          shift: e.evt?.shiftKey || e.evt?.ctrlKey || e.evt?.metaKey || false,
         });
       }}
     >

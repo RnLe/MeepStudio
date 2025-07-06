@@ -39,6 +39,20 @@ export const createGeometrySlice: StateCreator<
       return g;
     }),
   })),
+
+  updateGeometries: (ids: string[], partial: Partial<any>) => set((s) => ({
+    geometries: s.geometries.map(g => {
+      if (ids.includes(g.id)) {
+        const updated = { ...g, ...partial };
+        // Recalculate center if position changed
+        if (partial.pos || partial.x !== undefined || partial.y !== undefined) {
+          updated.center = calculateGeometryCenter(updated);
+        }
+        return updated;
+      }
+      return g;
+    }),
+  })),
   
   removeGeometry: (id) => set((s) => ({
     geometries: s.geometries.filter(g => g.id !== id),

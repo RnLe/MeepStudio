@@ -13,16 +13,10 @@ interface Props {
 }
 
 const StudioLayout: React.FC<Props> = ({ ghPages }) => {
-  const { projects, lattices, isLoading, createProject, deleteProject, createLattice, deleteLattice } = useMeepProjects({ ghPages });
-  
+  // Only subscribe to the specific UI state we need
   const {
     rightSidebarOpen,
     setGhPages,
-    setProjects,
-    setLattices,
-    setIsLoading,
-    setProjectManagementFunctions,
-    setLatticeManagementFunctions,
     setRightSidebarOpen,
   } = useEditorStateStore();
   
@@ -30,28 +24,6 @@ const StudioLayout: React.FC<Props> = ({ ghPages }) => {
   useEffect(() => {
     setGhPages(ghPages);
   }, [ghPages, setGhPages]);
-
-  // Sync projects and lattices to editor store once data is loaded
-  useEffect(() => {
-    if (!isLoading) {
-      setProjects(projects);
-      setLattices(lattices);
-    }
-  }, [isLoading, projects, lattices, setProjects, setLattices]);
-
-  // Sync loading state
-  useEffect(() => {
-    setIsLoading(isLoading);
-  }, [isLoading, setIsLoading]);
-
-  // Initialize project and lattice management functions once
-  useEffect(() => {
-    setProjectManagementFunctions(createProject, deleteProject);
-    setLatticeManagementFunctions(createLattice, deleteLattice);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (isLoading) return <div className="p-4">Loading …</div>;
 
   return (
     <div className="flex flex-col h-full w-full bg-neutral-900 text-white overflow-hidden relative">

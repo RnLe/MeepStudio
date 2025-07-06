@@ -8,6 +8,8 @@ export type ResetIconType = "reset" | "infinity";
 interface DialProps {
   value: number;
   onChange: (value: number) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
   mode?: DialMode;
   min?: number;
   max?: number;
@@ -24,6 +26,8 @@ interface DialProps {
 export const Dial: React.FC<DialProps> = ({
   value,
   onChange,
+  onDragStart,
+  onDragEnd,
   mode: initialMode = "linear",
   min = 1e-6,
   max = Infinity,
@@ -158,6 +162,7 @@ export const Dial: React.FC<DialProps> = ({
     if (isEditing || disabled) return;
     e.preventDefault();
     setIsDragging(true);
+    onDragStart?.(); // Notify parent that drag started
     hasDragged.current = false;
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
     const mouseAngle = getMouseAngle(e);
@@ -226,6 +231,7 @@ export const Dial: React.FC<DialProps> = ({
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      onDragEnd?.(); // Notify parent that drag ended
       mouseDownPos.current = null;
     };
 

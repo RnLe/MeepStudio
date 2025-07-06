@@ -25,6 +25,8 @@ import {
 interface ContinuousSourcePropertiesProps {
   source: any;
   onUpdate: (partial: Partial<any>) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
   projectUnit?: LengthUnit;
   projectA?: number;
 }
@@ -32,6 +34,8 @@ interface ContinuousSourcePropertiesProps {
 export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProps> = ({ 
   source, 
   onUpdate,
+  onDragStart,
+  onDragEnd,
   projectUnit = LengthUnit.NM,
   projectA = 1
 }) => {
@@ -326,6 +330,8 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                   <Dial
                     value={source.amplitude?.real || defaults.amplitude.real}
                     onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || defaults.amplitude), real: val } })}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                     mode="linear"
                     min={-10}
                     max={10}
@@ -339,6 +345,8 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                   <Dial
                     value={source.amplitude?.imag || defaults.amplitude.imag}
                     onChange={(val) => onUpdate({ amplitude: { ...(source.amplitude || defaults.amplitude), imag: val } })}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                     mode="linear"
                     min={-10}
                     max={10}
@@ -361,6 +369,8 @@ export const ContinuousSourceProperties: React.FC<ContinuousSourcePropertiesProp
                   <Dial
                     value={source.frequency || defaults.frequency}
                     onChange={(val) => onUpdate({ frequency: val })}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
                     mode="10x"
                     min={0.001}
                     step={0.001}

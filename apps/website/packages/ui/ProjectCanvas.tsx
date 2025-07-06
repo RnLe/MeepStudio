@@ -57,7 +57,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   if (!project) return null;
   const projectId = project.documentId;
 
-  const { updateProject } = useMeepProjects({ ghPages });
+  const { updateProject } = useMeepProjects();
   const {
     selectedGeometryId,
     selectedGeometryIds,
@@ -66,28 +66,29 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     gridSnapping,
     geometries,
     setGeometries,
-    addGeometry,
-    updateGeometry,
-    removeGeometry,
-    removeGeometries,
-    sources,
-    setSources,
-    addSource,
-    updateSource,
-    removeSource,
-    removeSources,
-    boundaries,
-    setBoundaries,
-    addBoundary,
-    updateBoundary,
-    removeBoundary,
-    removeBoundaries,
-    lattices,
-    setLattices,
-    addLattice,
-    updateLattice,
-    removeLattice,
-    removeLattices,
+    addGeometry,      updateGeometry,      removeGeometry,
+      removeGeometries,
+      updateGeometries,
+      sources,
+      setSources,
+      addSource,
+      updateSource,
+      removeSource,
+      removeSources,
+      updateSources,
+      boundaries,
+      setBoundaries,
+      addBoundary,
+      updateBoundary,
+      removeBoundary,
+      removeBoundaries,
+      lattices,
+      setLattices,
+      addLattice,
+      updateLattice,
+      removeLattice,
+      removeLattices,
+      updateLattices,
     getAllElements,
     sceneMaterial,
     setSceneMaterial,
@@ -105,12 +106,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       updateGeometry: s.updateGeometry,
       removeGeometry: s.removeGeometry,
       removeGeometries: s.removeGeometries,
+      updateGeometries: s.updateGeometries,
       sources: s.sources,
       setSources: s.setSources,
       addSource: s.addSource,
       updateSource: s.updateSource,
       removeSource: s.removeSource,
       removeSources: s.removeSources,
+      updateSources: s.updateSources,
       boundaries: s.boundaries,
       setBoundaries: s.setBoundaries,
       addBoundary: s.addBoundary,
@@ -123,6 +126,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       updateLattice: s.updateLattice,
       removeLattice: s.removeLattice,
       removeLattices: s.removeLattices,
+      updateLattices: s.updateLattices,
       getAllElements: s.getAllElements,
       sceneMaterial: s.sceneMaterial,
       setSceneMaterial: s.setSceneMaterial,
@@ -158,7 +162,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     // Load sources
     setSources(project.scene?.sources || []);
     setBoundaries(project.scene?.boundaries || []);
-    setLattices(project.scene?.lattices || []);
+    // Defer lattice setting to prevent hooks order violations during deletion
+    setTimeout(() => {
+      setLattices(project.scene?.lattices || []);
+    }, 0);
     setSceneMaterial(project.scene?.material || "Air");
   }, [project.scene?.geometries, project.scene?.sources, project.scene?.boundaries, project.scene?.lattices, project.scene?.material, setGeometries, setSources, setBoundaries, setLattices, setSceneMaterial]);
 
@@ -299,7 +306,6 @@ const ProjectCanvas: React.FC<Props> = (props) => {
   }, [updateLattice, commitScene]);
 
   const handleRemoveLattice = useCallback((id: string) => {
-    removeLattice(id);
     updateProject({
       documentId: projectId,
       project: {
@@ -309,6 +315,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         }
       },
     });
+    
+    // Use setTimeout to defer the canvas store update to avoid hook order issues
+    setTimeout(() => {
+      removeLattice(id);
+    }, 0);
+    
     if (selectedGeometryId === id) selectGeometry(null);
   }, [removeLattice, updateProject, projectId, lattices, selectedGeometryId, selectGeometry, project.scene]);
 
@@ -347,10 +359,13 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       },
     });
     
-    if (geomIds.length > 0) removeGeometries(geomIds);
-    if (sourceIds.length > 0) removeSources(sourceIds);
-    if (boundaryIds.length > 0) removeBoundaries(boundaryIds);
-    if (latticeIds.length > 0) removeLattices(latticeIds);
+    // Use setTimeout to defer the canvas store updates to avoid hook order issues
+    setTimeout(() => {
+      if (geomIds.length > 0) removeGeometries(geomIds);
+      if (sourceIds.length > 0) removeSources(sourceIds);
+      if (boundaryIds.length > 0) removeBoundaries(boundaryIds);
+      if (latticeIds.length > 0) removeLattices(latticeIds);
+    }, 0);
   }, [removeGeometries, removeSources, removeBoundaries, removeLattices, updateProject, projectId, geometries, sources, boundaries, lattices, project.scene]);
 
   // --- Container Size and Resize Handling ---
@@ -815,6 +830,111 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     }
   }, [allElements, handleUpdateGeometry, handleUpdateSource, handleUpdateBoundary, handleUpdateLattice]);
 
+  // Store initial positions for batch dragging
+  const batchDragInitialPositions = useRef<Record<string, { x: number; y: number }>>({});
+
+  // Batch drag start handler to initialize positions
+  const handleBatchDragStart = useCallback((selectedIds: string[]) => {
+    // Store initial positions for all selected elements
+    batchDragInitialPositions.current = {};
+    const selectedElements = allElements.filter(el => selectedIds.includes(el.id));
+    
+    selectedElements.forEach(element => {
+      batchDragInitialPositions.current[element.id] = {
+        x: element.pos?.x || 0,
+        y: element.pos?.y || 0
+      };
+    });
+  }, [allElements]);
+
+  // Batch update handler for multi-selection
+  const handleBatchUpdate = useCallback((ids: string[], draggedElementUpdate: Partial<any>, delta: { deltaX: number; deltaY: number }) => {
+    if (ids.length === 0) return; // No elements to update
+    
+    // Apply the delta to the specified elements using their initial positions
+    const elementsToUpdate = allElements.filter(el => ids.includes(el.id));
+    
+    elementsToUpdate.forEach(element => {
+      const elementType = element.kind || element.type;
+      
+      // Store initial position if not already stored (first time for this drag session)
+      if (!batchDragInitialPositions.current[element.id]) {
+        batchDragInitialPositions.current[element.id] = {
+          x: element.pos?.x || 0,
+          y: element.pos?.y || 0
+        };
+      }
+      
+      const initialPos = batchDragInitialPositions.current[element.id];
+      const updates = {
+        pos: {
+          x: initialPos.x + delta.deltaX,
+          y: initialPos.y + delta.deltaY
+        }
+      };
+      
+      switch (elementType) {
+        case 'cylinder':
+        case 'rectangle':
+        case 'triangle':
+          updateGeometry(element.id, updates);
+          break;
+        case 'continuousSource':
+        case 'gaussianSource':
+        case 'eigenModeSource':
+        case 'gaussianBeamSource':
+          updateSource(element.id, updates);
+          break;
+        case 'lattice':
+          updateLattice(element.id, updates);
+          break;
+      }
+    });
+  }, [allElements, updateGeometry, updateSource, updateLattice]);
+
+  // Batch commit handler for multi-selection
+  const handleBatchCommit = useCallback((ids: string[], draggedElementUpdate: Partial<any>, delta: { deltaX: number; deltaY: number }) => {
+    if (ids.length === 0) return; // No elements to commit
+    
+    // For batch commits, we need to call the individual commit handlers
+    // to ensure proper project persistence
+    const elementsToCommit = allElements.filter(el => ids.includes(el.id));
+    
+    elementsToCommit.forEach(element => {
+      const elementType = element.kind || element.type;
+      const initialPos = batchDragInitialPositions.current[element.id];
+      const basePos = initialPos || { x: element.pos?.x || 0, y: element.pos?.y || 0 };
+      
+      const updates = {
+        pos: {
+          x: basePos.x + delta.deltaX,
+          y: basePos.y + delta.deltaY
+        }
+      };
+      
+      switch (elementType) {
+        case 'cylinder':
+        case 'rectangle':
+        case 'triangle':
+          handleUpdateGeometry(element.id, updates);
+          break;
+        case 'continuousSource':
+        case 'gaussianSource':
+        case 'eigenModeSource':
+        case 'gaussianBeamSource':
+          handleUpdateSource(element.id, updates);
+          break;
+        case 'lattice':
+          handleUpdateLattice(element.id, updates);
+          break;
+        // Note: boundaries don't have positions so they're not included
+      }
+    });
+    
+    // Clear initial positions after commit
+    batchDragInitialPositions.current = {};
+  }, [allElements, handleUpdateGeometry, handleUpdateSource, handleUpdateLattice]);
+
   // --- Render ---
   return (
     <div
@@ -1136,6 +1256,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
           onSelect={selectGeometry}
           onUpdate={handleUpdateElement}
           onCommit={handleCommitElement}
+          onBatchUpdate={handleBatchUpdate}
+          onBatchCommit={handleBatchCommit}
+          onBatchDragStart={handleBatchDragStart}
           GRID_PX={GRID_PX}
           scale={scale}
           gridWidth={gridWidth}

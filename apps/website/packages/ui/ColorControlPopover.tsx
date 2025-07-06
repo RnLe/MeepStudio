@@ -107,8 +107,8 @@ export const ColorControlPopover: React.FC<ColorControlPopoverProps> = ({
       {/* Header row */}
       <div className="grid grid-cols-3 gap-2 mb-2 text-xs text-gray-400">
         <div></div>
-        <div className="text-center">Colors Off</div>
-        <div className="text-center">Colors On</div>
+        <div className="text-center">Mode Off</div>
+        <div className="text-center">Mode On</div>
       </div>
       
       {/* Element rows */}
@@ -152,7 +152,7 @@ export const ColorControlPopover: React.FC<ColorControlPopoverProps> = ({
       <div className="mt-3 pt-3 border-t border-neutral-700 text-xs text-gray-500">
         <div>Configure which elements show color in each mode</div>
         <div className="mt-1 text-gray-400">
-          Current mode: <span className="font-medium">{showColors ? 'Colors On' : 'Colors Off'}</span>
+          Current mode: <span className="font-medium">{showColors ? 'Mode On' : 'Mode Off'}</span>
         </div>
       </div>
     </div>

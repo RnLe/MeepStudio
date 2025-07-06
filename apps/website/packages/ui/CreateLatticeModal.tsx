@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "./Modal";
 import { useEditorStateStore } from "../providers/EditorStateStore";
+import { useMeepProjects } from "../hooks/useMeepProjects";
 
 interface CreateLatticeModalProps {
   isOpen: boolean;
@@ -20,7 +21,8 @@ export default function CreateLatticeModal({
   latticeType,
   latticeTypeInfo 
 }: CreateLatticeModalProps) {
-  const { createLattice, openLattice } = useEditorStateStore();
+  const { openLattice } = useEditorStateStore();
+  const { createLattice } = useMeepProjects();
   
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -40,25 +42,25 @@ export default function CreateLatticeModal({
     
     try {
       // Set lattice parameters based on selected type
-      let parameters = { a: 1, b: 1, gamma: 90 };
+      let parameters = { a: 1, b: 1, alpha: 90, gamma: 90 };
       let basis1 = { x: 1, y: 0, z: 0 };
       let basis2 = { x: 0, y: 1, z: 0 };
 
       switch (latticeType) {
         case 'hexagonal':
-          parameters = { a: 1, b: 1, gamma: 120 };
+          parameters = { a: 1, b: 1, alpha: 90, gamma: 120 };
           basis2 = { x: -0.5, y: Math.sqrt(3)/2, z: 0 };
           break;
         case 'rhombic':
-          parameters = { a: 1, b: 1, gamma: 60 };
+          parameters = { a: 1, b: 1, alpha: 90, gamma: 60 };
           basis2 = { x: 0.5, y: Math.sqrt(3)/2, z: 0 };
           break;
         case 'oblique':
-          parameters = { a: 1, b: 1.2, gamma: 75 };
+          parameters = { a: 1, b: 1.2, alpha: 90, gamma: 75 };
           basis2 = { x: 0.259, y: 1.161, z: 0 };
           break;
         case 'rectangular':
-          parameters = { a: 1, b: 1.5, gamma: 90 };
+          parameters = { a: 1, b: 1.5, alpha: 90, gamma: 90 };
           basis2 = { x: 0, y: 1.5, z: 0 };
           break;
       }

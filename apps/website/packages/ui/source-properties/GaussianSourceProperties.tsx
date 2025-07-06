@@ -21,6 +21,8 @@ import {
 interface GaussianSourcePropertiesProps {
   source: any;
   onUpdate: (partial: Partial<any>) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
   projectUnit?: LengthUnit;
   projectA?: number;
 }
@@ -28,6 +30,8 @@ interface GaussianSourcePropertiesProps {
 export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> = ({ 
   source, 
   onUpdate,
+  onDragStart,
+  onDragEnd,
   projectUnit = LengthUnit.NM,
   projectA = 1
 }) => {

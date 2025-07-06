@@ -193,7 +193,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
   // Use the lattice data loader
   const { checkAndCalculateVoronoi } = useLatticeDataLoader({ lattice, ghPages });
   
-  const { updateLattice } = useMeepProjects({ ghPages });
+  const { updateLattice } = useMeepProjects();
   
   // Get zone counts from store
   const realSpaceZoneCount = useLatticeStore((s) => s.realSpaceZoneCount);

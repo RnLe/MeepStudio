@@ -18,6 +18,7 @@ interface BoundaryRendererProps {
   GRID_PX: number;
   gridWidth: number;
   gridHeight: number;
+  onSelect?: (id: string, options?: { shift?: boolean }) => void;
 }
 
 export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
@@ -27,6 +28,7 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
   GRID_PX,
   gridWidth,
   gridHeight,
+  onSelect,
 }) => {
   const showColors = useCanvasStore((s) => s.showColors);
   const getElementColorVisibility = useCanvasStore((s) => s.getElementColorVisibility);
@@ -123,8 +125,8 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
     edges.push(
       <Rect
         key="top"
-        x={-boundary.pos.x * GRID_PX}
-        y={-boundary.pos.y * GRID_PX}
+        x={0}
+        y={0}
         width={CANVAS_W}
         height={getEdgeThickness('top')}
         fill={getEdgeColor('top')}
@@ -138,8 +140,8 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
     edges.push(
       <Rect
         key="bottom"
-        x={-boundary.pos.x * GRID_PX}
-        y={-boundary.pos.y * GRID_PX + CANVAS_H - getEdgeThickness('bottom')}
+        x={0}
+        y={CANVAS_H - getEdgeThickness('bottom')}
         width={CANVAS_W}
         height={getEdgeThickness('bottom')}
         fill={getEdgeColor('bottom')}
@@ -155,8 +157,8 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
     edges.push(
       <Rect
         key="left"
-        x={-boundary.pos.x * GRID_PX}
-        y={-boundary.pos.y * GRID_PX + topOffset}
+        x={0}
+        y={topOffset}
         width={getEdgeThickness('left')}
         height={CANVAS_H - topOffset - bottomOffset}
         fill={getEdgeColor('left')}
@@ -172,8 +174,8 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
     edges.push(
       <Rect
         key="right"
-        x={-boundary.pos.x * GRID_PX + CANVAS_W - getEdgeThickness('right')}
-        y={-boundary.pos.y * GRID_PX + topOffset}
+        x={CANVAS_W - getEdgeThickness('right')}
+        y={topOffset}
         width={getEdgeThickness('right')}
         height={CANVAS_H - topOffset - bottomOffset}
         fill={getEdgeColor('right')}
@@ -183,5 +185,18 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
     );
   }
 
-  return <>{edges}</>;
+  return (
+    <Group
+      onClick={(e) => {
+        if (onSelect) {
+          e.cancelBubble = true;
+          onSelect(boundary.id, {
+            shift: e.evt?.shiftKey || e.evt?.ctrlKey || e.evt?.metaKey || false,
+          });
+        }
+      }}
+    >
+      {edges}
+    </Group>
+  );
 };

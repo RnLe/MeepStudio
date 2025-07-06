@@ -223,10 +223,9 @@ export const createTabSlice: StateCreator<
   },
   
   addCodeTabToProject: (projectId) => {
-    const { openTab, projects } = get();
-    const project = projects.find(p => p.documentId === projectId);
-    if (!project) return;
-    
+    const { openTab } = get();
+    // We can't access project data here anymore - this should be handled by UI components
+    // that have access to useMeepProjects
     openTab({
       id: `code-${projectId}`,
       type: "code",

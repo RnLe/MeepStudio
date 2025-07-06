@@ -4,6 +4,8 @@ import ContextMenu from "./ContextMenu";
 import { MeepProject } from "../types/meepProjectTypes";
 import { Lattice } from "../types/meepLatticeTypes";
 import { useEditorStateStore, Tab } from "../providers/EditorStateStore";
+import { useMeepProjects } from "../hooks/useMeepProjects";
+import { useProjectsStore } from "../stores/projects";
 import CustomLucideIcon from "./CustomLucideIcon";
 
 const getTabIcon = (type: Tab["type"]) => {
@@ -43,23 +45,25 @@ const TabBar: React.FC<TabBarProps> = ({
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   
   const {
-    projects,
-    lattices,
-    deleteProject,
-    deleteLattice,
     rightSidebarOpen,
     setRightSidebarOpen,
   } = useEditorStateStore();
 
+  // Use individual selectors to avoid object creation
+  const projects = useProjectsStore((state) => state.projects);
+  const lattices = useProjectsStore((state) => state.lattices);
+  const deleteProject = useProjectsStore((state) => state.deleteProject);
+  const deleteLattice = useProjectsStore((state) => state.deleteLattice);
+
   const handleContextMenu = (e: React.MouseEvent, tab: Tab) => {
     e.preventDefault();
     if ((tab.type === "project" || tab.type === "scene") && tab.projectId) {
-      const project = projects.find(p => p.documentId === tab.projectId);
+      const project = projects.find((p: any) => p.documentId === tab.projectId);
       if (project) {
         setContextMenu({ x: e.clientX, y: e.clientY, item: project, type: 'project' });
       }
     } else if (tab.type === "lattice" && tab.latticeId) {
-      const lattice = lattices.find(l => l.documentId === tab.latticeId);
+      const lattice = lattices.find((l: any) => l.documentId === tab.latticeId);
       if (lattice) {
         setContextMenu({ x: e.clientX, y: e.clientY, item: lattice, type: 'lattice' });
       }
@@ -80,17 +84,17 @@ const TabBar: React.FC<TabBarProps> = ({
   const getTabTitle = (tab: Tab): string => {
     if (tab.type === "project" || tab.type === "scene") {
       if (tab.projectId) {
-        const project = projects.find(p => p.documentId === tab.projectId);
+        const project = projects.find((p: any) => p.documentId === tab.projectId);
         return project ? project.title : tab.title;
       }
     } else if (tab.type === "lattice") {
       if (tab.latticeId) {
-        const lattice = lattices.find(l => l.documentId === tab.latticeId);
+        const lattice = lattices.find((l: any) => l.documentId === tab.latticeId);
         return lattice ? lattice.title : tab.title;
       }
     } else if (tab.type === "code") {
       if (tab.projectId) {
-        const project = projects.find(p => p.documentId === tab.projectId);
+        const project = projects.find((p: any) => p.documentId === tab.projectId);
         return project ? `${project.title} (Code)` : tab.title;
       }
     }

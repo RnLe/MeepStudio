@@ -7,16 +7,11 @@ export const createProjectSlice: StateCreator<
   [],
   ProjectSlice
 > = (set, get) => ({
-  projects: [],
   selectedProjectIds: new Set<string>(),
   lastSelectedProjectId: null,
   isEditingProject: false,
   createProjectFn: null,
   deleteProjectFn: null,
-  
-  setProjects: (projects) => {
-    set({ projects });
-  },
   
   setIsEditingProject: (editing) => {
     set({ isEditingProject: editing });
@@ -38,9 +33,7 @@ export const createProjectSlice: StateCreator<
     newProjectSelection.add(project.documentId);
     set({ 
       selectedProjectIds: newProjectSelection,
-      selectedLatticeIds: new Set<string>(),
       lastSelectedProjectId: project.documentId,
-      lastSelectedLatticeId: null
     });
   },
   
@@ -53,17 +46,15 @@ export const createProjectSlice: StateCreator<
   },
   
   setActiveProject: (projectId) => {
-    const { openTabs, setRightSidebarOpen, selectedProjectIds, projects } = get();
+    const { openTabs, setRightSidebarOpen, selectedProjectIds } = get();
     const projectTab = openTabs.find(t => t.id === `project-${projectId}`);
     
     if (projectTab) {
       get().setActiveTab(projectTab.id);
     } else {
-      // If tab doesn't exist, open the project
-      const project = projects.find(p => p.documentId === projectId);
-      if (project) {
-        get().openProject(project);
-      }
+      // If tab doesn't exist, we need to get project data from ProjectsStore
+      // The UI component should handle opening projects via useMeepProjects
+      console.warn(`Project tab not found for projectId: ${projectId}`);
     }
     
     // Add to project selection
@@ -73,28 +64,12 @@ export const createProjectSlice: StateCreator<
     setRightSidebarOpen(true);
     set({ 
       selectedProjectIds: newProjectSelection,
-      selectedLatticeIds: new Set<string>(),
       lastSelectedProjectId: projectId,
-      lastSelectedLatticeId: null
     });
-  },
-  
-  getActiveProject: () => {
-    const state = get();
-    const activeTab = state.openTabs.find(t => t.id === state.activeTabId);
-    const activeSubTab = state.activeSubTabId ? state.openTabs.find(t => t.id === state.activeSubTabId) : undefined;
     
-    // If we have an active sub-tab, use its project ID
-    const relevantTab = activeSubTab || activeTab;
-    
-    if (!relevantTab) return undefined;
-    
-    // Handle all tab types that have a projectId
-    if (relevantTab.projectId) {
-      return state.projects.find(p => p.documentId === relevantTab.projectId) || undefined;
-    }
-    
-    return undefined;
+    // Clear lattice selection through the lattice slice
+    const { setSelectedLattices } = get();
+    setSelectedLattices(new Set<string>());
   },
   
   setSelectedProjects: (ids) => {
@@ -102,7 +77,7 @@ export const createProjectSlice: StateCreator<
   },
   
   toggleProjectSelection: (projectId, isMulti, isRange) => {
-    const { selectedProjectIds, lastSelectedProjectId, projects, activeTabId, openTabs } = get();
+    const { selectedProjectIds, lastSelectedProjectId, activeTabId, openTabs } = get();
     const activeTab = openTabs.find(t => t.id === activeTabId);
     const newSelection = new Set(selectedProjectIds);
     
@@ -112,18 +87,16 @@ export const createProjectSlice: StateCreator<
     }
     
     if (isRange && lastSelectedProjectId) {
-      // Sort projects alphabetically
-      const sortedProjects = [...projects].sort((a, b) => a.title.localeCompare(b.title));
-      const lastIndex = sortedProjects.findIndex(p => p.documentId === lastSelectedProjectId);
-      const currentIndex = sortedProjects.findIndex(p => p.documentId === projectId);
-      
-      if (lastIndex !== -1 && currentIndex !== -1) {
-        const start = Math.min(lastIndex, currentIndex);
-        const end = Math.max(lastIndex, currentIndex);
-        
-        for (let i = start; i <= end; i++) {
-          newSelection.add(sortedProjects[i].documentId);
+      // For range selection, we can't rely on the projects array anymore
+      // Range selection will need to be handled by UI components that have access to the full projects list
+      console.warn('Range selection requires projects list - should be handled by UI components');
+      // Fall back to multi-select behavior
+      if (newSelection.has(projectId)) {
+        if (projectId !== activeTab?.projectId) {
+          newSelection.delete(projectId);
         }
+      } else {
+        newSelection.add(projectId);
       }
     } else if (isMulti) {
       // Toggle selection - but don't allow deselecting the active project

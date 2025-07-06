@@ -152,11 +152,14 @@ export const createLocalStorageService = (): ProjectService => {
       store.setProjects(
         store.projects.map((p: MeepProject) => p.documentId === documentId ? updated : p)
       );
-      // Handle lattice syncing if scene was updated
+      // Handle lattice syncing if scene was updated - do this asynchronously to avoid hook order issues
       if (project.scene?.lattices !== undefined) {
-        const { useCanvasStore } = require('../providers/CanvasStore');
-        const canvasStore = useCanvasStore.getState();
-        canvasStore.syncLatticesFromProject(updated);
+        // Use setTimeout to defer the sync call until after the current render cycle
+        setTimeout(() => {
+          const { useCanvasStore } = require('../providers/CanvasStore');
+          const canvasStore = useCanvasStore.getState();
+          canvasStore.syncLatticesFromProject(updated);
+        }, 0);
       }
       return updated;
     },

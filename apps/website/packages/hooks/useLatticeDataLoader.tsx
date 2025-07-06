@@ -11,7 +11,7 @@ interface UseLatticeDataLoaderProps {
 }
 
 export const useLatticeDataLoader = ({ lattice, ghPages }: UseLatticeDataLoaderProps) => {
-  const { updateLattice } = useMeepProjects({ ghPages });
+  const { updateLattice } = useMeepProjects();
   
   const voronoiData = useLatticeStore((s) => s.voronoiData);
   const setVoronoiData = useLatticeStore((s) => s.setVoronoiData);

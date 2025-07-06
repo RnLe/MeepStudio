@@ -5,18 +5,52 @@ import { MeepProject } from "../types/meepProjectTypes";
 import { Lattice } from "../types/meepLatticeTypes";
 import { MoreHorizontal, Plus, ChevronDown, ChevronRight, Layers, Hexagon, CodeXml, FileText, Trash2, Edit, Grid3x3 } from "lucide-react";
 import ContextMenu from "./ContextMenu";
-import { useEditorStateStore } from "../providers/EditorStateStore";
+import { useEditorStateStore, Tab } from "../providers/EditorStateStore";
 import { useMeepProjects } from "../hooks/useMeepProjects";
+import { useProjectsStore } from "../stores/projects";
 import CreateProjectModal from "./CreateProjectModal";
 import CustomLucideIcon from "./CustomLucideIcon";
 
+// Stable selector for editor state to prevent re-renders
+const selectEditorState = (state: any) => ({
+  openProject: state.openProject,
+  openLattice: state.openLattice,
+  closeProject: state.closeProject,
+  closeLattice: state.closeLattice,
+  setLeftSidebarPanel: state.setLeftSidebarPanel,
+  activeProjectId: state.activeProjectId,
+  activeLatticeId: state.activeLatticeId,
+  selectedProjectIds: state.selectedProjectIds,
+  selectedLatticeIds: state.selectedLatticeIds,
+  toggleProjectSelection: state.toggleProjectSelection,
+  toggleLatticeSelection: state.toggleLatticeSelection,
+  clearAllSelections: state.clearAllSelections,
+  addCodeTabToProject: state.addCodeTabToProject,
+  openTabs: state.openTabs,
+  activeTabId: state.activeTabId,
+});
+
 export default function LeftExplorer() {
+  // Get only the data we need - projects and lattices using direct selectors
+  const projects = useProjectsStore((state) => state.projects);
+  const lattices = useProjectsStore((state) => state.lattices);
+  const isLoading = useProjectsStore((state) => state.isLoading);
+  
+  // Get CRUD functions (stable references, won't cause re-renders)
   const { 
-    projects, 
+    updateProject, 
+    updateLattice, 
+    createProject, 
+    deleteProject, 
+    createLattice, 
+    deleteLattice 
+  } = useMeepProjects();
+
+  // Get UI state and actions from EditorStateStore using stable selector
+  const { 
+    // Actions / state
     openProject, 
     openLattice,
-    deleteProject,
-    deleteLattice,
     closeProject,
     closeLattice,
     setLeftSidebarPanel,
@@ -30,11 +64,7 @@ export default function LeftExplorer() {
     addCodeTabToProject,
     openTabs,
     activeTabId,
-    createProject,
-    createLattice
-  } = useEditorStateStore();
-  
-  const { updateProject, updateLattice, lattices } = useMeepProjects({ ghPages: true });
+  } = useEditorStateStore(selectEditorState);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const explorerRef = useRef<HTMLDivElement>(null);
@@ -60,9 +90,9 @@ export default function LeftExplorer() {
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // Sort projects and lattices alphabetically
-  const sortedProjects = [...projects].sort((a, b) => a.title.localeCompare(b.title));
-  const sortedLattices = [...lattices].sort((a, b) => a.title.localeCompare(b.title));
+  // Sort projects and lattices alphabetically - with safety checks
+  const sortedProjects = Array.isArray(projects) ? [...projects].sort((a, b) => a.title.localeCompare(b.title)) : [];
+  const sortedLattices = Array.isArray(lattices) ? [...lattices].sort((a, b) => a.title.localeCompare(b.title)) : [];
 
   // Handle focus loss to clear selections
   useEffect(() => {
@@ -140,12 +170,9 @@ export default function LeftExplorer() {
         project: { title: renameValue.trim() }
       });
       
-      // Refresh the projects list in EditorStateStore
+      // Project data automatically updated through Zustand store
       if (updated) {
-        const updatedProjects = projects.map(p => 
-          p.documentId === renamingId ? { ...p, title: renameValue.trim() } : p
-        );
-        useEditorStateStore.getState().setProjects(updatedProjects);
+        console.log('Project title updated:', updated.title);
       }
     } else {
       const updated = await updateLattice({
@@ -153,12 +180,9 @@ export default function LeftExplorer() {
         lattice: { title: renameValue.trim() }
       });
       
-      // Refresh the lattices list in EditorStateStore
+      // Lattice data automatically updated through Zustand store
       if (updated) {
-        const updatedLattices = lattices.map(l => 
-          l.documentId === renamingId ? { ...l, title: renameValue.trim() } : l
-        );
-        useEditorStateStore.getState().setLattices(updatedLattices);
+        console.log('Lattice title updated:', updated.title);
       }
     }
     
@@ -187,16 +211,16 @@ export default function LeftExplorer() {
         
         // If a single project is selected, rename it
         if (selectedProjectIds.size === 1) {
-          const projectId = Array.from(selectedProjectIds)[0];
-          const project = projects.find(p => p.documentId === projectId);
+          const projectId = Array.from(selectedProjectIds)[0] as string;
+          const project = projects.find((p: any) => p.documentId === projectId);
           if (project) {
             startRename(projectId, project.title, 'project');
           }
         }
         // If a single lattice is selected, rename it
         else if (selectedLatticeIds.size === 1) {
-          const latticeId = Array.from(selectedLatticeIds)[0];
-          const lattice = lattices.find(l => l.documentId === latticeId);
+          const latticeId = Array.from(selectedLatticeIds)[0] as string;
+          const lattice = lattices.find((l: any) => l.documentId === latticeId);
           if (lattice) {
             startRename(latticeId, lattice.title, 'lattice');
           }
@@ -294,7 +318,7 @@ export default function LeftExplorer() {
                 {sortedProjects.map((project) => {
                   const isActive = activeProjectId === project.documentId;
                   const isSelected = selectedProjectIds.has(project.documentId);
-                  const hasCodeTab = openTabs.some(t => t.id === `code-${project.documentId}`);
+                  const hasCodeTab = openTabs.some((t: Tab) => t.id === `code-${project.documentId}`);
                   const isCodeTabActive = activeTabId === `code-${project.documentId}`;
                   const isRenaming = renamingId === project.documentId;
                   
@@ -516,8 +540,8 @@ export default function LeftExplorer() {
                       label: `Remove ${selectedProjectIds.size} Projects`,
                       onClick: () => {
                         if (window.confirm(`Are you sure you want to delete ${selectedProjectIds.size} projects? This cannot be undone.`)) {
-                          selectedProjectIds.forEach(id => {
-                            const project = projects.find(p => p.documentId === id);
+                          selectedProjectIds.forEach((id: string) => {
+                            const project = projects.find((p: any) => p.documentId === id);
                             if (project) {
                               deleteProject(project.documentId);
                               closeProject(project.documentId);
@@ -574,8 +598,8 @@ export default function LeftExplorer() {
                       label: `Remove ${selectedLatticeIds.size} Lattices`,
                       onClick: () => {
                         if (window.confirm(`Are you sure you want to delete ${selectedLatticeIds.size} lattices? This cannot be undone.`)) {
-                          selectedLatticeIds.forEach(id => {
-                            const lattice = lattices.find(l => l.documentId === id);
+                          selectedLatticeIds.forEach((id: string) => {
+                            const lattice = lattices.find((l: any) => l.documentId === id);
                             if (lattice) {
                               deleteLattice(lattice.documentId);
                               closeLattice(lattice.documentId);

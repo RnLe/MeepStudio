@@ -19,8 +19,8 @@ interface Props {
 export default function SceneLatticeProperties({ lattice, project, ghPages }: Props) {
   const updateLattice = useCanvasStore((s) => s.updateLattice);
   const geometries = useCanvasStore((s) => s.geometries);
-  const { updateProject } = useMeepProjects({ ghPages });
-  const { lattices: fullLattices } = useMeepProjects({ ghPages: true });
+  const { updateProject } = useMeepProjects();
+  const { lattices: fullLattices } = useMeepProjects();
   const { openLattice, setActiveLattice } = useEditorStateStore();
   
   const [localValues, setLocalValues] = React.useState({

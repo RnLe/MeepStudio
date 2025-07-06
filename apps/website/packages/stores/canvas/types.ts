@@ -60,6 +60,7 @@ export interface GeometrySlice {
   setGeometries: (geoms: any[]) => void;
   addGeometry: (geom: any) => void;
   updateGeometry: (id: string, partial: Partial<any>) => void;
+  updateGeometries: (ids: string[], partial: Partial<any>) => void;
   removeGeometry: (id: string) => void;
   removeGeometries: (ids: string[]) => void;
 }
@@ -70,6 +71,7 @@ export interface SourceSlice {
   setSources: (sources: any[]) => void;
   addSource: (source: any) => void;
   updateSource: (id: string, partial: Partial<any>) => void;
+  updateSources: (ids: string[], partial: Partial<any>) => void;
   removeSource: (id: string) => void;
   removeSources: (ids: string[]) => void;
 }
@@ -91,6 +93,7 @@ export interface LatticeSlice {
   setLattices: (lattices: any[]) => void;
   addLattice: (lattice: any) => void;
   updateLattice: (id: string, partial: Partial<any>) => void;
+  updateLattices: (ids: string[], partial: Partial<any>) => void;
   removeLattice: (id: string) => void;
   removeLattices: (ids: string[]) => void;
   linkLatticeToFullLattice: (canvasLatticeId: string, latticeDocumentId: string) => void;

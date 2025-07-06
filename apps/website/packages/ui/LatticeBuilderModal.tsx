@@ -81,7 +81,7 @@ export function LatticeBuilderModal({ isOpen, onClose, project, onLatticeCreated
 
   const addLattice   = useCanvasStore((s) => s.addLattice);   // keep for canvas drawing
   const setLattices  = useCanvasStore((s) => s.setLattices);  // <-- new explicit sync
-  const { createLattice: createFullLattice, updateProject, linkLatticeToProject, lattices } = useMeepProjects({ ghPages: true });
+  const { createLattice: createFullLattice, updateProject, linkLatticeToProject, lattices } = useMeepProjects();
   const { setCurrentBasisVectors, setCurrentLatticeType, triggerCanvasUpdate } = useLatticeStore();
 
   // Get lattices that are not already linked to this project

@@ -7,16 +7,11 @@ export const createLatticeSlice: StateCreator<
   [],
   LatticeSlice
 > = (set, get) => ({
-  lattices: [],
   selectedLatticeIds: new Set<string>(),
   lastSelectedLatticeId: null,
   isEditingLattice: false,
   createLatticeFn: null,
   deleteLatticeFn: null,
-  
-  setLattices: (lattices) => {
-    set({ lattices });
-  },
   
   setIsEditingLattice: (editing) => {
     set({ isEditingLattice: editing });
@@ -37,10 +32,12 @@ export const createLatticeSlice: StateCreator<
     newLatticeSelection.add(lattice.documentId);
     set({ 
       selectedLatticeIds: newLatticeSelection,
-      selectedProjectIds: new Set<string>(),
       lastSelectedLatticeId: lattice.documentId,
-      lastSelectedProjectId: null
     });
+    
+    // Clear project selection through the project slice
+    const { setSelectedProjects } = get();
+    setSelectedProjects(new Set<string>());
   },
   
   closeLattice: (latticeId) => {
@@ -52,17 +49,15 @@ export const createLatticeSlice: StateCreator<
   },
   
   setActiveLattice: (latticeId) => {
-    const { openTabs, setRightSidebarOpen, selectedLatticeIds, lattices } = get();
+    const { openTabs, setRightSidebarOpen, selectedLatticeIds } = get();
     const latticeTab = openTabs.find(t => t.id === `lattice-${latticeId}`);
     
     if (latticeTab) {
       get().setActiveTab(latticeTab.id);
     } else {
-      // If tab doesn't exist, open the lattice
-      const lattice = lattices.find(l => l.documentId === latticeId);
-      if (lattice) {
-        get().openLattice(lattice);
-      }
+      // If tab doesn't exist, we need to get lattice data from ProjectsStore
+      // The UI component should handle opening lattices via useMeepProjects
+      console.warn(`Lattice tab not found for latticeId: ${latticeId}`);
     }
     
     // Add to lattice selection
@@ -72,19 +67,12 @@ export const createLatticeSlice: StateCreator<
     setRightSidebarOpen(true);
     set({ 
       selectedLatticeIds: newLatticeSelection,
-      selectedProjectIds: new Set<string>(),
       lastSelectedLatticeId: latticeId,
-      lastSelectedProjectId: null
     });
-  },
-  
-  getActiveLattice: () => {
-    const { lattices, activeTabId, openTabs } = get();
-    const activeTab = openTabs.find(t => t.id === activeTabId);
-    if (activeTab?.latticeId) {
-      return lattices.find(l => l.documentId === activeTab.latticeId);
-    }
-    return undefined;
+    
+    // Clear project selection through the project slice
+    const { setSelectedProjects } = get();
+    setSelectedProjects(new Set<string>());
   },
   
   setSelectedLattices: (ids) => {
@@ -92,7 +80,7 @@ export const createLatticeSlice: StateCreator<
   },
   
   toggleLatticeSelection: (latticeId, isMulti, isRange) => {
-    const { selectedLatticeIds, lastSelectedLatticeId, lattices, activeTabId, openTabs } = get();
+    const { selectedLatticeIds, lastSelectedLatticeId, activeTabId, openTabs } = get();
     const activeTab = openTabs.find(t => t.id === activeTabId);
     const newSelection = new Set(selectedLatticeIds);
     
@@ -102,19 +90,9 @@ export const createLatticeSlice: StateCreator<
     }
     
     if (isRange && lastSelectedLatticeId) {
-      // Sort lattices alphabetically
-      const sortedLattices = [...lattices].sort((a, b) => a.title.localeCompare(b.title));
-      const lastIndex = sortedLattices.findIndex(l => l.documentId === lastSelectedLatticeId);
-      const currentIndex = sortedLattices.findIndex(l => l.documentId === latticeId);
-      
-      if (lastIndex !== -1 && currentIndex !== -1) {
-        const start = Math.min(lastIndex, currentIndex);
-        const end = Math.max(lastIndex, currentIndex);
-        
-        for (let i = start; i <= end; i++) {
-          newSelection.add(sortedLattices[i].documentId);
-        }
-      }
+      // For range selection, we need to get lattice data from ProjectsStore
+      // This should be handled by the UI component that has access to useMeepProjects
+      console.warn('Range selection requires lattice data - handle in UI component');
     } else if (isMulti) {
       // Toggle selection - but don't allow deselecting the active lattice
       if (newSelection.has(latticeId)) {

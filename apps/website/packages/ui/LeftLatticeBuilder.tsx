@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Square, RectangleHorizontal, Hexagon, Diamond, Triangle, Settings, Anchor, ChevronDown, ChevronRight, Superscript, Hash, Pi, CircleDot } from "lucide-react";
 import LatticeVectorDisplay from "./LatticeVectorDisplay";
 import { useEditorStateStore } from "../providers/EditorStateStore";
+import { useMeepProjects } from "../hooks/useMeepProjects";
+import { useProjectsStore } from "../stores/projects";
 import { Vector3 } from "packages/types/meepBaseTypes";
 import { useSpring, animated, config } from "@react-spring/web";
 
@@ -97,7 +99,9 @@ const rotateVector2D = (v: Vector3, angleDeg: number): Vector3 => {
 };
 
 export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps) {
-  const { createLattice, setLeftSidebarPanel } = useEditorStateStore();
+  // Only get the createLattice function (stable reference)
+  const createLattice = useProjectsStore((state) => state.createLattice);
+  const setLeftSidebarPanel = useEditorStateStore((state) => state.setLeftSidebarPanel);
   
   const [selectedLatticeType, setSelectedLatticeType] = useState<LatticeType>('square');
   const [hoveredLatticeType, setHoveredLatticeType] = useState<LatticeType | null>(null);
@@ -295,7 +299,7 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
         basis3: { x: 0, y: 0, z: 1 }, // Add the missing basis3
         basis_size: { x: 1, y: 1, z: 1 }
       };
-      parameters = {};
+      parameters = { a: length1, b: length2, alpha: angle };
     } else {
       // Generate basis vectors based on lattice type and parameters
       let generatedBasis1: Vector3 = { x: a, y: 0, z: 0 };
@@ -304,19 +308,19 @@ export default function LeftLatticeBuilder({ onCancel }: LeftLatticeBuilderProps
       switch (selectedLatticeType) {
         case 'square':
           generatedBasis2 = { x: 0, y: a, z: 0 };
-          parameters = { a };
+          parameters = { a, b: a, alpha: 90 };  // b = a for square
           break;
         case 'rectangular':
           generatedBasis2 = { x: 0, y: b, z: 0 };
-          parameters = { a, b };
+          parameters = { a, b, alpha: 90 };
           break;
         case 'hexagonal':
           generatedBasis2 = { x: a * Math.cos(120 * Math.PI / 180), y: a * Math.sin(120 * Math.PI / 180), z: 0 };
-          parameters = { a, alpha: 120 };  // Changed gamma to alpha
+          parameters = { a, b: a, alpha: 120 };  // b = a for hexagonal, alpha = 120
           break;
         case 'rhombic':
           generatedBasis2 = { x: a * Math.cos(alpha * Math.PI / 180), y: a * Math.sin(alpha * Math.PI / 180), z: 0 };  // Changed gamma to alpha
-          parameters = { a, alpha };  // Changed gamma to alpha
+          parameters = { a, b: a, alpha };  // b = a for rhombic
           break;
         case 'oblique':
           generatedBasis2 = { x: b * Math.cos(alpha * Math.PI / 180), y: b * Math.sin(alpha * Math.PI / 180), z: 0 };  // Changed gamma to alpha

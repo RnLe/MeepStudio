@@ -4,9 +4,25 @@ import { Lattice } from "../../types/meepLatticeTypes";
 // State slice for projects
 export interface ProjectStateSlice {
   projects: MeepProject[];
-  setProjects: (projects: MeepProject[]) => void;
+  lattices: Lattice[];
+  isLoading: boolean;
+  isUpdatingLattice: boolean;
   
-  // Computed getters
+  // Setters
+  setProjects: (projects: MeepProject[]) => void;
+  setLattices: (lattices: Lattice[]) => void;
+  setIsLoading: (isLoading: boolean) => void;
+  setIsUpdatingLattice: (isUpdating: boolean) => void;
+  
+  // CRUD operations
+  createProject: (project: Partial<MeepProject>) => Promise<MeepProject>;
+  updateProject: (data: { documentId: string; project: Partial<MeepProject> }) => Promise<MeepProject | undefined>;
+  deleteProject: (id: string) => Promise<void>;
+  createLattice: (lattice: Partial<Lattice>) => Promise<Lattice>;
+  updateLattice: (data: { documentId: string; lattice: Partial<Lattice> }) => Promise<Lattice | undefined>;
+  deleteLattice: (id: string) => Promise<void>;
+  
+  // Queries
   getProjectsUsingLattice: (latticeId: string) => MeepProject[];
   getProjectById: (id: string) => MeepProject | undefined;
 }

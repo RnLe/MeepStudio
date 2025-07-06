@@ -37,20 +37,17 @@ export interface TabSlice {
   removeCodeTabFromProject: (projectId: string) => void;
 }
 
-// Project Management Slice
+// Project Management Slice - UI State Only
 export interface ProjectSlice {
-  projects: MeepProject[];
   selectedProjectIds: Set<string>;
   lastSelectedProjectId: string | null;
   isEditingProject: boolean;
   
-  setProjects: (projects: MeepProject[]) => void;
   setIsEditingProject: (editing: boolean) => void;
   
   openProject: (project: MeepProject) => void;
   closeProject: (projectId: string) => void;
   setActiveProject: (projectId: string) => void;
-  getActiveProject: () => MeepProject | undefined;
   
   setSelectedProjects: (ids: Set<string>) => void;
   toggleProjectSelection: (projectId: string, isMulti: boolean, isRange: boolean) => void;
@@ -65,20 +62,17 @@ export interface ProjectSlice {
   deleteProject: (id: string) => Promise<void>;
 }
 
-// Lattice Management Slice
+// Lattice Management Slice - UI State Only  
 export interface LatticeSlice {
-  lattices: Lattice[];
   selectedLatticeIds: Set<string>;
   lastSelectedLatticeId: string | null;
   isEditingLattice: boolean;
   
-  setLattices: (lattices: Lattice[]) => void;
   setIsEditingLattice: (editing: boolean) => void;
   
   openLattice: (lattice: Lattice) => void;
   closeLattice: (latticeId: string) => void;
   setActiveLattice: (latticeId: string) => void;
-  getActiveLattice: () => Lattice | undefined;
   
   setSelectedLattices: (ids: Set<string>) => void;
   toggleLatticeSelection: (latticeId: string, isMulti: boolean, isRange: boolean) => void;

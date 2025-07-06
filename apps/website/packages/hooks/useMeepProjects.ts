@@ -1,130 +1,92 @@
 // src/hooks/useMeepProjects.ts
-import React from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MeepProject } from "../types/meepProjectTypes";
-import { Lattice } from "../types/meepLatticeTypes";
+// 
+// OPTIMIZED: Selective access to ProjectsStore to prevent unnecessary re-renders
+// Components only subscribe to the data they actually need
 import { useProjectsStore } from "../stores/projects";
-import { createLocalStorageService, createRemoteService } from "../services/projectService";
-import { useEditorStateStore } from "../providers/EditorStateStore";
+import { shallow } from "zustand/shallow";
 
-export const useMeepProjects = ({ ghPages }: { ghPages: boolean }) => {
-  const queryClient = useQueryClient();
-  const { setProjects, setLattices } = useProjectsStore();
-  const { setProjectManagementFunctions, setLatticeManagementFunctions } = useEditorStateStore();
-
-  // Choose service based on environment
-  const service = React.useMemo(
-    () => ghPages ? createLocalStorageService() : createRemoteService(),
-    [ghPages]
-  );
-
-  // Projects query
-  const projectsQuery = useQuery({
-    queryKey: ["meepProjects", ghPages ? "local" : "remote"],
-    queryFn: service.fetchProjects,
-    staleTime: ghPages ? Infinity : 1000 * 60 * 5,
-    refetchOnWindowFocus: !ghPages,
-  });
-
-  // Sync to store
-  React.useEffect(() => {
-    if (projectsQuery.data) {
-      setProjects(projectsQuery.data);
-    }
-  }, [projectsQuery.data, setProjects]);
-
-  // Lattices query
-  const latticesQuery = useQuery({
-    queryKey: ["meepLattices", ghPages ? "local" : "remote"],
-    queryFn: service.fetchLattices,
-    staleTime: ghPages ? Infinity : 1000 * 60 * 5,
-    refetchOnWindowFocus: !ghPages,
-  });
-
-  // Set lattices in store when they change
-  React.useEffect(() => {
-    if (latticesQuery.data) {
-      setLattices(latticesQuery.data);
-    }
-  }, [latticesQuery.data, setLattices]);
-
-  /* CREATE */
-  const createProjectMutation = useMutation({
-    mutationFn: service.createProject,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meepProjects"] }),
-  });
-
-  const updateProjectMutation = useMutation({
-    mutationFn: service.updateProject,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meepProjects"] }),
-  });
-
-  const deleteProjectMutation = useMutation({
-    mutationFn: service.deleteProject,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meepProjects"] }),
-  });
-
-  // Lattice mutations
-  const createLatticeMutation = useMutation({
-    mutationFn: (lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) =>
-      service.createLattice(lattice),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["meepLattices"] });
-    }
-  });
-
-  const updateLatticeMutation = useMutation({
-    mutationFn: service.updateLattice,
-    onSuccess: (data) => {
-      if (data) {
-        queryClient.invalidateQueries({ queryKey: ["meepLattices"] });
-      }
-    }
-  });
-
-  const deleteLatticeMutation = useMutation({
-    mutationFn: service.deleteLattice,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["meepLattices"] });
-    }
-  });
-
-  // Initialize store functions
-  React.useEffect(() => {
-    const createFn = async (lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) => {
-      // Correct usage: pass lattice directly, not as { lattice }
-      const result = await createLatticeMutation.mutateAsync(lattice);
-      return result;
-    };
-    const deleteFn = async (id: string) => {
-      await deleteLatticeMutation.mutateAsync(id);
-    };
-    setLatticeManagementFunctions(createFn, deleteFn);
-  }, [setLatticeManagementFunctions]);
+export const useMeepProjects = () => {
+  // Get individual properties to avoid creating new objects
+  const createProject = useProjectsStore((state) => state.createProject);
+  const updateProject = useProjectsStore((state) => state.updateProject);
+  const deleteProject = useProjectsStore((state) => state.deleteProject);
+  const createLattice = useProjectsStore((state) => state.createLattice);
+  const updateLattice = useProjectsStore((state) => state.updateLattice);
+  const deleteLattice = useProjectsStore((state) => state.deleteLattice);
+  const getProjectsUsingLattice = useProjectsStore((state) => state.getProjectsUsingLattice);
+  const getLatticesUsedByProject = useProjectsStore((state) => state.getLatticesUsedByProject);
+  const getProjectById = useProjectsStore((state) => state.getProjectById);
+  const getLatticeById = useProjectsStore((state) => state.getLatticeById);
+  
+  // Relationship functions
+  const linkLatticeToProject = useProjectsStore((state) => state.linkLatticeToProject);
+  const unlinkLatticeFromProject = useProjectsStore((state) => state.unlinkLatticeFromProject);
+  const syncCanvasLatticesWithFullLattice = useProjectsStore((state) => state.syncCanvasLatticesWithFullLattice);
+  
+  const projects = useProjectsStore((state) => state.projects);
+  const lattices = useProjectsStore((state) => state.lattices);
+  const isLoading = useProjectsStore((state) => state.isLoading);
 
   return {
-    // Data from queries
-    projects: projectsQuery.data || [],
-    lattices: latticesQuery.data || [],
-    isLoading: projectsQuery.isLoading || latticesQuery.isLoading,
-    error: projectsQuery.error || latticesQuery.error,
-    
-    // Mutations
-    createProject: createProjectMutation.mutateAsync,
-    updateProject: updateProjectMutation.mutateAsync,
-    deleteProject: deleteProjectMutation.mutateAsync,
-    createLattice: (lattice: Partial<Omit<Lattice, "documentId" | "createdAt" | "updatedAt">>) =>
-      createLatticeMutation.mutateAsync(lattice),
-    updateLattice: updateLatticeMutation.mutateAsync,
-    deleteLattice: deleteLatticeMutation.mutateAsync,
-    
-    // Store methods for computed values
-    getProjectsUsingLattice: useProjectsStore.getState().getProjectsUsingLattice,
-    getLatticesUsedByProject: useProjectsStore.getState().getLatticesUsedByProject,
-
-    // Relationship methods from store
-    linkLatticeToProject: useProjectsStore.getState().linkLatticeToProject,
-    unlinkLatticeFromProject: useProjectsStore.getState().unlinkLatticeFromProject,
-    syncCanvasLatticesWithFullLattice: useProjectsStore.getState().syncCanvasLatticesWithFullLattice,
+    // Data
+    projects,
+    lattices,
+    isLoading,
+    // Actions
+    createProject,
+    updateProject,
+    deleteProject,
+    createLattice,
+    updateLattice,
+    deleteLattice,
+    getProjectsUsingLattice,
+    getLatticesUsedByProject,
+    getProjectById,
+    getLatticeById,
+    // Relationship actions
+    linkLatticeToProject,
+    unlinkLatticeFromProject,
+    syncCanvasLatticesWithFullLattice,
   };
+};
+
+// Specialized hooks for components that only need specific actions
+export const useProjectActions = () => {
+  const createProject = useProjectsStore((state) => state.createProject);
+  const updateProject = useProjectsStore((state) => state.updateProject);
+  const deleteProject = useProjectsStore((state) => state.deleteProject);
+  const getProjectById = useProjectsStore((state) => state.getProjectById);
+  
+  return {
+    createProject,
+    updateProject,
+    deleteProject,
+    getProjectById,
+  };
+};
+
+export const useLatticeActions = () => {
+  const createLattice = useProjectsStore((state) => state.createLattice);
+  const updateLattice = useProjectsStore((state) => state.updateLattice);
+  const deleteLattice = useProjectsStore((state) => state.deleteLattice);
+  const getLatticeById = useProjectsStore((state) => state.getLatticeById);
+  
+  return {
+    createLattice,
+    updateLattice,
+    deleteLattice,
+    getLatticeById,
+  };
+};
+
+export const useProjectById = (projectId: string | undefined) => {
+  return useProjectsStore((state) => 
+    projectId ? state.getProjectById(projectId) : undefined
+  );
+};
+
+export const useLatticeById = (latticeId: string | undefined) => {
+  return useProjectsStore((state) => 
+    latticeId ? state.getLatticeById(latticeId) : undefined
+  );
 };

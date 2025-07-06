@@ -58,34 +58,62 @@ export const createLatticeSlice: StateCreator<
       return l;
     }),
   })),
+
+  // Simplified batch update for lattices (position only, no tied geometry logic)
+  updateLattices: (ids: string[], partial: Partial<any>) => set((s) => ({
+    lattices: s.lattices.map(l => {
+      if (ids.includes(l.id)) {
+        const updated = { ...l, ...partial };
+        if (partial.pos || partial.x !== undefined || partial.y !== undefined) {
+          updated.center = updated.pos || { x: updated.x, y: updated.y };
+        }
+        return updated;
+      }
+      return l;
+    }),
+  })),
   
-  removeLattice: (id) => set((s) => {
-    const lattice = s.lattices.find(l => l.id === id);
-    // Make tied geometry visible again when removing lattice
-    if (lattice?.tiedGeometryId) {
-      get().updateGeometry(lattice.tiedGeometryId, { invisible: false });
-    }
-    return {
-      lattices: s.lattices.filter(l => l.id !== id),
-      selectedGeometryIds: s.selectedGeometryIds.filter(selId => selId !== id),
-      selectedGeometryId: s.selectedGeometryId === id ? null : s.selectedGeometryId,
-    };
-  }),
-  
-  removeLattices: (ids) => set((s) => {
-    // Make all tied geometries visible again
-    ids.forEach(id => {
-      const lattice = s.lattices.find(l => l.id === id);
+  removeLattice: (id) => {
+    // Defer everything to prevent any hooks order violations
+    setTimeout(() => {
+      const lattice = get().lattices.find(l => l.id === id);
+      
+      // Update state
+      set((s) => ({
+        lattices: s.lattices.filter(l => l.id !== id),
+        selectedGeometryIds: s.selectedGeometryIds.filter(selId => selId !== id),
+        selectedGeometryId: s.selectedGeometryId === id ? null : s.selectedGeometryId,
+      }));
+      
+      // Then handle tied geometry
       if (lattice?.tiedGeometryId) {
         get().updateGeometry(lattice.tiedGeometryId, { invisible: false });
       }
-    });
-    return {
-      lattices: s.lattices.filter(l => !ids.includes(l.id)),
-      selectedGeometryIds: s.selectedGeometryIds.filter(selId => !ids.includes(selId)),
-      selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
-    };
-  }),
+    }, 0);
+  },
+  
+  removeLattices: (ids) => {
+    // Defer everything to prevent any hooks order violations
+    setTimeout(() => {
+      // Get the lattices that are about to be removed to handle tied geometries
+      const currentLattices = get().lattices;
+      const latticesToRemove = currentLattices.filter(l => ids.includes(l.id));
+      
+      // Update state
+      set((s) => ({
+        lattices: s.lattices.filter(l => !ids.includes(l.id)),
+        selectedGeometryIds: s.selectedGeometryIds.filter(selId => !ids.includes(selId)),
+        selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
+      }));
+      
+      // Then handle tied geometries
+      latticesToRemove.forEach(lattice => {
+        if (lattice?.tiedGeometryId) {
+          get().updateGeometry(lattice.tiedGeometryId, { invisible: false });
+        }
+      });
+    }, 0);
+  },
   
   linkLatticeToFullLattice: (canvasLatticeId, latticeDocumentId) => {
     get().updateLattice(canvasLatticeId, { latticeDocumentId });
@@ -113,13 +141,16 @@ export const createLatticeSlice: StateCreator<
   syncLatticesFromProject: (project) => {
     if (!project?.scene?.lattices) return;
     
-    set({ 
-      lattices: project.scene.lattices.map((l: any) => ({
-        ...l,
-        center: l.center || l.pos || { x: 0, y: 0 }
-      }))
-    });
-    
-    console.log('🔄 Synced lattices from project:', project.scene.lattices);
+    // Defer the set call to prevent hooks order violations
+    setTimeout(() => {
+      set({ 
+        lattices: project.scene.lattices.map((l: any) => ({
+          ...l,
+          center: l.center || l.pos || { x: 0, y: 0 }
+        }))
+      });
+      
+      console.log('🔄 Synced lattices from project:', project.scene.lattices);
+    }, 0);
   },
 });

@@ -6,7 +6,6 @@ import ObjectsList from "./ObjectList";
 import ObjectPropertiesPanel from "./ObjectPropertiesPanels";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useCanvasStore } from "../providers/CanvasStore";
-import { useQueryClient } from "@tanstack/react-query";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import { MaterialSelectionMenu } from "./MaterialSelectionMenu";
 import { MaterialCatalog } from "../constants/meepMaterialPresets";
@@ -55,12 +54,11 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
   const { getMaterialColor } = useMaterialColorStore();
   const setSceneMaterial = useCanvasStore((s) => s.setSceneMaterial);
 
-  const { updateProject } = useMeepProjects({ ghPages });
+  const { updateProject } = useMeepProjects();
   const setGeometries = useCanvasStore((s) => s.setGeometries);
   const setSources = useCanvasStore((s) => s.setSources);
   const setBoundaries = useCanvasStore((s) => s.setBoundaries);
   const setLattices = useCanvasStore((s) => s.setLattices);
-  const qc = useQueryClient();
 
   React.useEffect(() => {
     setEditValues({
@@ -75,7 +73,12 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     if (project?.scene?.geometries) setGeometries(project.scene.geometries);
     if (project?.scene?.sources) setSources(project.scene.sources);
     if (project?.scene?.boundaries) setBoundaries(project.scene.boundaries);
-    if (project?.scene?.lattices) setLattices(project.scene.lattices);
+    if (project?.scene?.lattices) {
+      // Defer lattice setting to prevent hooks order violations during deletion
+      setTimeout(() => {
+        setLattices(project.scene?.lattices || []);
+      }, 0);
+    }
     if (project?.scene?.material) setSceneMaterial(project.scene.material);
   }, [project, setGeometries, setSources, setBoundaries, setLattices, setSceneMaterial]);
 
@@ -121,7 +124,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
         documentId: project.documentId,
         project: updated,
       });
-      qc.invalidateQueries({ queryKey: ["meepProjects"] });
+      // Project updated automatically through Zustand store
       refreshProjectInStore(updated);
     }
   };
@@ -389,10 +392,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
             <ObjectsList project={project} />
             <hr className="border-gray-700" />
             <ObjectPropertiesPanel 
-              project={project} 
               ghPages={ghPages}
-              projectA={project?.scene?.a || 1}
-              projectUnit={project?.scene?.unit || LengthUnit.NM}
             />
             
             {/* Actions */}

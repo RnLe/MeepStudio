@@ -66,7 +66,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
     }
     
     try {
-      await createProject({
+      const newProject = await createProject({
         title,
         scene: {
           dimension,
@@ -76,11 +76,19 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
           a: newA,
           unit: newUnit,
           geometries: [],
+          sources: [],
+          boundaries: [],
+          lattices: [],
         },
         description: newDescription.trim() || undefined,
       });
       
-      onClose();
+      if (newProject) {
+        console.log('Project created successfully:', newProject);
+        onClose();
+      } else {
+        console.error('Failed to create project - no project returned');
+      }
     } catch (error) {
       console.error("Failed to create project", error);
     }

@@ -26,7 +26,7 @@ export const SceneCylinderProperties: React.FC<SceneCylinderPropertiesProps> = (
   projectUnit = LengthUnit.NM
 }) => {
   const { updateGeometry } = useCanvasStore();
-  const { updateProject } = useMeepProjects({ ghPages });
+  const { updateProject } = useMeepProjects();
   const { getMaterialColor } = useMaterialColorStore();
   
   const [showUnits, setShowUnits] = React.useState(false);

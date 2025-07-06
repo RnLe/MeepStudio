@@ -128,15 +128,8 @@ const overlayTools: Tool[] = [
     fnKey: "toggleShowResolutionOverlay",
   },
   {
-    label: "Show Canvas Info",
-    icon: <Info size={18} className="" />,
-    onClick: (toggleShowCanvasInfo: () => void) => toggleShowCanvasInfo(),
-    isActive: (state: { showCanvasInfo: boolean }) => state.showCanvasInfo,
-    fnKey: "toggleShowCanvasInfo",
-  },
-  {
     label: "X-Ray Mode",
-    icon: <Eye size={18} className="" />,
+    icon: <CustomLucideIcon src="/icons/transparency.svg" size={18} className="" />,
     onClick: (toggleShowXRayMode: () => void) => toggleShowXRayMode(),
     isActive: (state: { showXRayMode: boolean }) => state.showXRayMode,
     fnKey: "toggleShowXRayMode",
@@ -147,6 +140,13 @@ const overlayTools: Tool[] = [
     onClick: (toggleShowColors: () => void) => toggleShowColors(),
     isActive: (state: { showColors: boolean }) => state.showColors,
     fnKey: "toggleShowColors",
+  },
+  {
+    label: "Show Canvas Info",
+    icon: <Info size={18} className="" />,
+    onClick: (toggleShowCanvasInfo: () => void) => toggleShowCanvasInfo(),
+    isActive: (state: { showCanvasInfo: boolean }) => state.showCanvasInfo,
+    fnKey: "toggleShowCanvasInfo",
   },
 ];
 
@@ -162,12 +162,6 @@ const sourceTools: Tool[] = [
     icon: <CustomLucideIcon src="/icons/gauss_wave_package.svg" size={32} />,
     onClick: (fn: () => void) => fn(),
     fnKey: "newGaussianSource",
-  },
-  {
-    label: "Eigenmode Source",
-    icon: <CustomLucideIcon src="/icons/quantum_harmonic_oscillator.svg" size={32} />,
-    onClick: (fn: () => void) => fn(),
-    fnKey: "newEigenModeSource",
   },
 ];
 
@@ -278,7 +272,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const showColors = useCanvasStore((s) => s.showColors);
   const toggleShowColors = useCanvasStore((s) => s.toggleShowColors);
   const getElementColorVisibility = useCanvasStore((s) => s.getElementColorVisibility);
-  const { updateProject } = useMeepProjects({ ghPages });
+  const { updateProject } = useMeepProjects();
   const setLattices = useCanvasStore((s) => s.setLattices);
   
   const projectId = project.documentId;
@@ -410,27 +404,6 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
       kind: "gaussianSource",
       id: nanoid(),
       pos,
-    };
-    addSource(newSource);
-    updateProject({
-      documentId: projectId,
-      project: {
-        scene: {
-          ...project.scene,
-          sources: [...sources, newSource],
-        },
-      },
-    });
-  };
-  const newEigenModeSource = () => {
-    const pos = { x: 3, y: 3 };
-    const defaults = getSourceDefaults('eigenmode');
-    const newSource = {
-      ...defaults,
-      kind: "eigenModeSource",
-      id: nanoid(),
-      pos,
-      eig_resolution: 2 * (project.scene?.resolution || 10),
     };
     addSource(newSource);
     updateProject({
@@ -612,7 +585,6 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newTriangle,
     newContinuousSource,
     newGaussianSource,
-    newEigenModeSource,
     newPMLBoundary,
     newLattice,
     toggleShowGrid,
@@ -738,11 +710,9 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                             : tool.label
                         }
                         className={`flex items-center justify-center w-8 h-8 rounded transition-all
-                          ${tool.isActive && tool.isActive({ gridSnapping, resolutionSnapping, showGrid, showResolutionOverlay, showCanvasInfo, showXRayMode, showColors })
+                          ${tool.isActive && tool.isActive({ gridSnapping, resolutionSnapping, showGrid, showResolutionOverlay, showCanvasInfo, showXRayMode, showColors }) && !isColorTool
                             ? activeColor
-                            : isColorToolActive 
-                              ? "" // No hover effect when color tool is active
-                              : "hover:bg-neutral-600 active:bg-neutral-600"}
+                            : "hover:bg-neutral-600 active:bg-neutral-600"}
                         `}
                         onClick={() => {
                           if (tool.fnKey === "toggleGridSnapping") {
@@ -848,7 +818,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
             onLatticeCreated={() => {
               // Refresh lattices from the project after creation
               if (project.scene?.lattices) {
-                setLattices(project.scene.lattices);
+                setLattices(project.scene?.lattices || []);
               }
               setShowLatticeModal(false);
             }}

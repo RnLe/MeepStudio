@@ -38,6 +38,20 @@ export const createSourceSlice: StateCreator<
       return src;
     }),
   })),
+
+  updateSources: (ids: string[], partial: Partial<any>) => set((s) => ({
+    sources: s.sources.map(src => {
+      if (ids.includes(src.id)) {
+        const updated = { ...src, ...partial };
+        // Update center if position changed
+        if (partial.pos || partial.x !== undefined || partial.y !== undefined) {
+          updated.center = updated.pos || { x: updated.x, y: updated.y };
+        }
+        return updated;
+      }
+      return src;
+    }),
+  })),
   
   removeSource: (id) => set((s) => ({
     sources: s.sources.filter(src => src.id !== id),
