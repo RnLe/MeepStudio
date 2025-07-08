@@ -44,6 +44,7 @@ async function buildProject(p: CreatableProjectFields): Promise<MeepProject> {
     unit: p.scene?.unit ?? LengthUnit.NM,
     geometries: p.scene?.geometries ?? [],
     sources: p.scene?.sources ?? [],
+    runTime: p.scene?.runTime ?? 10, // Add the missing runTime property
   };
 
   const defaultCode: ProjectCode | undefined = p.code ? {
