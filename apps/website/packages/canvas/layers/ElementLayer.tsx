@@ -264,17 +264,6 @@ function renderElement(
   }
   
   if (element.type === 'regionBox') {
-    return (
-      <RegionBoxRenderer
-        regionBox={element as any}
-        isSelected={isSelected}
-        scale={scale}
-        GRID_PX={GRID_PX}
-      />
-    );
-  }
-  
-  if (element.type === 'regionBox') {
     // For region boxes with resize handles, we return a special structure when selected
     if (isSelected && !element.locked && selectedIds?.length === 1) {
       return (
