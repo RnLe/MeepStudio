@@ -2,7 +2,7 @@
 import React from "react";
 import { X, Pen } from "lucide-react";
 import { useEditorStateStore, Tab } from "../providers/EditorStateStore";
-import { useMeepProjects } from "../hooks/useMeepProjects";
+import { useMeepProjects, useProjectById, useLatticeById } from "../hooks/useMeepProjects";
 import { useProjectsStore } from "../stores/projects";
 import RightProjectPanel from "./RightProjectPanel";
 import RightLatticePanel from "./RightLatticePanel";
@@ -23,13 +23,12 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
   const activeTabId = useEditorStateStore((state) => state.activeTabId);
 
   const getProjectById = useProjectsStore((state) => state.getProjectById);
-  const getLatticeById = useProjectsStore((state) => state.getLatticeById);
 
   const activeTab = getActiveTab();
   
-  // Get project and lattice data from the correct store
-  const activeProject = activeTab?.projectId ? getProjectById(activeTab.projectId) : undefined;
-  const activeLattice = activeTab?.latticeId ? getLatticeById(activeTab.latticeId) : undefined;
+  // Get project and lattice data using the specialized hooks that properly subscribe to changes
+  const activeProject = useProjectById(activeTab?.projectId);
+  const activeLattice = useLatticeById(activeTab?.latticeId);
 
   // Debug logging
   if (activeTab && !activeProject && !activeLattice) {
@@ -77,6 +76,46 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
       setIsEditingLattice(false);
     }
   };
+
+  const contentRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle wheel events to prevent sidebar scrolling when over interactive elements
+  React.useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Check if the target or any of its parents is a number input, dial, or other interactive element
+      let currentElement: HTMLElement | null = target;
+      while (currentElement) {
+        // Check for number inputs
+        if (currentElement.tagName === 'INPUT' && 
+            (currentElement as HTMLInputElement).type === 'number') {
+          // Only prevent scrolling, don't stop the event from reaching the input
+          e.preventDefault();
+          return;
+        }
+        
+        // Check for elements with data attributes indicating they handle wheel events
+        if (currentElement.hasAttribute('data-prevents-scroll') ||
+            currentElement.classList.contains('dial-container') ||
+            currentElement.classList.contains('prevent-scroll')) {
+          // Only prevent scrolling, don't stop the event from reaching the component
+          e.preventDefault();
+          return;
+        }
+        
+        currentElement = currentElement.parentElement;
+      }
+    };
+
+    const contentElement = contentRef.current;
+    if (contentElement) {
+      contentElement.addEventListener('wheel', handleWheel, { passive: false });
+      return () => {
+        contentElement.removeEventListener('wheel', handleWheel);
+      };
+    }
+  }, []);
 
   return (
     <div className="w-80 h-full bg-neutral-800 flex flex-col overflow-hidden">
@@ -127,7 +166,7 @@ const RightSidebar: React.FC<Props> = ({ onClose }) => {
       </div>
 
       {/* Content container with overflow handling */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col">
         {/* Content based on active tab type */}
         {activeMainTabType === "project" && activeProject && (
           <RightProjectPanel 

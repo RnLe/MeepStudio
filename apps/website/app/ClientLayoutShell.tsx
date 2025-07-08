@@ -6,7 +6,7 @@ import { TopNavBar } from 'src/ui/topNavBar'
 
 export function ClientLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const showTopNavBar = !pathname.startsWith('/meepstudio')
+  const showTopNavBar = false
 
   return (
     <ClientThemeProvider attribute="class" defaultTheme="system" enableSystem>

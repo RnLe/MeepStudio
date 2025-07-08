@@ -7,12 +7,14 @@ export interface ProjectStateSlice {
   lattices: Lattice[];
   isLoading: boolean;
   isUpdatingLattice: boolean;
+  isChangingLatticeType: boolean;
   
   // Setters
   setProjects: (projects: MeepProject[]) => void;
   setLattices: (lattices: Lattice[]) => void;
   setIsLoading: (isLoading: boolean) => void;
   setIsUpdatingLattice: (isUpdating: boolean) => void;
+  setIsChangingLatticeType: (isChanging: boolean) => void;
   
   // CRUD operations
   createProject: (project: Partial<MeepProject>) => Promise<MeepProject>;

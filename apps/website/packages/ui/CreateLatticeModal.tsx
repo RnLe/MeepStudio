@@ -42,27 +42,34 @@ export default function CreateLatticeModal({
     
     try {
       // Set lattice parameters based on selected type
-      let parameters = { a: 1, b: 1, alpha: 90, gamma: 90 };
+      let parameters: { a: number; b: number; alpha: number };
       let basis1 = { x: 1, y: 0, z: 0 };
-      let basis2 = { x: 0, y: 1, z: 0 };
+      let basis2: { x: number; y: number; z: number };
 
       switch (latticeType) {
-        case 'hexagonal':
-          parameters = { a: 1, b: 1, alpha: 90, gamma: 120 };
-          basis2 = { x: -0.5, y: Math.sqrt(3)/2, z: 0 };
-          break;
-        case 'rhombic':
-          parameters = { a: 1, b: 1, alpha: 90, gamma: 60 };
-          basis2 = { x: 0.5, y: Math.sqrt(3)/2, z: 0 };
-          break;
-        case 'oblique':
-          parameters = { a: 1, b: 1.2, alpha: 90, gamma: 75 };
-          basis2 = { x: 0.259, y: 1.161, z: 0 };
+        case 'square':
+          parameters = { a: 1, b: 1, alpha: 90 };
+          basis2 = { x: 0, y: 1, z: 0 };
           break;
         case 'rectangular':
-          parameters = { a: 1, b: 1.5, alpha: 90, gamma: 90 };
+          parameters = { a: 1, b: 1.5, alpha: 90 };
           basis2 = { x: 0, y: 1.5, z: 0 };
           break;
+        case 'hexagonal':
+          parameters = { a: 1, b: 1, alpha: 120 };
+          basis2 = { x: 1 * Math.cos(120 * Math.PI / 180), y: 1 * Math.sin(120 * Math.PI / 180), z: 0 };
+          break;
+        case 'rhombic':
+          parameters = { a: 1, b: 1, alpha: 60 };
+          basis2 = { x: 1 * Math.cos(60 * Math.PI / 180), y: 1 * Math.sin(60 * Math.PI / 180), z: 0 };
+          break;
+        case 'oblique':
+          parameters = { a: 1, b: 1.2, alpha: 75 };
+          basis2 = { x: 1.2 * Math.cos(75 * Math.PI / 180), y: 1.2 * Math.sin(75 * Math.PI / 180), z: 0 };
+          break;
+        default:
+          parameters = { a: 1, b: 1, alpha: 90 };
+          basis2 = { x: 0, y: 1, z: 0 };
       }
 
       const lattice = await createLattice({
@@ -73,7 +80,7 @@ export default function CreateLatticeModal({
           basis1,
           basis2,
           basis3: { x: 0, y: 0, z: 1 },
-          basis_size: { x: parameters.a, y: parameters.b, z: 1 }
+          basis_size: { x: 1, y: 1, z: 1 }
         },
         parameters,
         displaySettings: {

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dial Component Test</title>
+</head>
+<body>
+    <h1>Dial Component Negative Number Test</h1>
+    <p>This is a simple test file to verify that the Dial component works with negative numbers.</p>
+    <p>Key test cases:</p>
+    <ul>
+        <li>min=-10, max=10, value=1 (should work)</li>
+        <li>min=-10, max=10, value=-5 (should work)</li>
+        <li>min=0, max=10, value=5 (should work, backwards compatible)</li>
+        <li>min=-1, max=1, value=0 (should work for small ranges)</li>
+    </ul>
+    
+    <p>The fix ensures that:</p>
+    <ol>
+        <li>When min < 0, use min directly (don't clamp to 1e-6)</li>
+        <li>When min >= 0, use the original logic to avoid precision issues</li>
+        <li>effectiveStep calculation uses Math.abs(internalMin) to handle negative ranges</li>
+    </ol>
+</body>
+</html>

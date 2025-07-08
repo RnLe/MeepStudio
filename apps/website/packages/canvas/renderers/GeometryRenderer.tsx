@@ -80,14 +80,49 @@ export const GeometryRenderer: React.FC<GeometryRendererProps> = ({
       );
     
     case 'triangle':
-      return (
-        <Line
-          points={geometry.vertices.flatMap((v: any) => [v.x * GRID_PX, v.y * GRID_PX])}
-          closed
-          fill={fillColor}
-          stroke={strokeColor}
-          strokeWidth={strokeWidth}
-        />
-      );
+      if (isSelected) {
+        // Render triangle with colored edges when selected
+        const vertices = geometry.vertices;
+        const vertexColors = ['#a855f7', '#ec4899', '#f59e0b']; // purple, pink, amber
+        
+        return (
+          <Group>
+            {/* Fill triangle */}
+            <Line
+              points={vertices.flatMap((v: any) => [v.x * GRID_PX, v.y * GRID_PX])}
+              closed
+              fill={fillColor}
+              stroke="transparent"
+              strokeWidth={0}
+            />
+            {/* Colored edges */}
+            {vertices.map((vertex: any, i: number) => {
+              const nextVertex = vertices[(i + 1) % vertices.length];
+              return (
+                <Line
+                  key={i}
+                  points={[
+                    vertex.x * GRID_PX, vertex.y * GRID_PX,
+                    nextVertex.x * GRID_PX, nextVertex.y * GRID_PX
+                  ]}
+                  stroke={vertexColors[i]}
+                  strokeWidth={Math.max(2, strokeWidth)}
+                />
+              );
+            })}
+          </Group>
+        );
+      } else {
+        // Normal triangle rendering when not selected
+        return (
+          <Line
+            points={geometry.vertices.flatMap((v: any) => [v.x * GRID_PX, v.y * GRID_PX])}
+            closed
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+          />
+        );
+      }
   }
 };

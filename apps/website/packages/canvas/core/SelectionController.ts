@@ -48,6 +48,8 @@ export class SelectionController {
           return this.pointInBox(elem.pos, box);
         case 'lattice':
           return this.pointInBox(elem.pos, box);
+        case 'fluxRegion':
+          return this.regionIntersectsBox(elem, box);
         case 'pmlBoundary':
           // Boundaries are handled differently - they don't have a position
           return false;
@@ -160,5 +162,39 @@ export class SelectionController {
     // Implementation of edge intersection check
     // Simplified for brevity - would check if triangle edges cross box edges
     return false;
+  }
+
+  private static regionIntersectsBox(
+    region: any,
+    box: { x: number; y: number; width: number; height: number }
+  ): boolean {
+    const sizeX = region.size?.x || 0;
+    const sizeY = region.size?.y || 0;
+    
+    // Determine region type
+    if (sizeX === 0 && sizeY === 0) {
+      // Point region
+      return this.pointInBox(region.pos, box);
+    } else if (sizeX === 0 || sizeY === 0) {
+      // Line region - treat as a rectangle with very small width/height
+      const rx = region.pos.x - sizeX / 2;
+      const ry = region.pos.y - sizeY / 2;
+      return (
+        rx < box.x + box.width &&
+        rx + sizeX > box.x &&
+        ry < box.y + box.height &&
+        ry + sizeY > box.y
+      );
+    } else {
+      // Area region - treat as rectangle
+      const rx = region.pos.x - sizeX / 2;
+      const ry = region.pos.y - sizeY / 2;
+      return (
+        rx < box.x + box.width &&
+        rx + sizeX > box.x &&
+        ry < box.y + box.height &&
+        ry + sizeY > box.y
+      );
+    }
   }
 }

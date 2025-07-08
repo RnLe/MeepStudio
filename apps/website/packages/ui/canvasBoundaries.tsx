@@ -4,12 +4,12 @@ import React, { useState } from "react";
 import { Group, Rect, Line, Text } from "react-konva";
 import { useCanvasStore } from "../providers/CanvasStore";
 
-// PML parameter set colors
+// PML parameter set colors - vintage palette with better distinction
 const PARAM_SET_COLORS: Record<number, string> = {
-  0: '#1e2939',    // dark blue-gray
-  1: '#392e1e',    // dark brown
-  2: '#211e39',    // dark purple
-  3: '#36391e'     // dark olive
+  0: '#2d4b6b',    // lighter dark blue for better contrast
+  1: '#8B4513',    // saddle brown - vintage leather
+  2: '#DC143C',    // crimson red - vintage ruby
+  3: '#DAA520'     // goldenrod - vintage brass
 };
 
 interface BoundaryLayerProps {
@@ -59,9 +59,7 @@ export const BoundaryLayer: React.FC<BoundaryLayerProps> = ({
   // ========== small helper ==========
   const getEffectiveAssignment = (b: any, edge: 'top' | 'bottom' | 'left' | 'right') => {
     const explicit = b.edgeAssignments?.[edge];
-    if (explicit !== undefined) return explicit;              // explicit mapping
-    if (b.parameterSets?.[0]?.active) return 0;               // implicit PS-0
-    return undefined;                                         // nothing active
+    return explicit; // Only return explicit assignments, no fallback
   };
   // ==================================
 

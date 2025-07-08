@@ -3,6 +3,7 @@ import { ProjectsStore, ProjectStateSlice } from '../types';
 import { nanoid } from "nanoid";
 import { MeepProject, ProjectScene, ProjectCode, ProjectLattice, LengthUnit } from '../../../types/meepProjectTypes';
 import { Lattice } from 'packages/types/meepLatticeTypes';
+import { getWasmModule } from '../../../utils/wasmLoader';
 
 // Storage keys
 const PROJECTS_STORAGE_KEY = 'meep-projects';
@@ -19,10 +20,15 @@ async function buildProject(p: Partial<MeepProject>): Promise<MeepProject> {
     rectWidth: p.scene?.rectWidth ?? 10,
     rectHeight: p.scene?.rectHeight ?? 10,
     resolution: p.scene?.resolution ?? 4,
+    runTime: p.scene?.runTime ?? 100,
     a: p.scene?.a ?? 1.0,
     unit: p.scene?.unit ?? LengthUnit.NM,
+    material: p.scene?.material ?? "Vacuum",
     geometries: p.scene?.geometries ?? [],
     sources: p.scene?.sources ?? [],
+    boundaries: p.scene?.boundaries ?? [],
+    regions: p.scene?.regions ?? [],
+    lattices: p.scene?.lattices ?? [],
   };
 
   const defaultCode: ProjectCode | undefined = p.code ? {
@@ -64,6 +70,77 @@ async function buildLattice(l: Partial<Lattice>): Promise<Lattice> {
     meepLattice.basis3 = { x: 0, y: 0, z: 1 };
   }
   
+  // Calculate reciprocal basis vectors using WASM
+  try {
+    const wasm = await getWasmModule();
+    
+    // Get scaled basis vectors
+    const a1 = {
+      x: meepLattice.basis1.x * meepLattice.basis_size.x,
+      y: meepLattice.basis1.y * meepLattice.basis_size.y,
+      z: meepLattice.basis1.z * meepLattice.basis_size.z
+    };
+    const a2 = {
+      x: meepLattice.basis2.x * meepLattice.basis_size.x,
+      y: meepLattice.basis2.y * meepLattice.basis_size.y,
+      z: meepLattice.basis2.z * meepLattice.basis_size.z
+    };
+    
+    // For 2D lattices, calculate reciprocal basis manually
+    const det = a1.x * a2.y - a1.y * a2.x;
+    if (Math.abs(det) > 1e-14) {
+      const factor = 2 * Math.PI / det;
+      meepLattice.reciprocal_basis1 = { 
+        x: a2.y * factor, 
+        y: -a2.x * factor,
+        z: 0 
+      };
+      meepLattice.reciprocal_basis2 = { 
+        x: -a1.y * factor, 
+        y: a1.x * factor,
+        z: 0 
+      };
+      meepLattice.reciprocal_basis3 = { x: 0, y: 0, z: 2 * Math.PI };
+      
+      // Calculate transformation matrices if available
+      if (wasm.calculate_lattice_transformations) {
+        try {
+          const matrices = wasm.calculate_lattice_transformations(
+            a1.x, a1.y,
+            a2.x, a2.y,
+            meepLattice.reciprocal_basis1.x, meepLattice.reciprocal_basis1.y,
+            meepLattice.reciprocal_basis2.x, meepLattice.reciprocal_basis2.y
+          );
+          
+          // Convert 2x2 matrices to 3x3
+          const expandMatrix = (m: any): number[][] => {
+            if (!m || !Array.isArray(m)) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+            return [
+              [m[0][0], m[0][1], 0],
+              [m[1][0], m[1][1], 0],
+              [0, 0, 1]
+            ];
+          };
+          
+          meepLattice.transformationMatrices = {
+            MA: expandMatrix(matrices.MA),
+            MA_inv: expandMatrix(matrices.MA_inv),
+            MB: expandMatrix(matrices.MB),
+            MB_inv: expandMatrix(matrices.MB_inv),
+            realToReciprocal: expandMatrix(matrices.realToReciprocal),
+            reciprocalToReal: expandMatrix(matrices.reciprocalToReal)
+          };
+        } catch (error) {
+          console.warn("Failed to calculate transformation matrices:", error);
+        }
+      }
+    } else {
+      console.warn("Basis vectors are collinear - cannot build reciprocal lattice");
+    }
+  } catch (error) {
+    console.warn("Failed to calculate reciprocal lattice:", error);
+  }
+  
   return {
     documentId: nanoid(),
     createdAt: timestamp,
@@ -93,6 +170,7 @@ export const createProjectStateSlice: StateCreator<
   lattices: [],
   isLoading: false,
   isUpdatingLattice: false,
+  isChangingLatticeType: false,
   
   setIsLoading: (isLoading) => {
     set({ isLoading });
@@ -100,6 +178,10 @@ export const createProjectStateSlice: StateCreator<
   
   setIsUpdatingLattice: (isUpdating) => {
     set({ isUpdatingLattice: isUpdating });
+  },
+  
+  setIsChangingLatticeType: (isChanging) => {
+    set({ isChangingLatticeType: isChanging });
   },
   
   setProjects: (projects) => {
@@ -163,7 +245,6 @@ export const createProjectStateSlice: StateCreator<
   updateLattice: async ({ documentId, lattice }) => {
     const { isUpdatingLattice } = get();
     if (isUpdatingLattice) {
-      console.log('⚠️ Skipping recursive updateLattice call');
       return undefined;
     }
     
@@ -184,10 +265,10 @@ export const createProjectStateSlice: StateCreator<
       );
       set({ lattices });
       
-      // Defer canvas sync to avoid loops
+      // Defer canvas sync to avoid loops - increased delay to ensure component updates complete
       setTimeout(() => {
         get().syncCanvasLatticesWithFullLattice(documentId);
-      }, 0);
+      }, 200); // Increased from 0 to 200ms
       
       return updated;
     } finally {

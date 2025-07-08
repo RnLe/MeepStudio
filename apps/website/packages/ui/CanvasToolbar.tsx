@@ -5,11 +5,13 @@ import { Cylinder, Rectangle, Triangle } from "../types/canvasElementTypes";
 import { nanoid } from "nanoid";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { MeepProject } from "../types/meepProjectTypes";
-import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker, Shield, MoreHorizontal, Eye, Palette, Sparkles } from "lucide-react";
+import { Circle, Square, Triangle as LucideTriangle, Grid2X2, Grid, Info, BadgeInfo, Zap, Radio, Waves, Beaker, Shield, MoreHorizontal, Eye, Palette, Sparkles, Target, ArrowRight } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { calculateGeometryCenter } from "../utils/geometryCalculations";
 import { getSourceDefaults } from "../constants/sourceDefaults";
 import { getBoundaryDefaults } from "../constants/boundaryDefaults";
+import { getRegionDefaults } from "../constants/regionDefaults";
+import { RegionDirection } from "../types/meepRegionTypes";
 import { MaterialCatalog } from "../constants/meepMaterialPresets";
 import { useMaterialColorStore } from "../providers/MaterialColorStore";
 import MaterialLibraryModal from "./MaterialLibraryModal";
@@ -168,9 +170,39 @@ const sourceTools: Tool[] = [
 const boundaryTools: Tool[] = [
   {
     label: "PML Boundary",
-    icon: <Shield size={18} />,
+    icon: (
+      <div className="w-full h-full flex items-center justify-center border-2 border-neutral-400 bg-neutral-700/50 text-gray-300" style={{ borderRadius: 0 }}>
+        <span className="font-semibold text-xs">PML</span>
+      </div>
+    ),
     onClick: (fn: () => void) => fn(),
     fnKey: "newPMLBoundary",
+    fullRow: true,
+  },
+];
+
+const regionTools: Tool[] = [
+  {
+    label: "Add Region",
+    icon: (
+      <div className="w-full h-full flex items-center justify-center text-gray-300">
+        <span className="font-semibold text-xs">Add +</span>
+      </div>
+    ),
+    onClick: (fn: () => void) => fn(),
+    fnKey: "newFluxRegion",
+    fullRow: true,
+  },
+  {
+    label: "Region Box",
+    icon: (
+      <div className="w-full h-full flex items-center justify-center border border-neutral-400 text-gray-300" style={{ borderRadius: 0 }}>
+        <span className="font-semibold text-xs">BOX</span>
+      </div>
+    ),
+    onClick: (fn: () => void) => fn(),
+    fnKey: "newRegionBox",
+    fullRow: true,
   },
 ];
 
@@ -240,7 +272,7 @@ const groupToolMap: Record<GroupKey, Tool[]> = {
   materials: [], // Will be handled separately
   sources: sourceTools,
   boundaries: boundaryTools,
-  regions: [],
+  regions: regionTools,
   overlays: overlayTools,
 };
 
@@ -260,6 +292,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const addGeometry = useCanvasStore((s) => s.addGeometry);
   const addSource = useCanvasStore((s) => s.addSource);
   const addBoundary = useCanvasStore((s) => s.addBoundary);
+  const addRegion = useCanvasStore((s) => s.addRegion);
+  const addRegionBox = useCanvasStore((s) => s.addRegionBox);
   const addLattice = useCanvasStore((s) => s.addLattice);
   const showGrid = useCanvasStore((s) => s.showGrid);
   const toggleShowGrid = useCanvasStore((s) => s.toggleShowGrid);
@@ -279,6 +313,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   const geometries = project.scene?.geometries || [];
   const sources = project.scene?.sources || [];
   const boundaries = project.scene?.boundaries || [];
+  const regions = project.scene?.regions || [];
   const lattices = project.scene?.lattices || [];
   const selectedGeometryIds = useCanvasStore((s) => s.selectedGeometryIds);
   const updateGeometry = useCanvasStore((s) => s.updateGeometry);
@@ -287,6 +322,12 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   
   // Add state for lattice modal
   const [showLatticeModal, setShowLatticeModal] = React.useState(false);
+  
+  // Helper function to get canvas midpoint
+  const getCanvasMidpoint = () => ({
+    x: (project.scene?.rectWidth || 16) / 2,
+    y: (project.scene?.rectHeight || 8) / 2,
+  });
   
   // State for X-Ray transparency slider
   const [showXRaySlider, setShowXRaySlider] = React.useState(false);
@@ -312,7 +353,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   }, [materialFavorites]);
   
   const newCylinder = () => {
-    const pos = { x: 1, y: 1 };
+    const pos = getCanvasMidpoint();
     const newGeom = {
       kind: "cylinder",
       id: nanoid(),
@@ -332,7 +373,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     });
   };
   const newRect = () => {
-    const pos = { x: 1, y: 1 };
+    const pos = getCanvasMidpoint();
     const newGeom = {
       kind: "rectangle",
       id: nanoid(),
@@ -353,15 +394,16 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     });
   };
   const newTriangle = () => {
-    const pos = { x: 0, y: 0 };
+    const midpoint = getCanvasMidpoint();
+    const pos = { x: midpoint.x - 0.5, y: midpoint.y - 0.5 }; // Offset to center the triangle better
     const newGeom = {
       kind: "triangle",
       id: nanoid(),
       pos,
       vertices: [
-        { x: 0, y: 0 }, // anchor
-        { x: 1, y: 0 }, // right
-        { x: 0, y: 1 }, // up
+        { x: midpoint.x - 0.5, y: midpoint.y - 0.5 }, // anchor
+        { x: midpoint.x + 0.5, y: midpoint.y - 0.5 }, // right
+        { x: midpoint.x - 0.5, y: midpoint.y + 0.5 }, // up
       ],
       center: calculateGeometryCenter({ pos }), // Calculate center
     } as Triangle & { center: { x: number; y: number } };
@@ -377,7 +419,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     });
   };
   const newContinuousSource = () => {
-    const pos = { x: 3, y: 3 };
+    const pos = getCanvasMidpoint();
     const defaults = getSourceDefaults('continuous');
     const newSource = {
       ...defaults,
@@ -397,7 +439,7 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     });
   };
   const newGaussianSource = () => {
-    const pos = { x: 3, y: 3 };
+    const pos = getCanvasMidpoint();
     const defaults = getSourceDefaults('gaussian');
     const newSource = {
       ...defaults,
@@ -443,6 +485,63 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
   };
   const newLattice = () => {
     setShowLatticeModal(true);
+  };
+
+  // Region creation functions
+  const newFluxRegion = () => {
+    const pos = getCanvasMidpoint();
+    const newRegion = {
+      id: nanoid(),
+      type: "fluxRegion" as const,
+      kind: "fluxRegion" as const,
+      regionType: "flux" as const,
+      pos,
+      orientation: 0,
+      direction: RegionDirection.X, // Points default to X direction
+      directionSign: 1,
+      weight: 1.0,
+      size: { x: 0, y: 0 }, // Default to point region
+    };
+    addRegion(newRegion);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          regions: [...regions, newRegion],
+        },
+      },
+    });
+  };
+
+  const newRegionBox = () => {
+    const pos = getCanvasMidpoint();
+    const newRegionBox = {
+      id: nanoid(),
+      type: "regionBox" as const,
+      kind: "regionBox" as const,
+      pos,
+      orientation: 0,
+      width: 2,
+      height: 2,
+      regionType: "flux" as const,
+      edges: {
+        top: { weight: 1.0, enabled: true },
+        right: { weight: 1.0, enabled: true },
+        bottom: { weight: -1.0, enabled: true }, // Opposite direction for closed loop
+        left: { weight: -1.0, enabled: true },   // Opposite direction for closed loop
+      },
+    };
+    addRegionBox(newRegionBox);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          regionBoxes: [...(project.scene?.regionBoxes || []), newRegionBox],
+        },
+      },
+    });
   };
 
   // Check if any selected elements are geometries
@@ -587,6 +686,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
     newGaussianSource,
     newPMLBoundary,
     newLattice,
+    newFluxRegion,
+    newRegionBox,
     toggleShowGrid,
     toggleShowResolutionOverlay,
     toggleShowCanvasInfo,
@@ -673,6 +774,43 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                     >
                       {tool.icon}
                       <span className="ml-1 text-xs">{tool.label.replace('Add ', '')}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : group.key === "boundaries" ? (
+                <div className="flex flex-col gap-1 w-full px-1">
+                  {groupToolMap[group.key as GroupKey].filter(tool => tool.fullRow).map((tool) => (
+                    <button
+                      key={tool.label}
+                      title={tool.label}
+                      className={`flex items-center justify-center w-full h-8 transition-all hover:bg-neutral-600 active:bg-neutral-600`}
+                      style={{ borderRadius: 0 }} // Square corners for PML characteristic look
+                      onClick={() => {
+                        if (tool.onClick && tool.fnKey) {
+                          tool.onClick(toolHandlers[tool.fnKey as keyof typeof toolHandlers]);
+                        }
+                      }}
+                      aria-label={tool.label}
+                    >
+                      {tool.icon}
+                    </button>
+                  ))}
+                </div>
+              ) : group.key === "regions" ? (
+                <div className="flex flex-col gap-1 w-full px-1">
+                  {groupToolMap[group.key as GroupKey].filter(tool => tool.fullRow).map((tool) => (
+                    <button
+                      key={tool.label}
+                      title={tool.label}
+                      className={`flex items-center justify-center w-full h-8 rounded transition-all hover:bg-neutral-600 active:bg-neutral-600`}
+                      onClick={() => {
+                        if (tool.onClick && tool.fnKey) {
+                          tool.onClick(toolHandlers[tool.fnKey as keyof typeof toolHandlers]);
+                        }
+                      }}
+                      aria-label={tool.label}
+                    >
+                      {tool.icon}
                     </button>
                   ))}
                 </div>

@@ -5,10 +5,10 @@ import { CanvasPMLBoundary } from '../../types/meepBoundaryTypes';
 import { useCanvasStore } from '../../stores/canvas';
 
 const PARAM_SET_COLORS: Record<number, string> = {
-  0: '#1e2939',
-  1: '#392e1e',
-  2: '#211e39',
-  3: '#36391e'
+  0: '#2d4b6b',    // lighter dark blue for better contrast
+  1: '#8B4513',    // saddle brown - vintage leather
+  2: '#DC143C',    // crimson red - vintage ruby
+  3: '#DAA520'     // goldenrod - vintage brass
 };
 
 interface BoundaryRendererProps {
@@ -47,9 +47,7 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
   // Helper to get effective assignment
   const getEffectiveAssignment = (edge: 'top' | 'bottom' | 'left' | 'right') => {
     const explicit = fullBoundary.edgeAssignments?.[edge];
-    if (explicit !== undefined) return explicit;
-    if (fullBoundary.parameterSets?.[0]?.active) return 0;
-    return undefined;
+    return explicit; // Only return explicit assignments, no fallback
   };
 
   // Helper to get edge color
@@ -85,10 +83,7 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
       if (assignment !== undefined && fullBoundary.parameterSets?.[assignment]?.active) {
         return true;
       }
-      if (Object.keys(fullBoundary.edgeAssignments).length === 0 && fullBoundary.parameterSets?.[0]?.active) {
-        return true;
-      }
-      return false;
+      return false; // No fallback - only render explicit assignments
     }
     
     // Legacy direction system
@@ -110,11 +105,7 @@ export const BoundaryRenderer: React.FC<BoundaryRendererProps> = ({
     if (assignment !== undefined && fullBoundary.parameterSets?.[assignment]) {
       return (fullBoundary.parameterSets[assignment].thickness || 1) * GRID_PX;
     }
-    if (!fullBoundary.edgeAssignments || Object.keys(fullBoundary.edgeAssignments).length === 0) {
-      if (fullBoundary.parameterSets?.[0]?.active) {
-        return (fullBoundary.parameterSets[0].thickness || 1) * GRID_PX;
-      }
-    }
+    // Fallback to boundary thickness only if no edge assignments system is used
     return (fullBoundary.thickness || 1) * GRID_PX;
   };
 

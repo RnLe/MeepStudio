@@ -9,11 +9,29 @@ export const createSceneSlice: StateCreator<
   SceneSlice
 > = (set, get) => ({
   a: 1.0,
-  setA: (a) => set({ a }),
+  setA: (a) => set((state) => {
+    const updated = { a };
+    state.markCodeSectionDirty('initialization');
+    return updated;
+  }),
   
   unit: LengthUnit.NM,
-  setUnit: (unit) => set({ unit }),
+  setUnit: (unit) => set((state) => {
+    const updated = { unit };
+    state.markCodeSectionDirty('initialization');
+    return updated;
+  }),
   
   sceneMaterial: "Air",
-  setSceneMaterial: (material) => set({ sceneMaterial: material }),
+  setSceneMaterial: (material) => set((state) => {
+    const updated = { sceneMaterial: material };
+    state.markMultipleCodeSectionsDirty(['initialization', 'materials']);
+    return updated;
+  }),
+  
+  // Helper to mark initialization dirty when project properties change
+  markProjectPropertiesDirty: () => set((state) => {
+    state.markCodeSectionDirty('initialization');
+    return {};
+  }),
 });

@@ -1,4 +1,5 @@
 import { LengthUnit } from "../../types/meepProjectTypes";
+import { FluxRegion, SceneLattice, RegionBox } from "../../types/canvasElementTypes";
 
 // Group Slice
 export interface GroupSlice {
@@ -89,11 +90,11 @@ export interface BoundarySlice {
 
 // Lattice Slice
 export interface LatticeSlice {
-  lattices: any[];
-  setLattices: (lattices: any[]) => void;
-  addLattice: (lattice: any) => void;
-  updateLattice: (id: string, partial: Partial<any>) => void;
-  updateLattices: (ids: string[], partial: Partial<any>) => void;
+  lattices: SceneLattice[];
+  setLattices: (lattices: SceneLattice[]) => void;
+  addLattice: (lattice: SceneLattice) => void;
+  updateLattice: (id: string, partial: Partial<SceneLattice>) => void;
+  updateLattices: (ids: string[], partial: Partial<SceneLattice>) => void;
   removeLattice: (id: string) => void;
   removeLattices: (ids: string[]) => void;
   linkLatticeToFullLattice: (canvasLatticeId: string, latticeDocumentId: string) => void;
@@ -101,6 +102,24 @@ export interface LatticeSlice {
   getLinkedLatticeId: (canvasLatticeId: string) => string | undefined;
   syncLatticeFromFullLattice: (canvasLatticeId: string, fullLattice: any) => void;
   syncLatticesFromProject: (project: any) => void;
+}
+
+// Region Slice
+export interface RegionSlice {
+  regions: FluxRegion[];
+  regionBoxes: RegionBox[];
+  setRegions: (regions: FluxRegion[]) => void;
+  setRegionBoxes: (regionBoxes: RegionBox[]) => void;
+  addRegion: (region: FluxRegion) => void;
+  addRegionBox: (regionBox: RegionBox) => void;
+  updateRegion: (id: string, partial: Partial<FluxRegion>) => void;
+  updateRegionBox: (id: string, partial: Partial<RegionBox>) => void;
+  updateRegions: (ids: string[], partial: Partial<FluxRegion>) => void;
+  updateRegionBoxes: (ids: string[], partial: Partial<RegionBox>) => void;
+  removeRegion: (id: string) => void;
+  removeRegionBox: (id: string) => void;
+  removeRegions: (ids: string[]) => void;
+  removeRegionBoxes: (ids: string[]) => void;
 }
 
 // Overlay Slice
@@ -139,14 +158,15 @@ export interface OverlaySlice {
     geometries: number;
     boundaries: number;
     sources: number;
+    regions: number;
   };
   setXRayTransparencySetting: (
-    element: 'background' | 'geometries' | 'boundaries' | 'sources',
+    element: 'background' | 'geometries' | 'boundaries' | 'sources' | 'regions',
     value: number
   ) => void;
   setUnifiedXRayTransparency: (unified: boolean) => void;
   getElementXRayTransparency: (
-    element: 'background' | 'geometries' | 'boundaries' | 'sources'
+    element: 'background' | 'geometries' | 'boundaries' | 'sources' | 'regions'
   ) => number;
 }
 
@@ -158,6 +178,35 @@ export interface SceneSlice {
   setUnit: (unit: LengthUnit) => void;
   sceneMaterial: string;
   setSceneMaterial: (material: string) => void;
+  
+  // Helper to mark project properties as dirty
+  markProjectPropertiesDirty: () => void;
+}
+
+// Code Generation Slice - tracks what needs to be regenerated
+export interface CodeGenerationSlice {
+  // Dirty flags for each code section
+  codeGenDirtyFlags: {
+    initialization: boolean;
+    materials: boolean;
+    geometries: boolean;
+    lattices: boolean;
+    sources: boolean;
+    boundaries: boolean;
+    regions: boolean;
+    simulation: boolean;
+  };
+  
+  // Methods to set dirty flags
+  markCodeSectionDirty: (section: keyof CodeGenerationSlice['codeGenDirtyFlags']) => void;
+  markMultipleCodeSectionsDirty: (sections: Array<keyof CodeGenerationSlice['codeGenDirtyFlags']>) => void;
+  clearCodeSectionDirty: (section: keyof CodeGenerationSlice['codeGenDirtyFlags']) => void;
+  clearAllCodeSectionsDirty: () => void;
+  markAllCodeSectionsDirty: () => void;
+  
+  // Helper methods
+  isAnySectionDirty: () => boolean;
+  getDirtySections: () => Array<keyof CodeGenerationSlice['codeGenDirtyFlags']>;
 }
 
 // Complete store type
@@ -169,8 +218,10 @@ export type CanvasStore =
   & SourceSlice
   & BoundarySlice
   & LatticeSlice
+  & RegionSlice
   & OverlaySlice
   & SceneSlice
+  & CodeGenerationSlice
   & {
     getAllElements: () => any[];
   };

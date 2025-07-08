@@ -1,5 +1,5 @@
 import React from "react";
-import { Code2, Layers, Download } from "lucide-react";
+import { Code2 } from "lucide-react";
 import { MeepProject, LengthUnit } from "../types/meepProjectTypes";
 import { projectSettings } from "../types/editorSettings";
 import ObjectsList from "./ObjectList";
@@ -7,6 +7,7 @@ import ObjectPropertiesPanel from "./ObjectPropertiesPanels";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { useEditorStateStore } from "../providers/EditorStateStore";
+import { useNumberInputWheel } from "../hooks/useNumberInputWheel";
 import { MaterialSelectionMenu } from "./MaterialSelectionMenu";
 import { MaterialCatalog } from "../constants/meepMaterialPresets";
 import { useMaterialColorStore } from "../providers/MaterialColorStore";
@@ -43,6 +44,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
     rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
     resolution: project?.scene?.resolution || projectSettings.resolution.default,
+    runTime: project?.scene?.runTime || projectSettings.runTime.default,
     a: project?.scene?.a || 1.0,
     unit: project?.scene?.unit || LengthUnit.NM,
     material: project?.scene?.material || SIMULATION_DEFAULTS.scene.material,
@@ -52,6 +54,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
   const [showMaterialMenu, setShowMaterialMenu] = React.useState(false);
   const materialButtonRef = React.useRef<HTMLDivElement>(null);
   const { getMaterialColor } = useMaterialColorStore();
+  const { createWheelHandler } = useNumberInputWheel();
   const setSceneMaterial = useCanvasStore((s) => s.setSceneMaterial);
 
   const { updateProject } = useMeepProjects();
@@ -59,6 +62,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
   const setSources = useCanvasStore((s) => s.setSources);
   const setBoundaries = useCanvasStore((s) => s.setBoundaries);
   const setLattices = useCanvasStore((s) => s.setLattices);
+  const setRegions = useCanvasStore((s) => s.setRegions);
 
   React.useEffect(() => {
     setEditValues({
@@ -66,6 +70,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
       rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
       resolution: project?.scene?.resolution || projectSettings.resolution.default,
+      runTime: project?.scene?.runTime || projectSettings.runTime.default,
       a: project?.scene?.a || 1.0,
       unit: project?.scene?.unit || LengthUnit.NM,
       material: project?.scene?.material || SIMULATION_DEFAULTS.scene.material,
@@ -73,6 +78,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     if (project?.scene?.geometries) setGeometries(project.scene.geometries);
     if (project?.scene?.sources) setSources(project.scene.sources);
     if (project?.scene?.boundaries) setBoundaries(project.scene.boundaries);
+    if (project?.scene?.regions) setRegions(project.scene.regions);
     if (project?.scene?.lattices) {
       // Defer lattice setting to prevent hooks order violations during deletion
       setTimeout(() => {
@@ -80,7 +86,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       }, 0);
     }
     if (project?.scene?.material) setSceneMaterial(project.scene.material);
-  }, [project, setGeometries, setSources, setBoundaries, setLattices, setSceneMaterial]);
+  }, [project, setGeometries, setSources, setBoundaries, setRegions, setLattices, setSceneMaterial]);
 
   const handleCancel = () => {
     setEditing(false);
@@ -89,6 +95,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       rectWidth: project?.scene?.rectWidth || projectSettings.rectWidth.default,
       rectHeight: project?.scene?.rectHeight || projectSettings.rectHeight.default,
       resolution: project?.scene?.resolution || projectSettings.resolution.default,
+      runTime: project?.scene?.runTime || projectSettings.runTime.default,
       a: project?.scene?.a || 1.0,
       unit: project?.scene?.unit || LengthUnit.NM,
       material: project?.scene?.material || SIMULATION_DEFAULTS.scene.material,
@@ -100,9 +107,10 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     setGeometries(updatedProject.scene?.geometries || []);
     setSources(updatedProject.scene?.sources || []);
     setBoundaries(updatedProject.scene?.boundaries || []);
+    setRegions(updatedProject.scene?.regions || []);
     setLattices(updatedProject.scene?.lattices || []);
     setSceneMaterial(updatedProject.scene?.material || SIMULATION_DEFAULTS.scene.material);
-  }, [setGeometries, setSources, setBoundaries, setLattices, setSceneMaterial]);
+  }, [setGeometries, setSources, setBoundaries, setRegions, setLattices, setSceneMaterial]);
 
   const handleSave = async () => {
     setEditing(false);
@@ -115,6 +123,7 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
           rectWidth: editValues.rectWidth,
           rectHeight: editValues.rectHeight,
           resolution: editValues.resolution,
+          runTime: editValues.runTime,
           a: editValues.a,
           unit: editValues.unit,
           material: editValues.material,
@@ -126,6 +135,9 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
       });
       // Project updated automatically through Zustand store
       refreshProjectInStore(updated);
+      
+      // Mark project properties as dirty for code regeneration
+      useCanvasStore.getState().markProjectPropertiesDirty();
     }
   };
 
@@ -154,48 +166,10 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
     setEditValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleNumberWheel = (e: React.WheelEvent<HTMLInputElement>) => {
-    const input = e.currentTarget;
-    const name = input.name;
-    const step = Number(input.step) || 1;
-    const min = input.min !== '' ? Number(input.min) : -Infinity;
-    const max = input.max !== '' ? Number(input.max) : Infinity;
-    let value = Number(input.value);
-    if (isNaN(value)) value = 0;
-    e.preventDefault();
-    let newValue = value;
-    if (e.deltaY < 0) {
-      newValue = Math.min(max, value + step);
-    } else if (e.deltaY > 0) {
-      newValue = Math.max(min, value - step);
-    }
-    setEditValues((prev) => ({ ...prev, [name]: newValue }));
+  // Code editor action
+  const handleCodeEditor = () => {
+    addCodeTabToProject(project.documentId);
   };
-
-  // Define action buttons
-  const actionButtons = [
-    {
-      label: "Code Editor",
-      icon: Code2,
-      onClick: () => {
-        addCodeTabToProject(project.documentId);
-      }
-    },
-    {
-      label: "Add to Scene",
-      icon: Layers,
-      onClick: () => {
-        // TODO: Implement add to scene functionality
-      }
-    },
-    {
-      label: "Export",
-      icon: Download,
-      onClick: () => {
-        // TODO: Implement export functionality
-      }
-    }
-  ];
 
   // Unit tooltips mapping
   const unitTooltips: Record<LengthUnit, string> = {
@@ -279,7 +253,9 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
                       step={projectSettings.rectWidth.step}
                       value={editValues.rectWidth}
                       onChange={handleChange}
-                      onWheel={handleNumberWheel}
+                      onWheel={createWheelHandler('rectWidth', editValues.rectWidth, (newValue) => 
+                        setEditValues(prev => ({ ...prev, rectWidth: newValue }))
+                      )}
                       className="w-10 text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
                     />
                     <span className="mx-0.5 text-gray-500">×</span>
@@ -291,7 +267,9 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
                       step={projectSettings.rectHeight.step}
                       value={editValues.rectHeight}
                       onChange={handleChange}
-                      onWheel={handleNumberWheel}
+                      onWheel={createWheelHandler('rectHeight', editValues.rectHeight, (newValue) => 
+                        setEditValues(prev => ({ ...prev, rectHeight: newValue }))
+                      )}
                       className="w-10 text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
                     />
                   </span>
@@ -312,11 +290,33 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
                     step={projectSettings.resolution.step}
                     value={editValues.resolution}
                     onChange={handleChange}
-                    onWheel={handleNumberWheel}
+                    onWheel={createWheelHandler('resolution', editValues.resolution, (newValue) => 
+                      setEditValues(prev => ({ ...prev, resolution: newValue }))
+                    )}
                     className="w-10 text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
                   />
                 ) : (
                   <span className="flex-1 text-xs text-gray-300 text-right">{project.scene?.resolution}</span>
+                )}
+              </div>
+              <div className="flex flex-row w-full items-center justify-between">
+                <span className="w-28 text-xs text-gray-400 font-medium text-left">Run Time</span>
+                {editing ? (
+                  <input
+                    type="number"
+                    name="runTime"
+                    min={projectSettings.runTime.min}
+                    max={projectSettings.runTime.max}
+                    step={projectSettings.runTime.step}
+                    value={editValues.runTime}
+                    onChange={handleChange}
+                    onWheel={createWheelHandler('runTime', editValues.runTime, (newValue) => 
+                      setEditValues(prev => ({ ...prev, runTime: newValue }))
+                    )}
+                    className="w-16 text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
+                  />
+                ) : (
+                  <span className="flex-1 text-xs text-gray-300 text-right">{project.scene?.runTime}</span>
                 )}
               </div>
               <div className="flex flex-row w-full items-center justify-between">
@@ -330,7 +330,9 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
                       step={0.1}
                       value={editValues.a}
                       onChange={handleChange}
-                      onWheel={handleNumberWheel}
+                      onWheel={createWheelHandler('a', editValues.a, (newValue) => 
+                        setEditValues(prev => ({ ...prev, a: newValue }))
+                      )}
                       className="characteristic-input text-xs text-right bg-neutral-700 rounded focus:bg-neutral-600 outline-none appearance-none border-none p-0 m-0 no-spinner"
                     />
                     <select
@@ -381,6 +383,20 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
             {project.description && (
               <p className="text-sm text-gray-400 text-center">{project.description}</p>
             )}
+
+            {/* Code Editor Button */}
+            <button
+              onClick={handleCodeEditor}
+              className="w-full flex items-center justify-center gap-2 p-2 rounded bg-neutral-700/30 hover:bg-neutral-700/50 transition-colors group cursor-pointer"
+            >
+              <Code2 
+                size={16} 
+                className="text-gray-400 group-hover:text-gray-200 transition-colors"
+              />
+              <span className="text-sm text-gray-400 group-hover:text-gray-200 transition-colors">
+                Code Editor
+              </span>
+            </button>
           </>
         )}
 
@@ -394,34 +410,6 @@ const RightProjectPanel: React.FC<Props> = ({ project, ghPages, onCancel }) => {
             <ObjectPropertiesPanel 
               ghPages={ghPages}
             />
-            
-            {/* Actions */}
-            <div className="mt-6">
-              <h3 className="text-sm font-medium text-gray-300 mb-3">Actions</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {actionButtons.map((action, index) => {
-                  const Icon = action.icon;
-                  const isLastAndOdd = index === actionButtons.length - 1 && actionButtons.length % 2 === 1;
-                  return (
-                    <button
-                      key={index}
-                      onClick={action.onClick}
-                      className={`flex flex-col items-center justify-center p-3 rounded bg-neutral-700/30 hover:bg-neutral-700/50 transition-colors group cursor-pointer ${
-                        isLastAndOdd ? 'col-span-2' : ''
-                      }`}
-                    >
-                      <Icon 
-                        size={20} 
-                        className="text-gray-400 group-hover:text-gray-200 transition-colors mb-1"
-                      />
-                      <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors text-center">
-                        {action.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </>
         )}
         

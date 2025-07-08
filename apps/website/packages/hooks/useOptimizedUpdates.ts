@@ -19,6 +19,8 @@ export const useOptimizedUpdates = () => {
     updateGeometry: s.updateGeometry,
     updateSource: s.updateSource,
     updateBoundary: s.updateBoundary,
+    updateRegion: s.updateRegion,
+    updateRegionBox: s.updateRegionBox,
   }));
   
   // Sync current canvas state to persistent storage
@@ -35,6 +37,8 @@ export const useOptimizedUpdates = () => {
           sources: currentCanvasState.sources,
           boundaries: currentCanvasState.boundaries,
           lattices: currentCanvasState.lattices,
+          regions: currentCanvasState.regions,
+          regionBoxes: currentCanvasState.regionBoxes,
         }
       },
     });
@@ -51,7 +55,7 @@ export const useOptimizedUpdates = () => {
   }, [syncToPersistentStorage]);
   
   // Immediate update (for real-time UI feedback during typing/sliding)
-  const updateImmediate = useCallback((type: 'geometry' | 'source' | 'boundary', id: string, partial: any) => {
+  const updateImmediate = useCallback((type: 'geometry' | 'source' | 'boundary' | 'region' | 'regionBox', id: string, partial: any) => {
     switch (type) {
       case 'geometry':
         canvasActions.updateGeometry(id, partial);
@@ -62,11 +66,17 @@ export const useOptimizedUpdates = () => {
       case 'boundary':
         canvasActions.updateBoundary(id, partial);
         break;
+      case 'region':
+        canvasActions.updateRegion(id, partial);
+        break;
+      case 'regionBox':
+        canvasActions.updateRegionBox(id, partial);
+        break;
     }
   }, [canvasActions]);
   
   // Deferred update (for persistence on user action completion)
-  const updateDeferred = useCallback((type: 'geometry' | 'source' | 'boundary', id: string, partial: any) => {
+  const updateDeferred = useCallback((type: 'geometry' | 'source' | 'boundary' | 'region' | 'regionBox', id: string, partial: any) => {
     // First do immediate update
     updateImmediate(type, id, partial);
     

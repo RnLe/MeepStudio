@@ -4,7 +4,7 @@ import { useLatticeStore } from "../providers/LatticeStore";
 import { Lattice } from "../types/meepLatticeTypes";
 import { useMeepProjects } from "../hooks/useMeepProjects";
 import { useLatticeDataLoader } from "../hooks/useLatticeDataLoader";
-import { Grid3X3, Grid, Hexagon, Box, GitBranch, Sparkles, Eye, Maximize2, Loader2, Grip, Move3D, ChevronLeft, ChevronRight } from "lucide-react";
+import { Grid3X3, Grid, Hexagon, Box, GitBranch, Target, Eye, Maximize2, Loader2, Grip, Move3D, ChevronLeft, ChevronRight } from "lucide-react";
 import CustomLucideIcon from "./CustomLucideIcon";
 
 const GROUPS = [
@@ -101,7 +101,7 @@ const voronoiTools: Tool[] = [
 const symmetryTools: Tool[] = [
   {
     label: "High Symmetry Points",
-    icon: <Eye size={18} />,
+    icon: <Target size={18} />,
     onClick: (toggleShowHighSymmetryPoints: () => void) => toggleShowHighSymmetryPoints(),
     isActive: (state) => state.showHighSymmetryPoints,
     fnKey: "toggleShowHighSymmetryPoints",
@@ -327,7 +327,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
         </div>
       )}
       
-      {GROUPS.map((group, idx) => (
+      {GROUPS.filter(group => group.key !== 'symmetries').map((group, idx) => (
         <React.Fragment key={group.key}>
           {group.key === "lattice" ? (
             // Custom rendering for Lattice group with multiplier control
@@ -429,6 +429,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
               </div>
               
               {/* Zone count selector - always reserve space but control visibility */}
+              {/* COMMENTED OUT: Zone count selector functionality
               <div 
                 className={`flex gap-0.5 mt-1 px-1 transition-all duration-200 ease-in-out ${
                   showVoronoiCell && !showVoronoiTiling
@@ -469,6 +470,7 @@ const LatticeToolbar: React.FC<LatticeToolbarProps> = ({ lattice, ghPages }) => 
                   );
                 })}
               </div>
+              */}
             </div>
           ) : group.key === "overlays" ? (
             // Custom rendering for overlays group with linked tools

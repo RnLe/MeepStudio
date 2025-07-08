@@ -282,7 +282,6 @@ export const useLatticeStore = createWithEqualityFn<LatticeState>(
       const state = get();
       // Trigger canvas update when lattice changes
       set((s) => ({ canvasUpdateTrigger: s.canvasUpdateTrigger + 1 }));
-      console.log(`Updating canvas lattices for lattice ${latticeId} in linked projects`);
     },
     
     // New: Lattice basis vectors
@@ -314,20 +313,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         state.currentLatticeType !== prevState.currentLatticeType ||
         state.canvasUpdateTrigger !== prevState.canvasUpdateTrigger
       ) {
-        console.log('🏪 LatticeStore state changed:', {
-          prev: {
-            currentBasis1: prevState.currentBasis1,
-            currentBasis2: prevState.currentBasis2,
-            currentLatticeType: prevState.currentLatticeType,
-            canvasUpdateTrigger: prevState.canvasUpdateTrigger,
-          },
-          curr: {
-            currentBasis1: state.currentBasis1,
-            currentBasis2: state.currentBasis2,
-            currentLatticeType: state.currentLatticeType,
-            canvasUpdateTrigger: state.canvasUpdateTrigger,
-          },
-        });
+        // State changed but no logging
       }
     }
   );

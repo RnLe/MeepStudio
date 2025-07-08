@@ -1,6 +1,7 @@
 import { ConversionContext, generateSectionSeparator } from './codeAssemblyConversion2D';
 import { CodeBlock } from '../providers/CodeAssemblyStore';
 import { Cylinder, Block, Wedge, Sphere, Prism } from '../types/meepGeometryTypes';
+import { getMaterialVariableName } from './materialAssembly';
 
 export interface GeometryResult {
   success: boolean;
@@ -15,20 +16,24 @@ export type MeepGeometry = Cylinder | Block | Wedge | Sphere | Prism;
 export async function generateGeometryCode(context: ConversionContext): Promise<GeometryResult> {
   try {
     const { canvasState, codeState } = context;
-    const geometries = canvasState.geometries;
+    const allGeometries = canvasState.geometries;
+    // Filter out invisible geometries from code generation
+    const geometries = allGeometries.filter(geom => !geom.invisible);
     
     const lines: string[] = [
       generateSectionSeparator('GEOMETRIES'),
       '',
-      `# Define geometry objects (${geometries.length} total)`,
+      `# Define geometry objects (${geometries.length} visible of ${allGeometries.length} total)`,
       'geometry = []',
       ''
     ];
     
     if (geometries.length === 0) {
-      lines.push('# No geometries defined yet');
+      lines.push(allGeometries.length > 0 ? 
+        '# All geometries are currently hidden (invisible)' : 
+        '# No geometries defined yet');
     } else {
-      // Convert each geometry to Meep code
+      // Convert each visible geometry to Meep code
       geometries.forEach((geom, index) => {
         const meepGeom = convertKonvaToMeepGeometry(geom);
         if (meepGeom) {
@@ -45,7 +50,7 @@ export async function generateGeometryCode(context: ConversionContext): Promise<
       label: 'Geometries',
       content: lines.join('\n'),
       imports: [],
-      dependencies: ['initialization']
+      dependencies: ['initialization', 'materials']
     };
     
     // Store in code state
@@ -96,8 +101,8 @@ export function convertKonvaToMeepGeometry(konvaGeom: any): MeepGeometry | null 
         z: 0 
       };
   
-  // Only set material if it's explicitly defined and not empty
-  const material = konvaGeom.material && konvaGeom.material !== 'air' ? konvaGeom.material : undefined;
+  // Convert material key to material variable name, default to vacuum if none specified
+  const material = konvaGeom.material ? getMaterialVariableName(konvaGeom.material) : 'vacuum';
   
   // Check the 'kind' field first (from canvasElementTypes), then 'type' as fallback
   const elementType = konvaGeom.kind || konvaGeom.type;
@@ -112,7 +117,7 @@ export function convertKonvaToMeepGeometry(konvaGeom: any): MeepGeometry | null 
         // Only include height if explicitly set
         ...(konvaGeom.height !== undefined ? { height: konvaGeom.height } : {}),
         axis: { x: 0, y: 0, z: 1 },
-        ...(material ? { material } : {}),
+        material,
         label: konvaGeom.label
       } as Cylinder;
       
@@ -126,7 +131,7 @@ export function convertKonvaToMeepGeometry(konvaGeom: any): MeepGeometry | null 
           y: konvaGeom.height || 1, 
           z: Infinity // Will be rendered as mp.inf
         },
-        ...(material ? { material } : {}),
+        material,
         label: konvaGeom.label
       } as Block;
       
@@ -146,7 +151,7 @@ export function convertKonvaToMeepGeometry(konvaGeom: any): MeepGeometry | null 
           ...(konvaGeom.height !== undefined ? { height: konvaGeom.height } : {}),
           axis: { x: 0, y: 0, z: 1 },
           center, // Always include center for prisms
-          ...(material ? { material } : {}),
+          material,
           label: konvaGeom.label
         } as Prism;
       } else {
@@ -160,7 +165,7 @@ export function convertKonvaToMeepGeometry(konvaGeom: any): MeepGeometry | null 
           wedge_angle: wedgeAngle,
           wedge_start: konvaGeom.wedge_start || { x: 1, y: 0, z: 0 },
           axis: { x: 0, y: 0, z: 1 },
-          ...(material ? { material } : {}),
+          material,
           label: konvaGeom.label
         } as Wedge;
       }
@@ -178,7 +183,7 @@ export function convertKonvaToMeepGeometry(konvaGeom: any): MeepGeometry | null 
           ...(konvaGeom.height !== undefined ? { height: konvaGeom.height } : {}),
           axis: { x: 0, y: 0, z: 1 },
           center, // Always include center for prisms
-          ...(material ? { material } : {}),
+          material,
           label: konvaGeom.label
         } as Prism;
       }
@@ -190,7 +195,7 @@ export function convertKonvaToMeepGeometry(konvaGeom: any): MeepGeometry | null 
       return {
         center,
         size: { x: 1, y: 1, z: Infinity },
-        ...(material ? { material } : {}),
+        material,
         label: konvaGeom.label || 'unknown'
       } as Block;
   }
@@ -317,13 +322,11 @@ function generateSingleGeometryCode(geom: MeepGeometry): string[] {
         lines.push(`    axis=${formatVector3(cylinder.axis)},`);
       }
       
-      // Only include material if defined
+      // Always include material - default to vacuum if not specified
       if (cylinder.material) {
         lines.push(`    material=${cylinder.material}`);
       } else {
-        // Remove trailing comma from last line
-        const lastLine = lines[lines.length - 1];
-        lines[lines.length - 1] = lastLine.slice(0, -1);
+        lines.push(`    material=vacuum`);
       }
       
       lines.push(`))`);
@@ -336,13 +339,11 @@ function generateSingleGeometryCode(geom: MeepGeometry): string[] {
       lines.push(`    center=${formatVector3(sphere.center || { x: 0, y: 0, z: 0 })},`);
       lines.push(`    radius=${sphere.radius},`);
       
-      // Only include material if defined
+      // Always include material - default to vacuum if not specified
       if (sphere.material) {
         lines.push(`    material=${sphere.material}`);
       } else {
-        // Remove trailing comma from last line
-        const lastLine = lines[lines.length - 1];
-        lines[lines.length - 1] = lastLine.slice(0, -1);
+        lines.push(`    material=vacuum`);
       }
       
       lines.push(`))`);
@@ -362,13 +363,11 @@ function generateSingleGeometryCode(geom: MeepGeometry): string[] {
     if (block.e2) lines.push(`    e2=${formatVector3(block.e2)},`);
     if (block.e3) lines.push(`    e3=${formatVector3(block.e3)},`);
     
-    // Only include material if defined
+    // Always include material - default to vacuum if not specified
     if (block.material) {
       lines.push(`    material=${block.material}`);
     } else {
-      // Remove trailing comma from last line
-      const lastLine = lines[lines.length - 1];
-      lines[lines.length - 1] = lastLine.slice(0, -1);
+      lines.push(`    material=vacuum`);
     }
     
     lines.push(`))`);
@@ -395,13 +394,11 @@ function generateSingleGeometryCode(geom: MeepGeometry): string[] {
       lines.push(`    axis=${formatVector3(wedge.axis)},`);
     }
     
-    // Only include material if defined
+    // Always include material - default to vacuum if not specified
     if (wedge.material) {
       lines.push(`    material=${wedge.material}`);
     } else {
-      // Remove trailing comma from last line
-      const lastLine = lines[lines.length - 1];
-      lines[lines.length - 1] = lastLine.slice(0, -1);
+      lines.push(`    material=vacuum`);
     }
     
     lines.push(`))`);
@@ -435,13 +432,11 @@ function generateSingleGeometryCode(geom: MeepGeometry): string[] {
       lines.push(`    sidewall_angle=${prism.sidewall_angle},`);
     }
     
-    // Only include material if defined
+    // Always include material - default to vacuum if not specified
     if (prism.material) {
       lines.push(`    material=${prism.material}`);
     } else {
-      // Remove trailing comma from last line
-      const lastLine = lines[lines.length - 1];
-      lines[lines.length - 1] = lastLine.slice(0, -1);
+      lines.push(`    material=vacuum`);
     }
     
     lines.push(`))`);

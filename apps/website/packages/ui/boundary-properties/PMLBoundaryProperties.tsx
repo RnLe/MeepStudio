@@ -15,12 +15,12 @@ interface PMLBoundaryPropertiesProps {
   onUpdate: (partial: Partial<CanvasPMLBoundary>) => void;
 }
 
-// Parameter set colors
+// Parameter set colors - vintage palette with better distinction
 const PARAM_SET_COLORS: Record<number, string> = {
-  0: '#1e2939',    // dark blue-gray
-  1: '#392e1e',    // dark brown
-  2: '#211e39',    // dark purple
-  3: '#36391e'     // dark olive
+  0: '#2d4b6b',    // lighter dark blue for better contrast
+  1: '#8B4513',    // saddle brown - vintage leather
+  2: '#DC143C',    // crimson red - vintage ruby
+  3: '#DAA520'     // goldenrod - vintage brass
 };
 
 const PARAM_SET_NAMES = ['Set A', 'Set B', 'Set C', 'Set D'];
@@ -32,6 +32,17 @@ export const PMLBoundaryProperties: React.FC<PMLBoundaryPropertiesProps> = ({
   // Initialize parameter sets from boundary or use defaults
   const parameterSets = boundary.parameterSets || PML_PARAMETER_SETS_DEFAULTS;
   const edgeAssignments = boundary.edgeAssignments || {};
+
+  // Get simulation dimensions from canvas store for dynamic thickness limits
+  const canvasSize = useCanvasStore((s) => s.canvasSize);
+  const GRID_PX = useCanvasStore((s) => s.GRID_PX);
+  
+  // Calculate reasonable thickness limits based on canvas size
+  // Assume simulation cell is about 1/4 of canvas size in each dimension
+  const maxThickness = Math.min(
+    (canvasSize.width / GRID_PX) / 4,
+    (canvasSize.height / GRID_PX) / 4
+  );
 
   // Get active parameter set indices
   const activeParameterSets = Object.keys(parameterSets)
@@ -91,10 +102,15 @@ export const PMLBoundaryProperties: React.FC<PMLBoundaryPropertiesProps> = ({
   };
 
   const handleResetParameterSets = () => {
-    // Reset all parameter sets to defaults
+    // Reset all parameter sets to defaults and set all edges to parameter set 0
     onUpdate({
       parameterSets: PML_PARAMETER_SETS_DEFAULTS,
-      edgeAssignments: {}
+      edgeAssignments: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      }
     });
   };
 
@@ -168,9 +184,9 @@ export const PMLBoundaryProperties: React.FC<PMLBoundaryPropertiesProps> = ({
                     value={parameterSets[setIndex]?.thickness || 1}
                     onChange={(val) => handleParameterChange(setIndex, 'thickness', val)}
                     mode="linear"
-                    min={0.1}
-                    max={10}
-                    step={0.1}
+                    min={0.001}
+                    max={Math.max(2, maxThickness)}
+                    step={0.001}
                     size={32}
                     label="Thickness"
                     defaultValue={1}
@@ -182,9 +198,9 @@ export const PMLBoundaryProperties: React.FC<PMLBoundaryPropertiesProps> = ({
                     value={-Math.log10(parameterSets[setIndex]?.R_asymptotic || 1e-15)}
                     onChange={(val) => handleParameterChange(setIndex, 'R_asymptotic', Math.pow(10, -val))}
                     mode="linear"
-                    min={3}
-                    max={20}
-                    step={0.1}
+                    min={1}
+                    max={30}
+                    step={0.001}
                     size={32}
                     label="R(-log)"
                     defaultValue={15}

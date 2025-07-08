@@ -237,7 +237,7 @@ export default function SceneLatticeProperties({ lattice, project, ghPages }: Pr
             onClick={handleManualFill}
             className={`px-3 py-1.5 text-xs rounded flex items-center justify-center gap-1 transition-colors ${
               localValues.fillMode === 'manual'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
                 : 'bg-neutral-700 text-gray-300 hover:bg-neutral-600'
             }`}
           >
@@ -248,7 +248,7 @@ export default function SceneLatticeProperties({ lattice, project, ghPages }: Pr
             onClick={handleCenterAndFill}
             className={`px-3 py-1.5 text-xs rounded flex items-center justify-center gap-1 transition-colors ${
               localValues.fillMode === 'centerFill'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
                 : 'bg-neutral-700 text-gray-300 hover:bg-neutral-600'
             }`}
           >
@@ -340,9 +340,11 @@ export default function SceneLatticeProperties({ lattice, project, ghPages }: Pr
             {availableGeometries.map(geom => {
               const color = getMaterialColorForGeometry(geom.material || 'Air');
               const abbrev = getMaterialAbbreviation(geom.material || 'Air');
+              // Capitalize the geometry kind
+              const capitalizedKind = geom.kind.charAt(0).toUpperCase() + geom.kind.slice(1);
               return (
                 <option key={geom.id} value={geom.id}>
-                  {geom.kind}
+                  {capitalizedKind} • {geom.material || 'Air'}
                 </option>
               );
             })}
@@ -366,13 +368,16 @@ export default function SceneLatticeProperties({ lattice, project, ghPages }: Pr
         {/* Custom dropdown rendering for geometry selection */}
         {tiedGeometry && (
           <div className="flex items-center justify-between text-xs text-gray-400">
-            <span>{tiedGeometry.kind}</span>
+            {/* Capitalized geometry kind with material icon */}
             <div className="flex items-center gap-2">
-              <div 
-                className="w-3 h-3 rounded-full border border-gray-600"
-                style={{ backgroundColor: getMaterialColorForGeometry(tiedGeometry.material || 'Air') }}
-              />
-              <span>{tiedGeometry.material || 'Air'}</span>
+              <span className="capitalize">{tiedGeometry.kind}</span>
+              <div className="flex items-center gap-1">
+                <div 
+                  className="w-3 h-3 rounded-full border border-gray-600"
+                  style={{ backgroundColor: getMaterialColorForGeometry(tiedGeometry.material || 'Air') }}
+                />
+                <span>{tiedGeometry.material || 'Air'}</span>
+              </div>
             </div>
           </div>
         )}

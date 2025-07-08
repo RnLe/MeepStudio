@@ -184,7 +184,6 @@ export const createLocalStorageService = (): ProjectService => {
     updateLattice: async ({ documentId, lattice }) => {
       const store = getStore();
       if (store.isUpdatingLattice) {
-        console.log('⚠️ Skipping recursive updateLattice call');
         return undefined;
       }
       store.setIsUpdatingLattice(true);

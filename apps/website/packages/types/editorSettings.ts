@@ -20,5 +20,11 @@ export const projectSettings = {
     step: 1,
     default: 4,
   },
+  runTime: {
+    min: 1,
+    max: 10000,
+    step: 1,
+    default: 100,
+  },
   // Add more property limits as needed
 };

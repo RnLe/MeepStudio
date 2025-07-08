@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "./Modal";
 import { projectSettings } from "../types/editorSettings";
-import { useEditorStateStore } from "../providers/EditorStateStore";
+import { useMeepProjects } from "../hooks/useMeepProjects";
 import { LengthUnit } from "../types/meepProjectTypes";
 
 interface CreateProjectModalProps {
@@ -12,7 +12,7 @@ interface CreateProjectModalProps {
 }
 
 export default function CreateProjectModal({ isOpen, onClose }: CreateProjectModalProps) {
-  const { createProject } = useEditorStateStore();
+  const { createProject } = useMeepProjects();
   
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -20,6 +20,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
   const [newRectWidth, setNewRectWidth] = useState(projectSettings.rectWidth.default);
   const [newRectHeight, setNewRectHeight] = useState(projectSettings.rectHeight.default);
   const [newResolution, setNewResolution] = useState(projectSettings.resolution.default);
+  const [newRunTime, setNewRunTime] = useState(projectSettings.runTime.default);
   const [resolutionMode, setResolutionMode] = useState<'predefined' | 'custom'>('predefined');
   const [newA, setNewA] = useState(1);
   const [newUnit, setNewUnit] = useState<LengthUnit>(LengthUnit.UM);
@@ -35,6 +36,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
       setNewRectWidth(projectSettings.rectWidth.default);
       setNewRectHeight(projectSettings.rectHeight.default);
       setNewResolution(projectSettings.resolution.default);
+      setNewRunTime(projectSettings.runTime.default);
       setResolutionMode('predefined');
       setNewA(1);
       setNewUnit(LengthUnit.UM);
@@ -47,6 +49,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
     newRectWidth !== projectSettings.rectWidth.default || 
     newRectHeight !== projectSettings.rectHeight.default || 
     newResolution !== projectSettings.resolution.default ||
+    newRunTime !== projectSettings.runTime.default ||
     newA !== 1 ||
     newUnit !== LengthUnit.UM;
 
@@ -73,6 +76,7 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
           rectWidth,
           rectHeight,
           resolution,
+          runTime: Math.max(projectSettings.runTime.min, Math.min(projectSettings.runTime.max, Math.floor(Number(newRunTime)))),
           a: newA,
           unit: newUnit,
           geometries: [],
@@ -84,7 +88,6 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
       });
       
       if (newProject) {
-        console.log('Project created successfully:', newProject);
         onClose();
       } else {
         console.error('Failed to create project - no project returned');
@@ -160,6 +163,21 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
               ))}
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Run Time (scale-free units)
+          </label>
+          <input
+            type="number"
+            value={newRunTime}
+            onChange={(e) => setNewRunTime(Number(e.target.value))}
+            min={projectSettings.runTime.min}
+            max={projectSettings.runTime.max}
+            step={projectSettings.runTime.step}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+          />
         </div>
 
         <div className="flex gap-2 pt-4">

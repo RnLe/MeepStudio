@@ -34,14 +34,16 @@ export async function generateBoundariesCode(context: ConversionContext): Promis
 
       if (pmlCode.length > 0) {
         lines.push('# PML (Perfectly Matched Layer) boundaries');
-        lines.push('pml_layers = []');
+        lines.push('boundary_layers = []');
         lines.push('');
         lines.push(...pmlCode);
       } else {
-        lines.push('# No PML edges assigned');
+        lines.push('# No PML edges assigned - using default boundary conditions');
+        lines.push('boundary_layers = []');
       }
     } else {
-      lines.push('# No boundary conditions defined');
+      lines.push('# No boundary conditions defined - using default boundary conditions');
+      lines.push('boundary_layers = []');
     }
     
     // Create code block
@@ -77,8 +79,17 @@ function generatePMLBoundaries(pmlBoundary: CanvasPMLBoundary): string[] {
   const hasEdgeAssignments = edgeAssignments && Object.keys(edgeAssignments).length > 0;
   
   if (!hasEdgeAssignments) {
-    // No edges assigned - don't create any PML
-    return [];
+    // No explicit edge assignments - check if parameter set 0 is active for default behavior
+    if (parameterSets?.[0]?.active) {
+      // Apply parameter set 0 to all edges as default
+      const defaultParams = parameterSets[0];
+      lines.push('# PML for all boundaries (default)');
+      lines.push(...generateSinglePML(defaultParams, 'ALL', 'ALL'));
+      return lines;
+    } else {
+      // No edges assigned and no default parameter set - don't create any PML
+      return [];
+    }
   }
   
   // Group edges by parameter set
@@ -216,7 +227,7 @@ function generateSinglePML(
 ): string[] {
   const lines: string[] = [];
   
-  lines.push('pml_layers.append(mp.PML(');
+  lines.push('boundary_layers.append(mp.PML(');
   
   // Always include thickness
   lines.push(`    thickness=${params.thickness},`);

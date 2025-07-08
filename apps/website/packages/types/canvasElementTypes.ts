@@ -11,7 +11,9 @@ export type ElementType =
   | "gaussianBeamSource"
   | "pmlBoundary"
   | "lattice"
-  | "group";
+  | "group"
+  | "fluxRegion"
+  | "regionBox";
 
 // Geometry types
 // Sphere, Cylinder, Wedge, Cone, Block, Ellipsoid, Prism
@@ -25,6 +27,8 @@ interface BaseElement {
   pos: Vector2d;
   /** orientation in radians (0 to 2π, ccw positive) */
   orientation: number;
+  /** Custom name for the element - displayed in UI if set */
+  name?: string;
   /** true ⇢ highlighted in UI (selection logic lives in context) */
   selected?: boolean;
   /** 
@@ -140,6 +144,49 @@ export interface PmlBoundary extends BaseElement {
   thickness: number;
 }
 
+/* ---------- regions ---------- */
+interface BaseRegion extends BaseElement {
+  /** Direction to compute flux (X, Y, Z, or AUTO) */
+  direction: number;
+  /** Direction sign (1 for positive, -1 for negative) */
+  directionSign?: number;
+  /** Weight factor to multiply flux when computed */
+  weight?: number;
+  /** Visual size for display (region size in lattice units) */
+  size?: Vector2d;
+}
+
+export interface FluxRegion extends BaseRegion {
+  kind: "fluxRegion";
+  /** Region type for different flux calculations */
+  regionType?: "flux" | "energy" | "force";
+}
+
+/* ---------- region box ---------- */
+export interface RegionBox extends BaseElement {
+  kind: "regionBox";
+  type: "regionBox";
+  /** Width and height of the region box */
+  width: number;
+  height: number;
+  /** Settings for each edge of the box */
+  edges: {
+    top: RegionBoxEdge;
+    right: RegionBoxEdge;
+    bottom: RegionBoxEdge;
+    left: RegionBoxEdge;
+  };
+  /** Overall region type for all edges */
+  regionType?: "flux" | "energy" | "force";
+}
+
+interface RegionBoxEdge {
+  /** Weight for this edge (sign determines direction) */
+  weight: number;
+  /** Whether this edge is enabled */
+  enabled: boolean;
+}
+
 /* ---------- lattice ---------- */
 export interface SceneLattice extends BaseElement {
   kind: "lattice";
@@ -152,6 +199,12 @@ export interface SceneLattice extends BaseElement {
   tiedGeometryId?: string;
   /** Whether to show lattice points or replicated geometry */
   showMode: 'points' | 'geometry';
+  /** Fill mode: manual multiplier or center&fill */
+  fillMode?: 'manual' | 'centerFill';
+  /** Pre-calculated lattice points for centerFill mode */
+  calculatedPoints?: Array<{ x: number; y: number }>;
+  /** Link to a full lattice document */
+  latticeDocumentId?: string;
 }
 
 export type CanvasElement =
@@ -164,4 +217,6 @@ export type CanvasElement =
   | GaussianBeamSource
   | PmlBoundary
   | SceneLattice
-  | Group;
+  | Group
+  | FluxRegion
+  | RegionBox;

@@ -5,14 +5,18 @@ import { MeepProject } from "../types/meepProjectTypes";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import { useCanvasStore } from "../providers/CanvasStore";
 import { useCodeAssemblyStore } from "../providers/CodeAssemblyStore";
-import { convertCanvasToMeepCode } from "../codeAssembly/codeAssemblyConversion2D";
+import { getUsedMaterials } from "../codeAssembly/materialAssembly";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { customTheme } from "./customTheme";
+import { useAsyncCodeGeneration } from "../hooks/useAsyncCodeGeneration";
+import { CodeSection } from "../codeAssembly/asyncCodeGeneration";
+import { LoadingIndicator, CodeGenerationStatus, GeneratingCodePlaceholder } from "./LoadingIndicators";
 
 // Define the code block groups (from CanvasToolbar, excluding snapping and overlays)
 const CODE_BLOCK_GROUPS = [
-  { key: "geometries", label: "Geometries", color: "#b6a6ca" },
   { key: "materials", label: "Materials", color: "#c7bca1" },
+  { key: "geometries", label: "Geometries", color: "#b6a6ca" },
+  { key: "lattices", label: "Lattices", color: "#a1c7b4" },
   { key: "sources", label: "Sources", color: "#b1cfc1" },
   { key: "boundaries", label: "Boundaries", color: "#c9b1bd" },
   { key: "regions", label: "Regions", color: "#b1b8c9" },
@@ -30,27 +34,73 @@ export default function CodeEditor({ project, ghPages }: Props) {
   const activeTab = useEditorStateStore((s) => s.getActiveTab());
   const activeProjectId = activeTab?.projectId;
   
-  // Get geometry, source & boundary data from canvas store
+  // Get geometry, source, boundary & region data from canvas store
   const geometries = useCanvasStore((s) => s.geometries);
   const sources = useCanvasStore((s) => s.sources);
-  const boundaries = useCanvasStore((s) => s.boundaries);  // NEW
-  const geometryCount = geometries.length;
+  const boundaries = useCanvasStore((s) => s.boundaries);
+  const regions = useCanvasStore((s) => s.regions);
+  const lattices = useCanvasStore((s) => s.lattices);
+  const geometryCount = geometries.filter(g => !g.invisible).length; // Only count visible geometries
   const sourceCount = sources.length;
-  const boundaryCount = boundaries.length;                  // NEW
+  const boundaryCount = boundaries.length;
+  const regionCount = regions.length;
+  const latticeCount = lattices.length;
   
   // Get code assembly state
   const codeBlocks = useCodeAssemblyStore((s) => s.codeBlocks);
   const isGenerating = useCodeAssemblyStore((s) => s.isGenerating);
   const errors = useCodeAssemblyStore((s) => s.errors);
   
+  // Use async code generation hook
+  const { 
+    generateCode, 
+    isSectionGenerating, 
+    isSectionComplete, 
+    hasSectionError, 
+    getSectionError,
+    getSectionStatus 
+  } = useAsyncCodeGeneration();
+  
   // Copy state
   const [isCopied, setIsCopied] = useState(false);
   const [copiedBlock, setCopiedBlock] = useState<string | null>(null);
   
-  // Auto-generate code when geometries, sources, or boundaries change
+  // Get materials count from geometries
+  const materialsCount = React.useMemo(() => {
+    const canvasState = { geometries };
+    return getUsedMaterials(canvasState).size;
+  }, [geometries]);
+  
+  // Get canvas state methods for checking dirty flags
+  const isAnySectionDirty = useCanvasStore((s) => s.isAnySectionDirty);
+  const markAllCodeSectionsDirty = useCanvasStore((s) => s.markAllCodeSectionsDirty);
+  
+  // Auto-generate code when geometries, sources, boundaries, regions, or lattices change
+  // Use the new async generation system - trigger asynchronously to avoid blocking tab opening
   useEffect(() => {
-    convertCanvasToMeepCode();
-  }, [geometries, sources, boundaries]);                   // UPDATED
+    // Use setTimeout to ensure the tab opens immediately before generation starts
+    const timeoutId = setTimeout(() => {
+      generateCode.generateDirty(project);
+    }, 0);
+    
+    return () => clearTimeout(timeoutId);
+  }, [geometries, sources, boundaries, regions, lattices, project]); // Remove generateCode from deps
+
+  // Initial generation: only generate if no code blocks exist and nothing is dirty
+  useEffect(() => {
+    const hasNoCodeBlocks = codeBlocks.size === 0;
+    const hasNoDirtySections = !isAnySectionDirty();
+    
+    if (hasNoCodeBlocks && hasNoDirtySections) {
+      // Use setTimeout to ensure the tab opens immediately before generation starts
+      const timeoutId = setTimeout(() => {
+        markAllCodeSectionsDirty();
+        // The dirty sections will trigger generation via the effect above
+      }, 0);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, []); // Only run on mount
   
   // Get counts for other object types
   const getObjectCount = (groupKey: string): number => {
@@ -60,11 +110,13 @@ export default function CodeEditor({ project, ghPages }: Props) {
       case "sources":
         return sourceCount;
       case "materials":
-        return 0; // TODO: implement when materials are added
+        return materialsCount;
       case "boundaries":
-        return boundaryCount;                               // UPDATED
+        return boundaryCount;
       case "regions":
-        return 0; // TODO: implement when regions are added
+        return regionCount;
+      case "lattices":
+        return latticeCount;
       default:
         return 0;
     }
@@ -78,10 +130,10 @@ export default function CodeEditor({ project, ghPages }: Props) {
   const codeContainerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
-  // All blocks in order
+  // All blocks in order - filter out sections with no content
   const allBlocks = [
     { key: "initialization", label: "Initialization" },
-    ...CODE_BLOCK_GROUPS.map(g => ({ key: g.key, label: g.label, color: g.color })),
+    ...CODE_BLOCK_GROUPS.filter(g => getObjectCount(g.key) > 0).map(g => ({ key: g.key, label: g.label, color: g.color })),
     { key: "simulation-assembly", label: "Simulation Assembly" }
   ];
   
@@ -187,29 +239,48 @@ ${geometryCount > 0 ? '# Geometry definitions will appear here' : '# No geometri
       case "materials":
         return `${separator}
 
-# Define materials (0 total)
-# No materials defined yet
+# Define materials used in geometries (${materialsCount} total materials)
+# Note: Air and Vacuum are always defined for clarity
+
+# Air (Air)
+# Standard atmospheric air at room temperature (20°C, 1 atm). Refractive index n = 1.000293 at 589 nm.
+air = mp.Medium(index=1.000293)
+
+# Vacuum (Vacuum)
+# Perfect vacuum with n=1. Reference medium for all optical calculations.
+vacuum = mp.Medium()  # Perfect vacuum, n=1.0
+
+${materialsCount > 2 ? '# Additional material definitions will appear here' : ''}
 `;
         
       case "sources":
         return `${separator}
 
-# Define sources (0 total)
-# No sources defined yet
+# Define sources (${sourceCount} total)
+${sourceCount > 0 ? '# Source definitions will appear here' : '# No sources defined yet'}
 `;
         
       case "boundaries":
         return `${separator}
 
-# Define boundary conditions (0 total)
-# No boundaries defined yet
+# Define boundary conditions (${boundaryCount} total)
+${boundaryCount > 0 ? '# Boundary definitions will appear here' : '# No boundaries defined yet'}
 `;
         
       case "regions":
         return `${separator}
 
-# Define simulation regions (0 total)
-# No regions defined yet
+# Define flux regions and field output regions (${regionCount} total)
+# Regions will be used for flux calculations and field measurements
+${regionCount > 0 ? '# Region definitions will appear here' : '# No regions defined yet'}
+`;
+        
+      case "lattices":
+        return `${separator}
+
+# Define lattice structures and replicated geometries (${latticeCount} total)
+# Lattices allow replication of geometries on periodic structures
+${latticeCount > 0 ? '# Lattice definitions will appear here' : '# No lattices defined yet'}
 `;
         
       case "simulation-assembly":
@@ -279,17 +350,21 @@ sim.run(...)`;
     setHoveredBlock(blockKey);
   };
   
-  // Render code section with error handling
+  // Render code section with error handling and loading states
   const renderCodeSection = (key: string, title: string) => {
     const isHovered = hoveredBlock === key;
     const isCopiedBlock = copiedBlock === key;
     const hasError = errors.has(key);
     const codeBlock = codeBlocks.get(key);
+    const sectionKey = key === 'simulation-assembly' ? 'simulation' : key as CodeSection;
+    const isGeneratingSection = isSectionGenerating(sectionKey);
+    const hasAsyncSectionError = hasSectionError(sectionKey);
+    const asyncSectionError = getSectionError(sectionKey);
     
     return (
       <div className="relative group">
         {/* Error indicator */}
-        {hasError && (
+        {(hasError || hasAsyncSectionError) && (
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />
         )}
         
@@ -304,6 +379,7 @@ sim.run(...)`;
               : 'hover:bg-gray-700/50 text-gray-400 hover:text-gray-200'
           }`}
           title={isCopiedBlock ? 'Copied!' : 'Copy block'}
+          disabled={isGeneratingSection}
         >
           {isCopiedBlock ? (
             <Check size={14} className="transition-all duration-200" />
@@ -312,144 +388,198 @@ sim.run(...)`;
           )}
         </button>
         
-        {/* Render code content */}
-        {codeBlock && codeBlock.content ? (
-          <div className="text-gray-300">
-            {renderHighlightedCode(codeBlock.content)}
-          </div>
+        {/* Section header (always shown) */}
+        <div className="text-yellow-400 font-bold mb-2">
+          {`# ${'─'.repeat(8)} ${title.toUpperCase()} ${'─'.repeat(Math.max(0, 60 - title.length - 12))}`}
+        </div>
+        
+        {/* Show loading placeholder if section is generating */}
+        {isGeneratingSection ? (
+          <GeneratingCodePlaceholder sectionName={title} />
         ) : (
-          // Fallback rendering
           <>
-            {(() => {
-              switch (key) {
-                case "initialization":
-                  return (
-                    <>
-                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} INITIALIZATION ${'─'.repeat(52)}`}</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Initialize Meep simulation environment</div>
-                      <div className="text-[#c586b6]">import</div> <span className="text-white">meep</span> <span className="text-[#c586b6]">as</span> <span className="text-white">mp</span>
-                      <div className="text-[#c586b6]">import</div> <span className="text-white">numpy</span> <span className="text-[#c586b6]">as</span> <span className="text-white">np</span>
-                      <br />
-                      <div className="text-[#84bf6a]"># Define simulation parameters</div>
-                      <div className="text-white">cell_size = mp.Vector3({project.scene?.rectWidth || 16}, {project.scene?.rectHeight || 8}, 0)</div>
-                      <div className="text-white">resolution = {project.scene?.resolution || 10}</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Initialize coordinate system</div>
-                      <div className="text-white">pml_layers = []</div>
-                      <br />
-                    </>
-                  );
-                  
-                case "geometries":
-                  return (
-                    <>
-                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} GEOMETRIES ${'─'.repeat(60)}`}</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Define geometry objects ({geometryCount} total)</div>
-                      <div className="text-white">geometry = []</div>
-                      <br />
-                      {geometryCount > 0 ? (
-                        <div className="text-[#84bf6a]"># Geometry definitions will appear here</div>
-                      ) : (
-                        <div className="text-gray-500"># No geometries defined yet</div>
-                      )}
-                      <br />
-                    </>
-                  );
-                
-                case "materials":
-                  return (
-                    <>
-                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} MATERIALS ${'─'.repeat(60)}`}</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Define materials (0 total)</div>
-                      <div className="text-gray-500"># No materials defined yet</div>
-                      <br />
-                    </>
-                  );
-                  
-                case "sources":
-                  return (
-                    <>
-                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} SOURCES ${'─'.repeat(60)}`}</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Define sources ({sourceCount} total)</div>
-                      <div className="text-white">sources = []</div>
-                      <br />
-                      {sourceCount > 0 ? (
-                        <div className="text-[#84bf6a]"># Source definitions will appear here</div>
-                      ) : (
-                        <div className="text-gray-500"># No sources defined yet</div>
-                      )}
-                      <br />
-                    </>
-                  );
-                  
-                case "boundaries":
-                  return (
-                    <>
-                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} BOUNDARIES ${'─'.repeat(60)}`}</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Define boundary conditions ({boundaryCount} total)</div>
-                      <div className="text-white">boundaries = []</div>
-                      <br />
-                      {boundaryCount > 0 ? (
-                        <div className="text-[#84bf6a]"># Boundary definitions will appear here</div>
-                      ) : (
-                        <div className="text-gray-500"># No boundaries defined yet</div>
-                      )}
-                      <br />
-                    </>
-                  );
-                  
-                case "regions":
-                  return (
-                    <>
-                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} REGIONS ${'─'.repeat(60)}`}</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Define simulation regions (0 total)</div>
-                      <div className="text-gray-500"># No regions defined yet</div>
-                      <br />
-                    </>
-                  );
-                  
-                case "simulation-assembly":
-                  return (
-                    <>
-                      <div className="text-yellow-400 font-bold">{`# ${'─'.repeat(8)} SIMULATION ASSEMBLY ${'─'.repeat(52)}`}</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Assemble simulation components and define monitors</div>
-                      <div className="text-white">sim = mp.Simulation(</div>
-                      <div className="text-white">    cell_size=cell_size,</div>
-                      <div className="text-white">    boundary_layers=pml_layers,</div>
-                      <div className="text-white">    geometry=geometry,</div>
-                      <div className="text-white">    sources=sources,</div>
-                      <div className="text-white">    resolution=resolution</div>
-                      <div className="text-white">)</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Define flux monitors</div>
-                      <div className="text-white">flux_monitor = sim.add_flux(...)</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Define field monitors and callbacks</div>
-                      <div className="text-white">field_monitor = sim.add_dft_fields(...)</div>
-                      <br />
-                      <div className="text-[#84bf6a]"># Ready to run simulation</div>
-                      <div className="text-white">sim.run(...)</div>
-                    </>
-                  );
-                  
-                default:
-                  return null;
-              }
-            })()}
+            {/* Render code content */}
+            {codeBlock && codeBlock.content ? (
+              <div className="text-gray-300">
+                {renderHighlightedCode(codeBlock.content.replace(/^#\s*─+.*?─+\s*$/gm, '').trim())}
+                <br />
+              </div>
+            ) : (
+              // Fallback rendering (remove the header since we already show it above)
+              <>
+                {(() => {
+                  switch (key) {
+                    case "initialization":
+                      return (
+                        <>
+                          <div className="text-[#84bf6a]"># Initialize Meep simulation environment</div>
+                          <div className="text-[#c586b6]">import</div> <span className="text-white">meep</span> <span className="text-[#c586b6]">as</span> <span className="text-white">mp</span>
+                          <div className="text-[#c586b6]">import</div> <span className="text-white">numpy</span> <span className="text-[#c586b6]">as</span> <span className="text-white">np</span>
+                          <br />
+                          <div className="text-[#84bf6a]"># Project Information</div>
+                          <div className="text-[#84bf6a]"># Title: {project.title}</div>
+                          {project.description && (
+                            <div className="text-[#84bf6a]"># Description: {project.description}</div>
+                          )}
+                          <div className="text-[#84bf6a]"># Characteristic length (a): {project.scene?.a || 1} {project.scene?.unit || 'μm'}</div>
+                          <br />
+                          <div className="text-[#84bf6a]"># Simulation Parameters</div>
+                          <div className="text-white">cell_size = mp.Vector3({project.scene?.rectWidth || 16}, {project.scene?.rectHeight || 8}, 0)  # Grid size: {project.scene?.rectWidth || 16} × {project.scene?.rectHeight || 8} (scale-free units)</div>
+                          <div className="text-white">resolution = {project.scene?.resolution || 10}  # Grid points per unit length</div>
+                          <div className="text-white">runtime = {project.scene?.runTime || 100}  # Total run time (scale-free units)</div>
+                          <br />
+                          <div className="text-[#84bf6a]"># Initialize boundary layers (filled later by boundaries section)</div>
+                          <div className="text-white">pml_layers = []</div>
+                          <br />
+                          <br />
+                        </>
+                      );
+
+                    case "materials":
+                      return (
+                        <>
+                          <div className="text-[#84bf6a]"># Define materials used in geometries ({materialsCount} total materials)</div>
+                          <div className="text-[#84bf6a]"># Note: Air and Vacuum are always defined for clarity</div>
+                          <br />
+                          <div className="text-[#84bf6a]"># Air (Air)</div>
+                          <div className="text-[#84bf6a]"># Standard atmospheric air at room temperature (20°C, 1 atm). Refractive index n = 1.000293 at 589 nm.</div>
+                          <div className="text-white">air = mp.Medium(index=1.000293)</div>
+                          <br />
+                          <div className="text-[#84bf6a]"># Vacuum (Vacuum)</div>
+                          <div className="text-[#84bf6a]"># Perfect vacuum with n=1. Reference medium for all optical calculations.</div>
+                          <div className="text-white">vacuum = mp.Medium()  # Perfect vacuum, n=1.0</div>
+                          <br />
+                          {materialsCount > 2 && (
+                            <div className="text-[#84bf6a]"># Additional material definitions will appear here</div>
+                          )}
+                          <br />
+                        </>
+                      );
+                      
+                    case "geometries":
+                      return (
+                        <>
+                          <div className="text-[#84bf6a]"># Define geometry objects ({geometryCount} total)</div>
+                          <div className="text-white">geometry = []</div>
+                          <br />
+                          {geometryCount > 0 ? (
+                            <div className="text-[#84bf6a]"># Geometry definitions will appear here</div>
+                          ) : (
+                            <div className="text-gray-500"># No geometries defined yet</div>
+                          )}
+                          <br />
+                          <br />
+                        </>
+                      );
+                      
+                    case "sources":
+                      return (
+                        <>
+                          <div className="text-[#84bf6a]"># Define sources ({sourceCount} total)</div>
+                          <div className="text-white">sources = []</div>
+                          <br />
+                          {sourceCount > 0 ? (
+                            <div className="text-[#84bf6a]"># Source definitions will appear here</div>
+                          ) : (
+                            <div className="text-gray-500"># No sources defined yet</div>
+                          )}
+                          <br />
+                          <br />
+                        </>
+                      );
+                      
+                    case "boundaries":
+                      return (
+                        <>
+                          <div className="text-[#84bf6a]"># Define boundary conditions ({boundaryCount} total)</div>
+                          <div className="text-white">boundaries = []</div>
+                          <br />
+                          {boundaryCount > 0 ? (
+                            <div className="text-[#84bf6a]"># Boundary definitions will appear here</div>
+                          ) : (
+                            <div className="text-gray-500"># No boundaries defined yet</div>
+                          )}
+                          <br />
+                          <br />
+                        </>
+                      );
+                      
+                    case "regions":
+                      return (
+                        <>
+                          <div className="text-[#84bf6a]"># Define simulation regions ({regionCount} total)</div>
+                          {regionCount > 0 ? (
+                            <>
+                              <div className="text-white">flux_regions = []</div>
+                              <div className="text-white">energy_regions = []</div>
+                              <div className="text-white">force_regions = []</div>
+                              <br />
+                              <div className="text-[#84bf6a]"># Region definitions generated based on canvas</div>
+                            </>
+                          ) : (
+                            <div className="text-gray-500"># No regions defined yet</div>
+                          )}
+                          <br />
+                          <br />
+                        </>
+                      );
+                      
+                    case "lattices":
+                      return (
+                        <>
+                          <div className="text-[#84bf6a]"># Define lattice structures and replicated geometries ({latticeCount} total)</div>
+                          {latticeCount > 0 ? (
+                            <>
+                              <div className="text-white">lattice_geometries = []</div>
+                              <br />
+                              <div className="text-[#84bf6a]"># Lattice basis vectors and replicated geometry positions</div>
+                              <div className="text-[#84bf6a]"># geometry.extend(lattice_geometries)  # Add to main geometry list</div>
+                            </>
+                          ) : (
+                            <div className="text-gray-500"># No lattices defined yet</div>
+                          )}
+                          <br />
+                          <br />
+                        </>
+                      );
+                      
+                    case "simulation-assembly":
+                      return (
+                        <>
+                          <div className="text-[#84bf6a]"># Assemble simulation components and define monitors</div>
+                          <div className="text-white">sim = mp.Simulation(</div>
+                          <div className="text-white">    cell_size=cell_size,</div>
+                          <div className="text-white">    boundary_layers=pml_layers,</div>
+                          <div className="text-white">    geometry=geometry,</div>
+                          <div className="text-white">    sources=sources,</div>
+                          <div className="text-white">    resolution=resolution</div>
+                          <div className="text-white">)</div>
+                          <br />
+                          <div className="text-[#84bf6a]"># Define flux monitors</div>
+                          <div className="text-white">flux_monitor = sim.add_flux(...)</div>
+                          <br />
+                          <div className="text-[#84bf6a]"># Define field monitors and callbacks</div>
+                          <div className="text-white">field_monitor = sim.add_dft_fields(...)</div>
+                          <br />
+                          <div className="text-[#84bf6a]"># Ready to run simulation</div>
+                          <div className="text-white">sim.run(...)</div>
+                          <br />
+                        </>
+                      );
+                      
+                    default:
+                      return null;
+                  }
+                })()}
+              </>
+            )}
           </>
         )}
         
         {/* Error message */}
-        {hasError && (
+        {(hasError || hasAsyncSectionError) && (
           <div className="text-red-400 text-xs mt-2">
-            Error: {errors.get(key)}
+            Error: {hasError ? errors.get(key) : asyncSectionError}
           </div>
         )}
       </div>
@@ -643,7 +773,7 @@ sim.run(...)`;
               onClick={() => handleBlockClick("initialization")}
               onMouseEnter={() => handleSidebarBlockHover("initialization")}
               onMouseLeave={() => handleSidebarBlockHover(null)}
-              className={`px-2 py-1 text-gray-300 text-sm rounded cursor-pointer transition-colors ${
+              className={`px-2 py-1 text-gray-300 text-sm rounded cursor-pointer transition-colors flex items-center justify-between ${
                 selectedBlock === "initialization" 
                   ? "bg-gray-700 text-white" 
                   : hoveredBlock === "initialization"
@@ -651,12 +781,18 @@ sim.run(...)`;
                     : "hover:bg-gray-700/50"
               }`}
             >
-              Initialization
+              <span>Initialization</span>
+              {isSectionGenerating('initialization') ? (
+                <LoadingIndicator size="sm" />
+              ) : null}
             </div>
             
-            {/* Dynamic code blocks based on toolbar groups */}
-            {CODE_BLOCK_GROUPS.map((group) => {
+            {/* Dynamic code blocks based on toolbar groups - only show if count > 0 */}
+            {CODE_BLOCK_GROUPS.filter((group) => getObjectCount(group.key) > 0).map((group) => {
               const count = getObjectCount(group.key);
+              const sectionKey = group.key as CodeSection;
+              const isGeneratingSection = isSectionGenerating(sectionKey);
+              
               return (
                 <div 
                   key={group.key}
@@ -672,15 +808,19 @@ sim.run(...)`;
                   }`}
                 >
                   <span>{group.label}</span>
-                  <span 
-                    className="text-xs px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-400"
-                    style={{ 
-                      backgroundColor: count > 0 ? `${group.color}20` : undefined,
-                      color: count > 0 ? group.color : undefined
-                    }}
-                  >
-                    ({count})
-                  </span>
+                  {isGeneratingSection ? (
+                    <LoadingIndicator size="sm" />
+                  ) : (
+                    <span 
+                      className="text-xs px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-400"
+                      style={{ 
+                        backgroundColor: count > 0 ? `${group.color}20` : undefined,
+                        color: count > 0 ? group.color : undefined
+                      }}
+                    >
+                      ({count})
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -690,7 +830,7 @@ sim.run(...)`;
               onClick={() => handleBlockClick("simulation-assembly")}
               onMouseEnter={() => handleSidebarBlockHover("simulation-assembly")}
               onMouseLeave={() => handleSidebarBlockHover(null)}
-              className={`px-2 py-1 text-gray-300 text-sm rounded cursor-pointer transition-colors ${
+              className={`px-2 py-1 text-gray-300 text-sm rounded cursor-pointer transition-colors flex items-center justify-between ${
                 selectedBlock === "simulation-assembly" 
                   ? "bg-gray-700 text-white" 
                   : hoveredBlock === "simulation-assembly"
@@ -698,7 +838,10 @@ sim.run(...)`;
                     : "hover:bg-gray-700/50"
               }`}
             >
-              Simulation Assembly
+              <span>Simulation Assembly</span>
+              {isSectionGenerating('simulation') ? (
+                <LoadingIndicator size="sm" />
+              ) : null}
             </div>
           </div>
         </div>

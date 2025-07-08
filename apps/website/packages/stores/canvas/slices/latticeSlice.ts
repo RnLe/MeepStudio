@@ -9,71 +9,107 @@ export const createLatticeSlice: StateCreator<
 > = (set, get) => ({
   lattices: [],
   
-  setLattices: (lattices) => set({ lattices }),
+  setLattices: (lattices) => set((state) => {
+    const updated = { lattices };
+    state.markCodeSectionDirty('lattices');
+    return updated;
+  }),
   
-  addLattice: (lattice) => set((s) => ({ lattices: [...s.lattices, lattice] })),
+  addLattice: (lattice) => set((state) => {
+    const updated = { lattices: [...state.lattices, lattice] };
+    state.markCodeSectionDirty('lattices');
+    return updated;
+  }),
   
-  updateLattice: (id, partial) => set((s) => ({
-    lattices: s.lattices.map(l => {
-      if (l.id === id) {
-        const updated = { ...l, ...partial };
-        if (partial.pos || partial.x !== undefined || partial.y !== undefined) {
-          updated.center = updated.pos || { x: updated.x, y: updated.y };
-        }
-        // If tiedGeometryId changes, update the geometry's invisible state
-        if (partial.tiedGeometryId !== undefined) {
-          const oldTiedId = l.tiedGeometryId;
-          const newTiedId = partial.tiedGeometryId;
+  updateLattice: (id, partial) => set((s) => {
+    // Check if the lattice is locked - if so, prevent updates (except for lock/unlock and visibility changes)
+    const existingLattice = s.lattices.find(l => l.id === id);
+    if (existingLattice?.locked && !('locked' in partial) && !('invisible' in partial)) {
+      console.warn(`Attempted to update locked lattice with ID: ${id}`);
+      return s; // Return unchanged state
+    }
+    
+    return {
+      lattices: s.lattices.map(l => {
+        if (l.id === id) {
+          const updated = { ...l, ...partial };
           
-          // Make old geometry visible again
-          if (oldTiedId) {
-            const geoms = get().geometries;
-            const oldGeom = geoms.find(g => g.id === oldTiedId);
-            if (oldGeom) {
-              get().updateGeometry(oldTiedId, { invisible: false });
+          // If tiedGeometryId changes, update the geometry's invisible state
+          if (partial.tiedGeometryId !== undefined) {
+            const oldTiedId = l.tiedGeometryId;
+            const newTiedId = partial.tiedGeometryId;
+            
+            // Make old geometry visible again
+            if (oldTiedId) {
+              const geoms = get().geometries;
+              const oldGeom = geoms.find(g => g.id === oldTiedId);
+              if (oldGeom) {
+                get().updateGeometry(oldTiedId, { invisible: false });
+              }
+            }
+            
+            // Make new geometry invisible
+            if (newTiedId) {
+              get().updateGeometry(newTiedId, { invisible: true });
             }
           }
           
-          // Make new geometry invisible
-          if (newTiedId) {
-            get().updateGeometry(newTiedId, { invisible: true });
+          // If linking to a full lattice
+          if (partial.latticeDocumentId !== undefined) {
+            updated.latticeDocumentId = partial.latticeDocumentId;
           }
+          
+          // Handle fillMode and calculatedPoints updates
+          if (partial.fillMode !== undefined) {
+            updated.fillMode = partial.fillMode;
+          }
+          if (partial.calculatedPoints !== undefined) {
+            updated.calculatedPoints = partial.calculatedPoints;
+          }
+          
+          return updated;
         }
-        
-        // If linking to a full lattice
-        if (partial.latticeDocumentId !== undefined) {
-          updated.latticeDocumentId = partial.latticeDocumentId;
-        }
-        
-        // Handle fillMode and calculatedPoints updates
-        if (partial.fillMode !== undefined) {
-          updated.fillMode = partial.fillMode;
-        }
-        if (partial.calculatedPoints !== undefined) {
-          updated.calculatedPoints = partial.calculatedPoints;
-        }
-        
-        return updated;
-      }
-      return l;
-    }),
-  })),
+        return l;
+      }),
+    };
+  }),
 
   // Simplified batch update for lattices (position only, no tied geometry logic)
-  updateLattices: (ids: string[], partial: Partial<any>) => set((s) => ({
-    lattices: s.lattices.map(l => {
-      if (ids.includes(l.id)) {
-        const updated = { ...l, ...partial };
-        if (partial.pos || partial.x !== undefined || partial.y !== undefined) {
-          updated.center = updated.pos || { x: updated.x, y: updated.y };
-        }
-        return updated;
+  updateLattices: (ids: string[], partial: Partial<any>) => set((s) => {
+    // Filter out locked lattices from batch updates (except for lock/unlock and visibility changes)
+    const unlockedIds = ids.filter(id => {
+      const lattice = s.lattices.find(l => l.id === id);
+      if (lattice?.locked && !('locked' in partial) && !('invisible' in partial)) {
+        console.warn(`Skipping update for locked lattice with ID: ${id}`);
+        return false;
       }
-      return l;
-    }),
-  })),
+      return true;
+    });
+    
+    // If no unlocked lattices, return unchanged state
+    if (unlockedIds.length === 0) {
+      return s;
+    }
+    
+    return {
+      lattices: s.lattices.map(l => {
+        if (unlockedIds.includes(l.id)) {
+          const updated = { ...l, ...partial };
+          return updated;
+        }
+        return l;
+      }),
+    };
+  }),
   
   removeLattice: (id) => {
+    // Check if the lattice is locked - if so, prevent removal
+    const existingLattice = get().lattices.find(l => l.id === id);
+    if (existingLattice?.locked) {
+      console.warn(`Attempted to remove locked lattice with ID: ${id}`);
+      return; // Return early
+    }
+    
     // Defer everything to prevent any hooks order violations
     setTimeout(() => {
       const lattice = get().lattices.find(l => l.id === id);
@@ -93,17 +129,32 @@ export const createLatticeSlice: StateCreator<
   },
   
   removeLattices: (ids) => {
+    // Filter out locked lattices from batch removal
+    const unlockedIds = ids.filter(id => {
+      const lattice = get().lattices.find(l => l.id === id);
+      if (lattice?.locked) {
+        console.warn(`Skipping removal for locked lattice with ID: ${id}`);
+        return false;
+      }
+      return true;
+    });
+    
+    // If no unlocked lattices, return early
+    if (unlockedIds.length === 0) {
+      return;
+    }
+    
     // Defer everything to prevent any hooks order violations
     setTimeout(() => {
       // Get the lattices that are about to be removed to handle tied geometries
       const currentLattices = get().lattices;
-      const latticesToRemove = currentLattices.filter(l => ids.includes(l.id));
+      const latticesToRemove = currentLattices.filter(l => unlockedIds.includes(l.id));
       
       // Update state
       set((s) => ({
-        lattices: s.lattices.filter(l => !ids.includes(l.id)),
-        selectedGeometryIds: s.selectedGeometryIds.filter(selId => !ids.includes(selId)),
-        selectedGeometryId: s.selectedGeometryId && ids.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
+        lattices: s.lattices.filter(l => !unlockedIds.includes(l.id)),
+        selectedGeometryIds: s.selectedGeometryIds.filter(selId => !unlockedIds.includes(selId)),
+        selectedGeometryId: s.selectedGeometryId && unlockedIds.includes(s.selectedGeometryId) ? null : s.selectedGeometryId,
       }));
       
       // Then handle tied geometries
@@ -149,8 +200,6 @@ export const createLatticeSlice: StateCreator<
           center: l.center || l.pos || { x: 0, y: 0 }
         }))
       });
-      
-      console.log('🔄 Synced lattices from project:', project.scene.lattices);
     }, 0);
   },
 });

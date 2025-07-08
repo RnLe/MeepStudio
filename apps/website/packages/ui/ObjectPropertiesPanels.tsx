@@ -20,8 +20,11 @@ import { GaussianSourceProperties } from "./source-properties/GaussianSourceProp
 import { EigenModeSourceProperties } from "./source-properties/EigenModeSourceProperties";
 import { GaussianBeamSourceProperties } from "./source-properties/GaussianBeamSourceProperties";
 import { PMLBoundaryProperties } from "./boundary-properties/PMLBoundaryProperties";
+import { RegionProperties } from "./region-properties/RegionProperties";
+import { RegionBoxProperties } from "./region-properties/RegionBoxProperties";
 import SceneLatticeProperties from "./SceneLatticeProperties";
 import { SceneCylinderProperties } from "./geometry-properties/SceneCylinderProperties";
+import { SceneTriangleProperties } from "./geometry-properties/SceneTriangleProperties";
 
 interface ObjectPropertiesPanelProps {
   ghPages: boolean;
@@ -37,9 +40,13 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     sources,
     boundaries,
     lattices,
+    regions,
+    regionBoxes,
     updateGeometry: updateGeometryStore,
     updateSource: updateSourceStore,
-    updateBoundary: updateBoundaryStore
+    updateBoundary: updateBoundaryStore,
+    updateRegion: updateRegionStore,
+    updateRegionBox: updateRegionBoxStore
   } = useCanvasStore((s) => ({
     selectedGeometryIds: s.selectedGeometryIds,
     selectedGeometryId: s.selectedGeometryId,
@@ -47,9 +54,13 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     sources: s.sources,
     boundaries: s.boundaries,
     lattices: s.lattices,
+    regions: s.regions,
+    regionBoxes: s.regionBoxes,
     updateGeometry: s.updateGeometry,
     updateSource: s.updateSource,
     updateBoundary: s.updateBoundary,
+    updateRegion: s.updateRegion,
+    updateRegionBox: s.updateRegionBox,
   }));
   
   // Use optimized updates that get the current project from active tab
@@ -79,8 +90,16 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     const lattice = lattices.find(l => l.id === selectedGeometryId);
     if (lattice) return { type: 'lattice', element: lattice };
     
+    // Check regions
+    const region = regions.find(r => r.id === selectedGeometryId);
+    if (region) return { type: 'region', element: region };
+    
+    // Check region boxes
+    const regionBox = regionBoxes.find(rb => rb.id === selectedGeometryId);
+    if (regionBox) return { type: 'regionBox', element: regionBox };
+    
     return null;
-  }, [selectedGeometryId, geometries, sources, boundaries, lattices]);
+  }, [selectedGeometryId, geometries, sources, boundaries, lattices, regions, regionBoxes]);
   
   // Derive project properties
   const projectA = project?.scene?.a || 1;
@@ -123,6 +142,30 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
     }, 500);
   };
   
+  const updateRegion = (id: string, partial: Partial<any>) => {
+    updateImmediate('region', id, partial);
+    
+    // Debounced persistence for non-drag interactions
+    if (persistenceTimerRef.current) {
+      clearTimeout(persistenceTimerRef.current);
+    }
+    persistenceTimerRef.current = setTimeout(() => {
+      updateDeferred('region', id, partial);
+    }, 500);
+  };
+  
+  const updateRegionBox = (id: string, partial: Partial<any>) => {
+    updateImmediate('regionBox', id, partial);
+    
+    // Debounced persistence for non-drag interactions
+    if (persistenceTimerRef.current) {
+      clearTimeout(persistenceTimerRef.current);
+    }
+    persistenceTimerRef.current = setTimeout(() => {
+      updateDeferred('regionBox', id, partial);
+    }, 500);
+  };
+  
   // Cleanup timer on unmount
   React.useEffect(() => {
     return () => {
@@ -136,6 +179,8 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
   const isSource = selectedElement?.type === 'source';
   const isBoundary = selectedElement?.type === 'boundary';
   const isLattice = selectedElement?.type === 'lattice';
+  const isRegion = selectedElement?.type === 'region';
+  const isRegionBox = selectedElement?.type === 'regionBox';
   
   const handleUpdate = React.useCallback((partial: Partial<any>) => {
     if (!selectedElement) return;
@@ -144,10 +189,14 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
       updateBoundary(selectedElement.element.id, partial);
     } else if (isSource) {
       updateSource(selectedElement.element.id, partial);
+    } else if (isRegion) {
+      updateRegion(selectedElement.element.id, partial);
+    } else if (isRegionBox) {
+      updateRegionBox(selectedElement.element.id, partial);
     } else {
       updateGeometry(selectedElement.element.id, partial);
     }
-  }, [selectedElement, isBoundary, isSource, updateBoundary, updateSource, updateGeometry]);
+  }, [selectedElement, isBoundary, isSource, isRegion, isRegionBox, updateBoundary, updateSource, updateRegion, updateRegionBox, updateGeometry]);
     
   // Create drag-aware update handlers for Dial components
   const dialHandlers = React.useMemo(() => {
@@ -166,11 +215,15 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
       useCanvasStore.getState().removeBoundary(selectedElement.element.id);
     } else if (isSource) {
       useCanvasStore.getState().removeSource(selectedElement.element.id);
+    } else if (isRegion) {
+      useCanvasStore.getState().removeRegion(selectedElement.element.id);
+    } else if (isRegionBox) {
+      useCanvasStore.getState().removeRegionBox(selectedElement.element.id);
     } else {
       useCanvasStore.getState().removeGeometry(selectedElement.element.id);
     }
     persistNow(); // Immediate persistence after deletion
-  }, [selectedElement, isBoundary, isSource, persistNow]);
+  }, [selectedElement, isBoundary, isSource, isRegion, isRegionBox, persistNow]);
   
   /* --------------------------------------------
    * RENDER
@@ -311,118 +364,15 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
                 );
               })()}
 
-          {selectedElement.element.kind === "triangle" && (() => {
-            const tri = selectedElement.element as Triangle;
-            return (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-300">Triangle Properties</h3>
-                
-                {/* 2-column layout for triangle */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Left column - Vertices */}
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-400 mb-2">Vertices (relative)</h4>
-                    <div className="space-y-1">
-                      {tri.vertices.map((v, i) => (
-                        <div key={i} className="bg-neutral-700/50 rounded px-2 py-0.5">
-                          <div className="flex items-center justify-between text-xs mb-1">
-                            <span className={i === 0 ? "text-purple-400" : i === 1 ? "text-pink-400" : "text-amber-400"}>v{i + 1}</span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-1">
-                            <input
-                              type="number"
-                              value={v.x.toFixed(3)}
-                              onChange={(e) => {
-                                const newVertices = [...tri.vertices];
-                                newVertices[i] = { ...newVertices[i], x: parseFloat(e.target.value) || 0 };
-                                updateGeometry(tri.id, { vertices: newVertices });
-                              }}
-                              className={`text-xs font-mono bg-transparent text-right outline-none ${
-                                i === 0 ? "text-purple-400" : i === 1 ? "text-pink-400" : "text-amber-400"
-                              }`}
-                              step="0.001"
-                            />
-                            <input
-                              type="number"
-                              value={v.y.toFixed(3)}
-                              onChange={(e) => {
-                                const newVertices = [...tri.vertices];
-                                newVertices[i] = { ...newVertices[i], y: parseFloat(e.target.value) || 0 };
-                                updateGeometry(tri.id, { vertices: newVertices });
-                              }}
-                              className={`text-xs font-mono bg-transparent text-right outline-none ${
-                                i === 0 ? "text-purple-400" : i === 1 ? "text-pink-400" : "text-amber-400"
-                              }`}
-                              step="0.001"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Right column - Properties & Position */}
-                  <div className="space-y-3">
-                    <div>
-                      <h4 className="text-xs font-medium text-gray-400 mb-2">Properties</h4>
-                      <div className="space-y-1.5">
-                        <div className="bg-neutral-700/50 rounded px-2 py-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-400">Rotation</span>
-                            <input
-                              type="number"
-                              value={((tri.orientation || 0) * 180 / Math.PI).toFixed(1)}
-                              onChange={(e) => updateGeometry(tri.id, { orientation: parseFloat(e.target.value) * Math.PI / 180 || 0 })}
-                              className="text-xs text-gray-200 font-mono bg-transparent text-right w-12 outline-none"
-                              step="0.1"
-                            />
-                            <span className="text-xs text-gray-400">°</span>
-                          </div>
-                        </div>
-                        <div className="bg-neutral-700/50 rounded px-2 py-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-400">Material</span>
-                            <input
-                              type="text"
-                              value={tri.material || "air"}
-                              onChange={(e) => updateGeometry(tri.id, { material: e.target.value })}
-                              className="text-xs text-gray-200 bg-transparent text-right w-16 outline-none"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="text-xs font-medium text-gray-400 mb-2">Position</h4>
-                      <div className="bg-neutral-700/50 rounded px-2 py-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">X</span>
-                          <input
-                            type="number"
-                            value={tri.pos.x.toFixed(3)}
-                            onChange={(e) => updateGeometry(tri.id, { pos: { ...tri.pos, x: parseFloat(e.target.value) || 0 } })}
-                            className="text-xs text-orange-400 font-mono bg-transparent text-right w-16 outline-none"
-                            step="0.001"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">Y</span>
-                          <input
-                            type="number"
-                            value={tri.pos.y.toFixed(3)}
-                            onChange={(e) => updateGeometry(tri.id, { pos: { ...tri.pos, y: parseFloat(e.target.value) || 0 } })}
-                            className="text-xs text-orange-400 font-mono bg-transparent text-right w-16 outline-none"
-                            step="0.001"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          {selectedElement.element.kind === "triangle" && (
+            <SceneTriangleProperties
+              triangle={selectedElement.element}
+              project={project}
+              ghPages={ghPages}
+              projectA={projectA}
+              projectUnit={projectUnit}
+            />
+          )}
             </div>
           )}
 
@@ -479,6 +429,30 @@ const ObjectPropertiesPanel: React.FC<ObjectPropertiesPanelProps> = ({
               lattice={selectedElement.element}
               project={project}
               ghPages={ghPages}
+            />
+          )}
+
+          {selectedElement.type === 'region' && (
+            <RegionProperties 
+              region={selectedElement.element} 
+              onUpdate={handleUpdate}
+              onDragStart={dialHandlers.onDragStart}
+              onDragEnd={dialHandlers.onDragEnd}
+              projectUnit={projectUnit}
+              projectA={projectA}
+            />
+          )}
+
+          {selectedElement.type === 'regionBox' && (
+            <RegionBoxProperties 
+              regionBox={selectedElement.element} 
+              onUpdate={handleUpdate}
+              onDragStart={dialHandlers.onDragStart}
+              onDragEnd={dialHandlers.onDragEnd}
+              projectUnit={projectUnit}
+              projectA={projectA}
+              projectWidth={project?.scene?.rectWidth || 3}
+              projectHeight={project?.scene?.rectHeight || 3}
             />
           )}
         </>

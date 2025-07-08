@@ -116,7 +116,17 @@ export const PMLEdgeSelector: React.FC<PMLEdgeSelectorProps> = ({
   };
 
   const handlePresetNone = () => {
-    clearEdges(['top', 'right', 'bottom', 'left']);
+    // Explicitly clear all edges to undefined
+    if (onBulkChange) {
+      // Create completely new object with no edge assignments
+      onBulkChange({});
+    } else {
+      // Fall back to individual updates, explicitly setting to undefined
+      onChange('top', undefined);
+      onChange('right', undefined);
+      onChange('bottom', undefined);
+      onChange('left', undefined);
+    }
   };
 
   const handlePresetX = () => {
@@ -169,16 +179,19 @@ export const PMLEdgeSelector: React.FC<PMLEdgeSelectorProps> = ({
 
   const getEdgeColor = (edge: 'top' | 'right' | 'bottom' | 'left') => {
     const assignment = edgeAssignments[edge];
-    if (assignment !== undefined && parameterColors[assignment]) {
-      // If already assigned, show darker color on hover
+    
+    // Only show parameter color if explicitly assigned and the parameter set exists
+    if (assignment !== undefined && assignment !== null && parameterColors[assignment]) {
+      const baseColor = parameterColors[assignment];
+      
+      // If already assigned, show lighter color on hover
       if (hoveredEdge === edge) {
-        const baseColor = parameterColors[assignment];
         const r = parseInt(baseColor.slice(1, 3), 16);
         const g = parseInt(baseColor.slice(3, 5), 16);
         const b = parseInt(baseColor.slice(5, 7), 16);
-        return `rgb(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)})`;
+        return `rgb(${Math.min(255, r + 50)}, ${Math.min(255, g + 50)}, ${Math.min(255, b + 50)})`;
       }
-      return parameterColors[assignment];
+      return baseColor;
     }
     
     // Show preview when hovering buttons
@@ -189,7 +202,7 @@ export const PMLEdgeSelector: React.FC<PMLEdgeSelectorProps> = ({
     }
     
     if (hoveredEdge === edge) return "#60a5fa"; // blue-400
-    return "#404040"; // neutral gray
+    return "#404040"; // neutral gray for unassigned edges
   };
 
   return (

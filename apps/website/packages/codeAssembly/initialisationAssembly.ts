@@ -1,5 +1,6 @@
 import { ConversionContext, generateSectionSeparator } from './codeAssemblyConversion2D';
 import { CodeBlock } from '../providers/CodeAssemblyStore';
+import { convertTime, convertToPhysicalUnit } from '../utils/physicalUnitsHelper';
 
 export interface InitializationResult {
   success: boolean;
@@ -11,7 +12,7 @@ export interface InitializationResult {
  */
 export async function generateInitializationCode(context: ConversionContext): Promise<InitializationResult> {
   try {
-    const { codeState } = context;
+    const { codeState, project } = context;
     const params = codeState.simulationParams;
     
     // Build initialization code
@@ -21,25 +22,41 @@ export async function generateInitializationCode(context: ConversionContext): Pr
       '# Initialize Meep simulation environment',
       'import meep as mp',
       'import numpy as np',
-      '',
-      '# Define simulation parameters',
-      `cell_size = mp.Vector3(${params.cellSize.x}, ${params.cellSize.y}, ${params.cellSize.z})`,
-      `resolution = ${params.resolution}`,
-      '',
-      '# Initialize boundary layers (filled later by boundaries section)',
-      'pml_layers = []',
       ''
     ];
-    
-    // Add optional parameters if defined
-    if (params.runtime !== undefined) {
-      lines.push(`runtime = ${params.runtime}`);
+
+    // Add project information if available
+    if (project?.scene) {
+      const scene = project.scene;
+      lines.push('# Project Information');
+      lines.push(`# Title: ${project.title}`);
+      if (project.description) {
+        lines.push(`# Description: ${project.description}`);
+      }
+      lines.push(`# Characteristic length (a): ${scene.a} ${scene.unit}`);
+      lines.push('');
+      
+      // Calculate physical time units using a/c = t
+      const oneTimeUnit = convertTime(1, scene.a, scene.unit);
+      const totalTime = convertTime(scene.runTime, scene.a, scene.unit);
+      
+      lines.push('# Simulation Parameters');
+      lines.push(`cell_size = mp.Vector3(${scene.rectWidth}, ${scene.rectHeight}, 0)  # Grid size: ${scene.rectWidth} × ${scene.rectHeight} (scale-free units)`);
+      lines.push(`resolution = ${scene.resolution}  # Grid points per unit length`);
+      lines.push(`runtime = ${scene.runTime}  # Total run time (scale-free units) = ${totalTime}`);
+      lines.push('');
+      lines.push('# Physical Time Scale');
+      lines.push(`# One time unit (a/c) = ${oneTimeUnit}`);
+      lines.push(`# Total simulation time = ${totalTime}`);
+      lines.push('');
+    } else {
+      // Fallback for when project data isn't available
+      lines.push('# Define simulation parameters');
+      lines.push(`cell_size = mp.Vector3(${params.cellSize.x}, ${params.cellSize.y}, ${params.cellSize.z})`);
+      lines.push(`resolution = ${params.resolution}`);
+      lines.push('');
     }
-    
-    if (params.dtStability !== undefined) {
-      lines.push(`dt_stability = ${params.dtStability}`);
-    }
-    
+
     // Create code block
     const codeBlock: CodeBlock = {
       key: 'initialization',
@@ -48,12 +65,12 @@ export async function generateInitializationCode(context: ConversionContext): Pr
       imports: ['import meep as mp', 'import numpy as np'],
       dependencies: []
     };
-    
+
     // Store in code state
     codeState.setCodeBlock('initialization', codeBlock);
-    
+
     return { success: true };
-    
+
   } catch (error) {
     return {
       success: false,

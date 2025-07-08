@@ -6,6 +6,7 @@ import { GaussianPulsePlot } from "../plots/GaussianPulsePlot";
 import { Dial } from "../components/Dial";
 import CustomLucideIcon from "../CustomLucideIcon";
 import { LengthUnit } from "../../types/meepProjectTypes";
+import { useNumberInputWheel } from "../../hooks/useNumberInputWheel";
 import { 
   convertLength,
   convertFrequency,
@@ -37,6 +38,7 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
 }) => {
   // Get default values
   const defaults = React.useMemo(() => getSourceDefaults('gaussian'), []);
+  const { createWheelHandler } = useNumberInputWheel();
   
   const [showUnits, setShowUnits] = React.useState(false);
   const [lineOrientation, setLineOrientation] = React.useState<'horizontal' | 'vertical'>('horizontal');
@@ -414,6 +416,9 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
                 type="number"
                 value={formatValue(source.pos?.x || 0)}
                 onChange={(e) => handleVectorChange('pos', 'x', e.target.value)}
+                onWheel={createWheelHandler('pos.x', source.pos?.x || 0, (newValue) => 
+                  handleVectorChange('pos', 'x', newValue.toString())
+                )}
                 className="w-16 px-1 py-0.5 text-xs bg-neutral-700 rounded text-gray-200"
                 step="0.01"
               />
@@ -429,6 +434,9 @@ export const GaussianSourceProperties: React.FC<GaussianSourcePropertiesProps> =
                 type="number"
                 value={formatValue(source.pos?.y || 0)}
                 onChange={(e) => handleVectorChange('pos', 'y', e.target.value)}
+                onWheel={createWheelHandler('pos.y', source.pos?.y || 0, (newValue) => 
+                  handleVectorChange('pos', 'y', newValue.toString())
+                )}
                 className="w-16 px-1 py-0.5 text-xs bg-neutral-700 rounded text-gray-200"
                 step="0.01"
               />

@@ -13,9 +13,12 @@ export interface FluxRegion {
     // Size of flux region along coordinate axes
     size?: Vector3; // Default: (0,0,0) - single point
     
-    // Direction to compute flux (X, Y, Z, or AUTOMATIC)
-    // AUTOMATIC uses normal direction for planes/lines, must specify for points/volumes
-    direction?: number; // Default: AUTOMATIC (-1)
+    // Direction to compute flux (0=AUTO, 1=X, 2=Y, 3=Z)
+    // AUTO uses normal direction for planes/lines
+    direction?: number; // Default: 0 (AUTO)
+    
+    // Direction sign (1 for positive, -1 for negative)
+    directionSign?: number; // Default: 1 (positive)
     
     // Weight factor to multiply flux when computed
     weight?: number; // Default: 1.0, can be complex
@@ -61,10 +64,10 @@ export interface ForceRegion extends FluxRegion {
 
 // Direction constants for region specifications
 export enum RegionDirection {
-    X = 0,
-    Y = 1, 
-    Z = 2,
-    AUTOMATIC = -1
+    AUTO = 0,
+    X = 1,
+    Y = 2, 
+    Z = 3
 }
 
 // Type alias for mode monitor regions

@@ -109,8 +109,9 @@ export const useCodeAssemblyStore = createWithEqualityFn<CodeAssemblyState>(
       const blocks = state.codeBlocks;
       const orderedKeys = [
         'initialization',
-        'geometries',
         'materials',
+        'geometries',
+        'lattices',
         'sources',
         'boundaries',
         'regions',

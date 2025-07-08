@@ -7,7 +7,7 @@ import { MathVector, LabeledVector } from "./MathVector";
 import { useLatticeStore } from "../providers/LatticeStore";
 import CustomLucideIcon from "./CustomLucideIcon";
 import { TransformationTooltip, TooltipWrapper } from "./TransformationTooltip";
-import { Code2, Layers, Download, LucideIcon, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useEditorStateStore } from "../providers/EditorStateStore";
 import { detectLatticeType, getLatticeDescription, LatticeType } from "../utils/latticeTypeChecker";
 import { getWasmModule } from "../utils/wasmLoader";
@@ -24,7 +24,7 @@ interface Props {
 }
 
 const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
-  const { updateLattice } = useMeepProjects();
+  const { updateLattice, setIsChangingLatticeType } = useMeepProjects();
   
   const { 
     isEditingLattice: editing,
@@ -157,30 +157,30 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
     const basisSize = lattice.meepLattice?.basis_size || { x: 1, y: 1, z: 1 };
     
     switch (type) {
-      case LatticeType.QUADRATIC:
+      case LatticeType.QUADRATIC: // 'square'
         return {
           basis1: { x: 1, y: 0, z: 0 },
           basis2: { x: 0, y: 1, z: 0 }
         };
-      case LatticeType.RECTANGULAR:
+      case LatticeType.RECTANGULAR: // 'rectangular'
         return {
           basis1: { x: 1, y: 0, z: 0 },
-          basis2: { x: 0, y: 0.5, z: 0 }
+          basis2: { x: 0, y: 1.5, z: 0 }
         };
-      case LatticeType.TRIANGULAR:
+      case LatticeType.TRIANGULAR: // 'hexagonal'
         return {
           basis1: { x: 1, y: 0, z: 0 },
-          basis2: { x: 0.5, y: Math.sqrt(3)/2, z: 0 }
+          basis2: { x: 1 * Math.cos(120 * Math.PI / 180), y: 1 * Math.sin(120 * Math.PI / 180), z: 0 }
         };
-      case LatticeType.RHOMBIC:
+      case LatticeType.RHOMBIC: // 'rhombic'
         return {
           basis1: { x: 1, y: 0, z: 0 },
-          basis2: { x: 0.5, y: 0.866, z: 0 } // 60° angle
+          basis2: { x: 1 * Math.cos(60 * Math.PI / 180), y: 1 * Math.sin(60 * Math.PI / 180), z: 0 }
         };
-      case LatticeType.OBLIQUE:
+      case LatticeType.OBLIQUE: // 'oblique'
         return {
           basis1: { x: 1, y: 0, z: 0 },
-          basis2: { x: 0.3, y: 0.8, z: 0 } // arbitrary oblique
+          basis2: { x: 1.2 * Math.cos(75 * Math.PI / 180), y: 1.2 * Math.sin(75 * Math.PI / 180), z: 0 }
         };
       default:
         return null;
@@ -189,150 +189,144 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
   
   // Handle lattice type change
   const handleLatticeTypeChange = async (newType: LatticeType) => {
-    console.log('🔄 Starting lattice type change:', {
-      from: detectedLatticeType?.type,
-      to: newType,
-      latticeId: lattice.documentId
-    });
-    
     setShowTypeDropdown(false);
+    setIsUpdatingLatticeType(true); // Prevent sync useEffect from interfering
+    setIsChangingLatticeType(true); // Prevent store sync from interfering
     
-    const newVectors = getBaseVectorsForType(newType);
-    if (!newVectors || !lattice.meepLattice) return;
-    
-    console.log('📐 New vectors for type', newType, ':', newVectors);
-    
-    const basisSize = lattice.meepLattice.basis_size;
-    
-    // Clear cached data in store before updating
-    useLatticeStore.setState({
-      voronoiData: null,
-      latticePointCache: null,
-      transformationMatrices: null
-    });
-    
-    // Update the lattice store immediately with new vectors
-    setCurrentBasisVectors(
-      { x: newVectors.basis1.x, y: newVectors.basis1.y },
-      { x: newVectors.basis2.x, y: newVectors.basis2.y }
-    );
-    setCurrentLatticeType(latticeEnumToString(newType));
-    
-    console.log('🏪 Updated store with:', {
-      basis1: { x: newVectors.basis1.x, y: newVectors.basis1.y },
-      basis2: { x: newVectors.basis2.x, y: newVectors.basis2.y },
-      type: latticeEnumToString(newType)
-    });
-    
-    // Create updated lattice with new basis vectors
-    const updatedMeepLattice = {
-      ...lattice.meepLattice,
-      basis1: newVectors.basis1,
-      basis2: newVectors.basis2,
-    };
-    
-    // Calculate reciprocal basis vectors
-    try {
-      const wasm = await getWasmModule();
-      
-      // Get scaled basis vectors
-      const a1 = {
-        x: newVectors.basis1.x * basisSize.x,
-        y: newVectors.basis1.y * basisSize.y,
-        z: newVectors.basis1.z * basisSize.z
-      };
-      const a2 = {
-        x: newVectors.basis2.x * basisSize.x,
-        y: newVectors.basis2.y * basisSize.y,
-        z: newVectors.basis2.z * basisSize.z
-      };
-      
-      // Calculate reciprocal basis
-      const det = a1.x * a2.y - a1.y * a2.x;
-      if (Math.abs(det) < 1e-14) {
-        throw new Error("Basis vectors are collinear");
+    try {      
+      const newVectors = getBaseVectorsForType(newType);
+      if (!newVectors || !lattice.meepLattice) {
+        console.error('❌ Failed to get vectors or lattice missing:', { newVectors, meepLattice: lattice.meepLattice });
+        return;
       }
       
-      const factor = 2 * Math.PI / det;
-      updatedMeepLattice.reciprocal_basis1 = { 
-        x: a2.y * factor, 
-        y: -a2.x * factor,
-        z: 0 
-      };
-      updatedMeepLattice.reciprocal_basis2 = { 
-        x: -a1.y * factor, 
-        y: a1.x * factor,
-        z: 0 
+      const basisSize = lattice.meepLattice.basis_size;
+      
+      // Clear cached data in store before updating
+      useLatticeStore.setState({
+        voronoiData: null,
+        latticePointCache: null,
+        transformationMatrices: null
+      });
+      
+      // Update the lattice store immediately with new vectors
+      setCurrentBasisVectors(
+        { x: newVectors.basis1.x, y: newVectors.basis1.y },
+        { x: newVectors.basis2.x, y: newVectors.basis2.y }
+      );
+      setCurrentLatticeType(latticeEnumToString(newType));
+      
+      // Create updated lattice with new basis vectors
+      const updatedMeepLattice = {
+        ...lattice.meepLattice,
+        basis1: newVectors.basis1,
+        basis2: newVectors.basis2,
       };
       
-      // Calculate transformation matrices if available
-      if (wasm.calculate_lattice_transformations) {
-        const matrices = wasm.calculate_lattice_transformations(
-          a1.x, a1.y,
-          a2.x, a2.y,
-          updatedMeepLattice.reciprocal_basis1.x, updatedMeepLattice.reciprocal_basis1.y,
-          updatedMeepLattice.reciprocal_basis2.x, updatedMeepLattice.reciprocal_basis2.y
-        );
+      // Calculate reciprocal basis vectors
+      try {
+        const wasm = await getWasmModule();
         
-        // Expand 2x2 matrices to 3x3
-        const expandMatrix = (m: any): number[][] => {
-          if (!m || !Array.isArray(m)) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
-          return [
-            [m[0][0], m[0][1], 0],
-            [m[1][0], m[1][1], 0],
-            [0, 0, 1]
-          ];
+        // Get scaled basis vectors
+        const a1 = {
+          x: newVectors.basis1.x * basisSize.x,
+          y: newVectors.basis1.y * basisSize.y,
+          z: newVectors.basis1.z * basisSize.z
+        };
+        const a2 = {
+          x: newVectors.basis2.x * basisSize.x,
+          y: newVectors.basis2.y * basisSize.y,
+          z: newVectors.basis2.z * basisSize.z
         };
         
-        updatedMeepLattice.transformationMatrices = {
-          MA: expandMatrix(matrices.MA),
-          MA_inv: expandMatrix(matrices.MA_inv),
-          MB: expandMatrix(matrices.MB),
-          MB_inv: expandMatrix(matrices.MB_inv),
-          realToReciprocal: expandMatrix(matrices.realToReciprocal),
-          reciprocalToReal: expandMatrix(matrices.reciprocalToReal)
+        // Calculate reciprocal basis
+        const det = a1.x * a2.y - a1.y * a2.x;
+        if (Math.abs(det) < 1e-14) {
+          throw new Error("Basis vectors are collinear");
+        }
+        
+        const factor = 2 * Math.PI / det;
+        updatedMeepLattice.reciprocal_basis1 = { 
+          x: a2.y * factor, 
+          y: -a2.x * factor,
+          z: 0 
         };
+        updatedMeepLattice.reciprocal_basis2 = { 
+          x: -a1.y * factor, 
+          y: a1.x * factor,
+          z: 0 
+        };
+        
+        // Calculate transformation matrices if available
+        if (wasm.calculate_lattice_transformations) {
+          const matrices = wasm.calculate_lattice_transformations(
+            a1.x, a1.y,
+            a2.x, a2.y,
+            updatedMeepLattice.reciprocal_basis1.x, updatedMeepLattice.reciprocal_basis1.y,
+            updatedMeepLattice.reciprocal_basis2.x, updatedMeepLattice.reciprocal_basis2.y
+          );
+          
+          // Expand 2x2 matrices to 3x3
+          const expandMatrix = (m: any): number[][] => {
+            if (!m || !Array.isArray(m)) return [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+            return [
+              [m[0][0], m[0][1], 0],
+              [m[1][0], m[1][1], 0],
+              [0, 0, 1]
+            ];
+          };
+          
+          updatedMeepLattice.transformationMatrices = {
+            MA: expandMatrix(matrices.MA),
+            MA_inv: expandMatrix(matrices.MA_inv),
+            MB: expandMatrix(matrices.MB),
+            MB_inv: expandMatrix(matrices.MB_inv),
+            realToReciprocal: expandMatrix(matrices.realToReciprocal),
+            reciprocalToReal: expandMatrix(matrices.reciprocalToReal)
+          };
+        }
+      } catch (error) {
+        console.error("Failed to calculate reciprocal lattice:", error);
       }
+      
+      // Update lattice parameters based on new vectors
+      const params = {
+        a: Math.sqrt(newVectors.basis1.x * newVectors.basis1.x + newVectors.basis1.y * newVectors.basis1.y),
+        b: Math.sqrt(newVectors.basis2.x * newVectors.basis2.x + newVectors.basis2.y * newVectors.basis2.y),
+        alpha: Math.acos(
+          (newVectors.basis1.x * newVectors.basis2.x + newVectors.basis1.y * newVectors.basis2.y) /
+          (Math.sqrt(newVectors.basis1.x * newVectors.basis1.x + newVectors.basis1.y * newVectors.basis1.y) *
+           Math.sqrt(newVectors.basis2.x * newVectors.basis2.x + newVectors.basis2.y * newVectors.basis2.y))
+        ) * 180 / Math.PI
+      };
+
+      // Update the lattice with proper latticeType
+      const updateResult = await updateLattice({
+        documentId: lattice.documentId,
+        lattice: {
+          latticeType: latticeEnumToString(newType),
+          meepLattice: updatedMeepLattice,
+          parameters: { a: params.a, b: params.b, alpha: params.alpha },
+        },
+      });
+
+      if (!updateResult) {
+        console.error('❌ updateLattice returned undefined - update may have failed');
+        return;
+      }
+
+      // Trigger canvas update
+      triggerCanvasUpdate();
+      
     } catch (error) {
-      console.error("Failed to calculate reciprocal lattice:", error);
+      console.error('❌ Error updating lattice:', error);
+    } finally {
+      // Allow sync useEffect to work again after a longer delay to ensure the store update has fully propagated
+      setTimeout(() => {
+        setIsUpdatingLatticeType(false);
+        setIsChangingLatticeType(false);
+      }, 500); // Increased delay to 500ms
     }
-    
-    // Update lattice parameters based on new vectors
-    const params = {
-      a: Math.sqrt(newVectors.basis1.x * newVectors.basis1.x + newVectors.basis1.y * newVectors.basis1.y),
-      b: Math.sqrt(newVectors.basis2.x * newVectors.basis2.x + newVectors.basis2.y * newVectors.basis2.y),
-      alpha: Math.acos(
-        (newVectors.basis1.x * newVectors.basis2.x + newVectors.basis1.y * newVectors.basis2.y) /
-        (Math.sqrt(newVectors.basis1.x * newVectors.basis1.x + newVectors.basis1.y * newVectors.basis1.y) *
-         Math.sqrt(newVectors.basis2.x * newVectors.basis2.x + newVectors.basis2.y * newVectors.basis2.y))
-      ) * 180 / Math.PI
-    };
-    
-    // Update the lattice with proper latticeType
-    console.log('📤 Calling updateLattice with:', {
-      documentId: lattice.documentId,
-      latticeType: latticeEnumToString(newType),
-      basis1: newVectors.basis1,
-      basis2: newVectors.basis2
-    });
-    
-    const updateResult = await updateLattice({
-      documentId: lattice.documentId,
-      lattice: {
-        ...lattice,
-        latticeType: latticeEnumToString(newType),
-        meepLattice: updatedMeepLattice,
-        parameters: { a: params.a, b: params.b, alpha: params.alpha },
-      },
-    });
-    
-    console.log('✅ updateLattice result:', updateResult);
-    
-    // Store update propagates automatically via Zustand
-    
-    // Trigger canvas update
-    triggerCanvasUpdate();
-    console.log('🎨 Triggered canvas update');
   };
   
   // Calculate real space parameters
@@ -426,31 +420,6 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
   };
   
   const { MA, MB, TAB, TBA } = getTransformationMatrices();
-  
-  // Define action buttons
-  const actionButtons = [
-    {
-      label: "Code Editor",
-      icon: Code2,
-      onClick: () => {
-        // TODO: Implement code editor functionality
-      }
-    },
-    {
-      label: "Add to Scene",
-      icon: Layers,
-      onClick: () => {
-        // TODO: Implement add to scene functionality
-      }
-    },
-    {
-      label: "Export",
-      icon: Download,
-      onClick: () => {
-        // TODO: Implement export functionality
-      }
-    }
-  ];
 
   // Detect lattice type
   const detectedLatticeType = React.useMemo(() => {
@@ -623,16 +592,19 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
     }
   }, [showTypeDropdown]);
   
-  // Sync lattice changes to store when lattice prop changes
+  // State for managing lattice type updates to prevent sync loops
+  const [isUpdatingLatticeType, setIsUpdatingLatticeType] = React.useState(false);
+
+  // Sync lattice changes to store when lattice prop changes (but not during our own updates)
   React.useEffect(() => {
-    if (lattice?.meepLattice) {
+    if (lattice?.meepLattice && !isUpdatingLatticeType) {
       setCurrentBasisVectors(
         { x: lattice.meepLattice.basis1.x, y: lattice.meepLattice.basis1.y },
         { x: lattice.meepLattice.basis2.x, y: lattice.meepLattice.basis2.y }
       );
       setCurrentLatticeType(lattice.latticeType || 'square');
     }
-  }, [lattice, setCurrentBasisVectors, setCurrentLatticeType]);
+  }, [lattice, setCurrentBasisVectors, setCurrentLatticeType, isUpdatingLatticeType]);
   
   // Convert lattice enum to string literal
   const latticeEnumToString = (t: LatticeType): Lattice['latticeType'] => {
@@ -995,34 +967,6 @@ const RightLatticePanel: React.FC<Props> = ({ lattice, ghPages, onCancel }) => {
               />
             </div>
           </TooltipWrapper>
-        </div>
-      </div>
-      
-      {/* Actions */}
-      <div className="p-4 pt-0 mt-auto">
-        <h3 className="text-sm font-medium text-gray-300 mb-3">Actions</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {actionButtons.map((action, index) => {
-            const Icon = action.icon;
-            const isLastAndOdd = index === actionButtons.length - 1 && actionButtons.length % 2 === 1;
-            return (
-              <button
-                key={index}
-                onClick={action.onClick}
-                className={`flex flex-col items-center justify-center p-3 rounded bg-neutral-700/30 hover:bg-neutral-700/50 transition-colors group cursor-pointer ${
-                  isLastAndOdd ? 'col-span-2' : ''
-                }`}
-              >
-                <Icon 
-                  size={20} 
-                  className="text-gray-400 group-hover:text-gray-200 transition-colors mb-1"
-                />
-                <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors text-center">
-                  {action.label}
-                </span>
-              </button>
-            );
-          })}
         </div>
       </div>
       

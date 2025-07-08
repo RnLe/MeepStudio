@@ -32,7 +32,12 @@ export const PML_BOUNDARY_DEFAULTS: Partial<CanvasPMLBoundary> = {
   thickness: 1.0,
   R_asymptotic: 1e-15,
   parameterSets: PML_PARAMETER_SETS_DEFAULTS,
-  edgeAssignments: {}
+  edgeAssignments: {
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0
+  }
 };
 
 /**

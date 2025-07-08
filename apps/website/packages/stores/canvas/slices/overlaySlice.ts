@@ -62,6 +62,7 @@ export const createOverlaySlice: StateCreator<
     geometries: 0.3,
     boundaries: 0.3,
     sources: 0.3,
+    regions: 0.3,
   },
   
   setXRayTransparencySetting: (element, value) => {
@@ -86,6 +87,7 @@ export const createOverlaySlice: StateCreator<
               geometries: s.xRayTransparency,
               boundaries: s.xRayTransparency,
               sources: s.xRayTransparency,
+              regions: s.xRayTransparency,
             }
           : {}),
       },

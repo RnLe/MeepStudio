@@ -41,17 +41,18 @@ export const createRelationshipSlice: StateCreator<
   },
   
   syncCanvasLatticesWithFullLattice: (latticeId) => {
-    const { projects, lattices, isUpdatingLattice } = get();
+    const { projects, lattices, isUpdatingLattice, isChangingLatticeType } = get();
     
     if (isUpdatingLattice) {
-      console.log('⚠️ Skipping sync during lattice update');
+      return;
+    }
+    
+    if (isChangingLatticeType) {
       return;
     }
     
     const fullLattice = lattices.find(l => l.documentId === latticeId);
     if (!fullLattice) return;
-    
-    console.log('🔄 Syncing canvas lattices for:', latticeId);
     
     const affectedProjects = projects.filter(project => {
       const canvasLattices = project.scene?.lattices || [];

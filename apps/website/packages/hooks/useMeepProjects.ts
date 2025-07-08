@@ -22,6 +22,7 @@ export const useMeepProjects = () => {
   const linkLatticeToProject = useProjectsStore((state) => state.linkLatticeToProject);
   const unlinkLatticeFromProject = useProjectsStore((state) => state.unlinkLatticeFromProject);
   const syncCanvasLatticesWithFullLattice = useProjectsStore((state) => state.syncCanvasLatticesWithFullLattice);
+  const setIsChangingLatticeType = useProjectsStore((state) => state.setIsChangingLatticeType);
   
   const projects = useProjectsStore((state) => state.projects);
   const lattices = useProjectsStore((state) => state.lattices);
@@ -47,6 +48,7 @@ export const useMeepProjects = () => {
     linkLatticeToProject,
     unlinkLatticeFromProject,
     syncCanvasLatticesWithFullLattice,
+    setIsChangingLatticeType,
   };
 };
 
@@ -81,12 +83,12 @@ export const useLatticeActions = () => {
 
 export const useProjectById = (projectId: string | undefined) => {
   return useProjectsStore((state) => 
-    projectId ? state.getProjectById(projectId) : undefined
+    projectId ? state.projects.find(p => p.documentId === projectId) : undefined
   );
 };
 
 export const useLatticeById = (latticeId: string | undefined) => {
   return useProjectsStore((state) => 
-    latticeId ? state.getLatticeById(latticeId) : undefined
+    latticeId ? state.lattices.find(l => l.documentId === latticeId) : undefined
   );
 };

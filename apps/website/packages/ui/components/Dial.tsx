@@ -54,9 +54,9 @@ export const Dial: React.FC<DialProps> = ({
   const hasDragged = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Internal minimum to avoid precision issues
-  const internalMin = Math.max(min, 1e-6);
-  const effectiveStep = Math.max(step, internalMin / 100);
+  // Internal minimum to avoid precision issues, but preserve negative ranges
+  const internalMin = min < 0 ? min : Math.max(min, 1e-10);
+  const effectiveStep = Math.max(step, 1e-10);
 
   // Check if value differs from default
   useEffect(() => {
@@ -67,6 +67,13 @@ export const Dial: React.FC<DialProps> = ({
     }
   }, [value, defaultValue]);
 
+  // Keep edit value in sync with actual value when editing
+  useEffect(() => {
+    if (isEditing) {
+      setEditValue(formatForEdit(value));
+    }
+  }, [value, isEditing]);
+
   // Convert value to total rotation (in radians)
   const valueToRotation = useCallback((val: number): number => {
     const clampedVal = Math.max(internalMin, Math.min(max, val));
@@ -74,14 +81,23 @@ export const Dial: React.FC<DialProps> = ({
       // In linear mode, value directly maps to rotations
       return clampedVal * 2 * Math.PI;
     } else {
-      // 10x mode - handle very large values
-      if (clampedVal >= 1e19) {
+      // 10x mode - handle very large values and negative numbers
+      if (Math.abs(clampedVal) >= 1e19) {
         // For values near infinity, map to a high rotation value
-        return 19 * 2 * Math.PI;
+        return Math.sign(clampedVal) * 19 * 2 * Math.PI;
       }
-      return Math.log10(clampedVal) * 2 * Math.PI;
+      if (clampedVal === 0) {
+        return 0;
+      }
+      // For negative values, use the log of absolute value and preserve sign
+      const sign = Math.sign(clampedVal);
+      const absVal = Math.abs(clampedVal);
+      // Allow going down to very small values (like 0.001)
+      const minLogVal = Math.log10(Math.max(effectiveStep, 1e-10));
+      const logVal = Math.max(Math.log10(absVal), minLogVal);
+      return sign * logVal * 2 * Math.PI;
     }
-  }, [mode, internalMin, max]);
+  }, [mode, internalMin, max, effectiveStep]);
 
   // Convert total rotation to value
   const rotationToValue = useCallback((rotation: number): number => {
@@ -90,16 +106,30 @@ export const Dial: React.FC<DialProps> = ({
       const val = rotation / (2 * Math.PI);
       return Math.max(internalMin, Math.min(max, val));
     } else {
-      // 10x mode
+      // 10x mode - handle negative rotations
       const revolutions = rotation / (2 * Math.PI);
-      if (revolutions >= 19) {
-        // Near max rotation, return very large value
-        return Math.min(max, 1e20);
+      if (Math.abs(revolutions) >= 19) {
+        // Near max rotation, return very large value with correct sign
+        return Math.sign(revolutions) * Math.min(Math.abs(max), 1e20);
       }
-      const val = Math.pow(10, revolutions);
+      if (revolutions === 0) {
+        return 0;
+      }
+      // For negative revolutions, use the sign and exponential of absolute value
+      const sign = Math.sign(revolutions);
+      const absRevolutions = Math.abs(revolutions);
+      const minLogVal = Math.log10(Math.max(effectiveStep, 1e-10));
+      
+      // Allow exponential mode to go down to the step size
+      if (absRevolutions < minLogVal) {
+        // Below minimum log value, return step size with correct sign
+        return sign * Math.max(effectiveStep, 1e-10);
+      }
+      
+      const val = sign * Math.pow(10, absRevolutions);
       return Math.max(internalMin, Math.min(max, val));
     }
-  }, [mode, internalMin, max]);
+  }, [mode, internalMin, max, effectiveStep]);
 
   // Initialize accumulated rotation from current value
   useEffect(() => {
@@ -181,11 +211,16 @@ export const Dial: React.FC<DialProps> = ({
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    // Stop propagation of all key events to prevent parent components
+    // from handling them (e.g., global delete shortcuts)
+    e.stopPropagation();
+    
     if (e.key === 'Enter') {
       handleInputSubmit();
     } else if (e.key === 'Escape') {
       setIsEditing(false);
     }
+    // Allow all other keys (including Backspace) to work normally in the input
   };
 
   const handleReset = (e: React.MouseEvent) => {
@@ -248,14 +283,16 @@ export const Dial: React.FC<DialProps> = ({
   const formatValue = (val: number): string => {
     if (val >= 1e19) {
       return "∞";
-    } else if (val >= 0.1) {
-      if (val >= 1000) {
+    } else if (val <= -1e19) {
+      return "-∞";
+    } else if (Math.abs(val) >= 0.1) {
+      if (Math.abs(val) >= 1000) {
         return val.toExponential(1).replace(/e\+?/, 'e');
       }
       return val.toFixed(3);
-    } else if (val > 0) {
-      // Scientific notation for small values
-      const exponent = Math.floor(Math.log10(val));
+    } else if (val !== 0) {
+      // Scientific notation for small values (positive or negative)
+      const exponent = Math.floor(Math.log10(Math.abs(val)));
       const mantissa = val / Math.pow(10, exponent);
       
       if (exponent % 3 === 0) {
@@ -289,10 +326,49 @@ export const Dial: React.FC<DialProps> = ({
 
   return (
     <div 
-      className={`flex flex-col items-center gap-1 ${className} ${value === 0 ? 'opacity-50' : ''} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`} 
+      className={`flex flex-col items-center gap-1 dial-container prevent-scroll ${className} ${value === 0 ? 'opacity-50' : ''} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`} 
       ref={containerRef}
+      data-prevents-scroll="true"
       onMouseEnter={() => !disabled && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onWheel={(e) => {
+        if (disabled) return;
+        
+        // Prevent wheel events from bubbling to parent scrollable containers
+        e.stopPropagation();
+        e.preventDefault();
+        
+        // Calculate step based on mode and current value
+        let wheelStep = effectiveStep;
+        if (mode === "linear") {
+          // For linear mode, use a more reasonable step size
+          // If current step is very small, increase it for wheel scrolling
+          wheelStep = Math.max(effectiveStep, 0.1);
+          
+          // For larger values, scale the step appropriately
+          if (value >= 10) {
+            wheelStep = Math.max(wheelStep, 1);
+          } else if (value >= 1) {
+            wheelStep = Math.max(wheelStep, 0.1);
+          }
+        } else if (mode === "10x") {
+          // For 10x mode, use logarithmic stepping
+          wheelStep = Math.max(value * 0.1, effectiveStep);
+        }
+        
+        // Calculate new value
+        let newValue = value;
+        if (e.deltaY < 0) {
+          newValue = Math.min(max, value + wheelStep);
+        } else if (e.deltaY > 0) {
+          newValue = Math.max(internalMin, value - wheelStep);
+        }
+        
+        // Snap to step
+        const snappedValue = Math.round(newValue / effectiveStep) * effectiveStep;
+        
+        onChange(snappedValue);
+      }}
     >
       <div className="relative">
         <svg
@@ -368,6 +444,8 @@ export const Dial: React.FC<DialProps> = ({
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleInputSubmit}
             onKeyDown={handleInputKeyDown}
+            onMouseDown={(e) => e.stopPropagation()} // Prevent drag initiation
+            onClick={(e) => e.stopPropagation()} // Prevent parent click handlers
             className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 min-w-[80px] px-2 py-1 text-center text-xs bg-neutral-800 border border-gray-600 rounded text-gray-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none z-10"
             style={{ width: `${Math.max(80, editValue.length * 8 + 24)}px` }}
             autoFocus

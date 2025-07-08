@@ -4,11 +4,17 @@ import { generateInitializationCode } from './initialisationAssembly';
 import { generateGeometryCode, convertKonvaToMeepGeometry, convertMeepToKonvaGeometry } from './geometryAssembly';
 import { generateSourcesCode } from './sourcesAssembly';
 import { generateBoundariesCode } from './boundariesAssembly';
+import { generateMaterialsCode } from './materialAssembly';
+import { generateRegionsCode } from './regionsAssembly';
+import { generateLatticeCode } from './latticeAssembly';
+import { generateSimulationCode } from './simulationAssembly';
 import { MeepGeometry } from './geometryAssembly';
+import { MeepProject } from '../types/meepProjectTypes';
 
 export interface ConversionContext {
   canvasState: ReturnType<typeof useCanvasStore.getState>;
   codeState: ReturnType<typeof useCodeAssemblyStore.getState>;
+  project?: MeepProject; // Add project data for enhanced code generation
 }
 
 export interface ConversionResult {
@@ -19,13 +25,28 @@ export interface ConversionResult {
 /**
  * Main conversion function that orchestrates code generation from canvas state
  */
-export async function convertCanvasToMeepCode(): Promise<ConversionResult> {
+export async function convertCanvasToMeepCode(project?: MeepProject): Promise<ConversionResult> {
   const canvasState = useCanvasStore.getState();
   const codeState = useCodeAssemblyStore.getState();
   
+  // Update simulation parameters from project if provided
+  if (project?.scene) {
+    codeState.setSimulationParams({
+      cellSize: { 
+        x: project.scene.rectWidth, 
+        y: project.scene.rectHeight, 
+        z: 0 
+      },
+      resolution: project.scene.resolution,
+      runtime: project.scene.runTime,
+      // Keep existing PML and dt stability values for now
+    });
+  }
+  
   const context: ConversionContext = {
     canvasState,
-    codeState
+    codeState,
+    project
   };
   
   try {
@@ -33,34 +54,91 @@ export async function convertCanvasToMeepCode(): Promise<ConversionResult> {
     codeState.setIsGenerating(true);
     codeState.clearAllErrors();
     
-    // Generate initialization code
-    const initResult = await generateInitializationCode(context);
-    if (!initResult.success) {
-      codeState.setError('initialization', initResult.error || 'Failed to generate initialization code');
+    // Get dirty sections from canvas store
+    const dirtySections = canvasState.getDirtySections();
+    const isAnySectionDirty = canvasState.isAnySectionDirty();
+    
+    // If nothing is dirty, no need to regenerate
+    if (!isAnySectionDirty) {
+      codeState.setIsGenerating(false);
+      return { success: true };
     }
     
-    // Generate geometry code
-    const geomResult = await generateGeometryCode(context);
-    if (!geomResult.success) {
-      codeState.setError('geometries', geomResult.error || 'Failed to generate geometry code');
+    // Generate only dirty sections
+    if (dirtySections.includes('initialization')) {
+      const initResult = await generateInitializationCode(context);
+      if (!initResult.success) {
+        codeState.setError('initialization', initResult.error || 'Failed to generate initialization code');
+      } else {
+        canvasState.clearCodeSectionDirty('initialization');
+      }
     }
     
-    // Generate sources code
-    const sourcesResult = await generateSourcesCode(context);
-    if (!sourcesResult.success) {
-      codeState.setError('sources', sourcesResult.error || 'Failed to generate sources code');
+    if (dirtySections.includes('materials')) {
+      const materialsResult = await generateMaterialsCode(context);
+      if (!materialsResult.success) {
+        codeState.setError('materials', materialsResult.error || 'Failed to generate materials code');
+      } else {
+        canvasState.clearCodeSectionDirty('materials');
+      }
     }
     
-    // Generate boundaries code
-    const boundariesResult = await generateBoundariesCode(context);
-    if (!boundariesResult.success) {
-      codeState.setError('boundaries', boundariesResult.error || 'Failed to generate boundaries code');
+    if (dirtySections.includes('geometries')) {
+      const geomResult = await generateGeometryCode(context);
+      if (!geomResult.success) {
+        codeState.setError('geometries', geomResult.error || 'Failed to generate geometry code');
+      } else {
+        canvasState.clearCodeSectionDirty('geometries');
+      }
+    }
+    
+    if (dirtySections.includes('lattices')) {
+      const latticeResult = await generateLatticeCode(context);
+      if (!latticeResult.success) {
+        codeState.setError('lattices', latticeResult.error || 'Failed to generate lattice code');
+      } else {
+        canvasState.clearCodeSectionDirty('lattices');
+      }
+    }
+    
+    if (dirtySections.includes('sources')) {
+      const sourcesResult = await generateSourcesCode(context);
+      if (!sourcesResult.success) {
+        codeState.setError('sources', sourcesResult.error || 'Failed to generate sources code');
+      } else {
+        canvasState.clearCodeSectionDirty('sources');
+      }
+    }
+    
+    if (dirtySections.includes('boundaries')) {
+      const boundariesResult = await generateBoundariesCode(context);
+      if (!boundariesResult.success) {
+        codeState.setError('boundaries', boundariesResult.error || 'Failed to generate boundaries code');
+      } else {
+        canvasState.clearCodeSectionDirty('boundaries');
+      }
+    }
+    
+    if (dirtySections.includes('regions')) {
+      const regionsResult = await generateRegionsCode(context);
+      if (!regionsResult.success) {
+        codeState.setError('regions', regionsResult.error || 'Failed to generate regions code');
+      } else {
+        canvasState.clearCodeSectionDirty('regions');
+      }
+    }
+    
+    // Simulation always needs regeneration if any other section changed
+    if (dirtySections.includes('simulation') || dirtySections.length > 1) {
+      const simulationResult = await generateSimulationCode(context);
+      if (!simulationResult.success) {
+        codeState.setError('simulation-assembly', simulationResult.error || 'Failed to generate simulation code');
+      } else {
+        canvasState.clearCodeSectionDirty('simulation');
+      }
     }
     
     // TODO: Generate other sections
-    // - Materials
-    // - Regions
-    // - Simulation assembly
     
     // Mark generation complete
     codeState.setLastGeneratedAt(new Date());

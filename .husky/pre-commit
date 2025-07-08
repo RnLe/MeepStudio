@@ -1,9 +1,10 @@
-#!/bin/sh
+# For now, no pre-commit hooks are set up.
+# #!/bin/sh
 
-# Re-invoke this script inside WSL if not already running in WSL
-if [ -z "$WSL_DISTRO_NAME" ]; then
-  exec wsl bash "$0" "$@"
-fi
+# # Re-invoke this script inside WSL if not already running in WSL
+# if [ -z "$WSL_DISTRO_NAME" ]; then
+#   exec wsl bash "$0" "$@"
+# fi
 
-# Your actual pre-commit commands below
-pnpm run build:changelog
+# # Your actual pre-commit commands below
+# pnpm run build:changelog

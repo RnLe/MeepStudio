@@ -89,6 +89,20 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       removeLattice,
       removeLattices,
       updateLattices,
+      regions,
+      setRegions,
+      addRegion,
+      updateRegion,
+      removeRegion,
+      removeRegions,
+      updateRegions,
+      regionBoxes,
+      setRegionBoxes,
+      addRegionBox,
+      updateRegionBox,
+      removeRegionBox,
+      removeRegionBoxes,
+      updateRegionBoxes,
     getAllElements,
     sceneMaterial,
     setSceneMaterial,
@@ -127,6 +141,20 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       removeLattice: s.removeLattice,
       removeLattices: s.removeLattices,
       updateLattices: s.updateLattices,
+      regions: s.regions,
+      setRegions: s.setRegions,
+      addRegion: s.addRegion,
+      updateRegion: s.updateRegion,
+      removeRegion: s.removeRegion,
+      removeRegions: s.removeRegions,
+      updateRegions: s.updateRegions,
+      regionBoxes: s.regionBoxes,
+      setRegionBoxes: s.setRegionBoxes,
+      addRegionBox: s.addRegionBox,
+      updateRegionBox: s.updateRegionBox,
+      removeRegionBox: s.removeRegionBox,
+      removeRegionBoxes: s.removeRegionBoxes,
+      updateRegionBoxes: s.updateRegionBoxes,
       getAllElements: s.getAllElements,
       sceneMaterial: s.sceneMaterial,
       setSceneMaterial: s.setSceneMaterial,
@@ -162,12 +190,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     // Load sources
     setSources(project.scene?.sources || []);
     setBoundaries(project.scene?.boundaries || []);
+    setRegions(project.scene?.regions || []);
+    setRegionBoxes(project.scene?.regionBoxes || []);
     // Defer lattice setting to prevent hooks order violations during deletion
     setTimeout(() => {
       setLattices(project.scene?.lattices || []);
     }, 0);
     setSceneMaterial(project.scene?.material || "Air");
-  }, [project.scene?.geometries, project.scene?.sources, project.scene?.boundaries, project.scene?.lattices, project.scene?.material, setGeometries, setSources, setBoundaries, setLattices, setSceneMaterial]);
+  }, [project.scene?.geometries, project.scene?.sources, project.scene?.boundaries, project.scene?.regions, project.scene?.regionBoxes, project.scene?.lattices, project.scene?.material, setGeometries, setSources, setBoundaries, setRegions, setRegionBoxes, setLattices, setSceneMaterial]);
 
   // --- Geometry Selectors ---
   const cylinders = useMemo(() => geometries.filter(g => g.kind === "cylinder"), [geometries]);
@@ -176,10 +206,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
 
   // --- helper that always commits the *current* store state ---
   const commitScene = useCallback(() => {
-    const { geometries: gs, sources: ss, boundaries: bs, lattices: ls } = useCanvasStore.getState();
+    const { geometries: gs, sources: ss, boundaries: bs, lattices: ls, regions: rs, regionBoxes: rbs } = useCanvasStore.getState();
     updateProject({
       documentId: projectId,
-      project: { scene: { ...project.scene, geometries: gs, sources: ss, boundaries: bs, lattices: ls } }
+      project: { scene: { ...project.scene, geometries: gs, sources: ss, boundaries: bs, lattices: ls, regions: rs, regionBoxes: rbs } }
     });
   }, [updateProject, projectId, project.scene]);
 
@@ -332,6 +362,31 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     };
   }, [handleUpdateLattice]);
 
+  // --- Region Actions ---
+  const handleUpdateRegion = useCallback((id: string, partial: Partial<any>) => {
+    updateRegion(id, partial);
+    commitScene();
+  }, [updateRegion, commitScene]);
+
+  const handleUpdateRegionBox = useCallback((id: string, partial: Partial<any>) => {
+    updateRegionBox(id, partial);
+    commitScene();
+  }, [updateRegionBox, commitScene]);
+
+  const handleRemoveRegion = useCallback((id: string) => {
+    removeRegion(id);
+    updateProject({
+      documentId: projectId,
+      project: {
+        scene: {
+          ...project.scene,
+          regions: regions.filter(r => r.id !== id),
+        }
+      },
+    });
+    if (selectedGeometryId === id) selectGeometry(null);
+  }, [removeRegion, updateProject, projectId, regions, selectedGeometryId, selectGeometry, project.scene]);
+
   // Update batch remove to handle lattices
   const handleBatchRemoveElements = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
@@ -340,11 +395,15 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     const sourceIds = ids.filter(id => sources.some(s => s.id === id));
     const boundaryIds = ids.filter(id => boundaries.some(b => b.id === id));
     const latticeIds = ids.filter(id => lattices.some(l => l.id === id));
+    const regionIds = ids.filter(id => regions.some(r => r.id === id));
+    const regionBoxIds = ids.filter(id => regionBoxes.some(rb => rb.id === id));
     
     const remainingGeometries = geometries.filter(g => !geomIds.includes(g.id));
     const remainingSources = sources.filter(s => !sourceIds.includes(s.id));
     const remainingBoundaries = boundaries.filter(b => !boundaryIds.includes(b.id));
     const remainingLattices = lattices.filter(l => !latticeIds.includes(l.id));
+    const remainingRegions = regions.filter(r => !regionIds.includes(r.id));
+    const remainingRegionBoxes = regionBoxes.filter(rb => !regionBoxIds.includes(rb.id));
     
     updateProject({
       documentId: projectId,
@@ -355,6 +414,8 @@ const ProjectCanvas: React.FC<Props> = (props) => {
           sources: remainingSources,
           boundaries: remainingBoundaries,
           lattices: remainingLattices,
+          regions: remainingRegions,
+          regionBoxes: remainingRegionBoxes,
         }
       },
     });
@@ -365,8 +426,10 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       if (sourceIds.length > 0) removeSources(sourceIds);
       if (boundaryIds.length > 0) removeBoundaries(boundaryIds);
       if (latticeIds.length > 0) removeLattices(latticeIds);
+      if (regionIds.length > 0) removeRegions(regionIds);
+      if (regionBoxIds.length > 0) removeRegionBoxes(regionBoxIds);
     }, 0);
-  }, [removeGeometries, removeSources, removeBoundaries, removeLattices, updateProject, projectId, geometries, sources, boundaries, lattices, project.scene]);
+  }, [removeGeometries, removeSources, removeBoundaries, removeLattices, removeRegions, removeRegionBoxes, updateProject, projectId, geometries, sources, boundaries, lattices, regions, regionBoxes, project.scene]);
 
   // --- Container Size and Resize Handling ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -667,7 +730,16 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedGeometryIds.length > 0) {
         e.preventDefault();
-        handleBatchRemoveElements(selectedGeometryIds);
+        // Filter out locked elements before attempting deletion
+        const allElements = getAllElements();
+        const unlockedSelectedIds = selectedGeometryIds.filter(id => {
+          const element = allElements.find(el => el.id === id);
+          return !element?.locked;
+        });
+        
+        if (unlockedSelectedIds.length > 0) {
+          handleBatchRemoveElements(unlockedSelectedIds);
+        }
       } else if (e.key === "Escape") {
         e.preventDefault();
         selectGeometry(null);
@@ -675,7 +747,7 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedGeometryIds, handleBatchRemoveElements, selectGeometry]);
+  }, [selectedGeometryIds, handleBatchRemoveElements, selectGeometry, getAllElements]);
 
   // --- Dynamic Border Weight Calculation ---
   const borderWeight = useMemo(() => {
@@ -768,9 +840,11 @@ const ProjectCanvas: React.FC<Props> = (props) => {
     const mappedSources = sources.map(s => ({ ...s, type: s.kind }));
     const mappedBoundaries = boundaries.map(b => ({ ...b, type: b.kind }));
     const mappedLattices = lattices.map(l => ({ ...l, type: 'lattice' }));
+    const mappedRegions = regions.map(r => ({ ...r, type: 'fluxRegion' }));
+    const mappedRegionBoxes = regionBoxes.map(rb => ({ ...rb, type: 'regionBox' }));
     
-    return [...mappedGeometries, ...mappedSources, ...mappedBoundaries, ...mappedLattices];
-  }, [geometries, sources, boundaries, lattices]);
+    return [...mappedGeometries, ...mappedSources, ...mappedBoundaries, ...mappedLattices, ...mappedRegions, ...mappedRegionBoxes];
+  }, [geometries, sources, boundaries, lattices, regions, regionBoxes]);
 
   // Unified update handler
   const handleUpdateElement = useCallback((id: string, updates: Partial<any>) => {
@@ -798,8 +872,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       case 'lattice':
         updateLattice(id, updates);
         break;
+      case 'fluxRegion':
+        updateRegion(id, updates);
+        break;
+      case 'regionBox':
+        updateRegionBox(id, updates);
+        break;
     }
-  }, [allElements, updateGeometry, updateSource, updateBoundary, updateLattice]);
+  }, [allElements, updateGeometry, updateSource, updateBoundary, updateLattice, updateRegion, updateRegionBox]);
 
   // Unified commit handler
   const handleCommitElement = useCallback((id: string, updates: Partial<any>) => {
@@ -827,8 +907,14 @@ const ProjectCanvas: React.FC<Props> = (props) => {
       case 'lattice':
         handleUpdateLattice(id, updates);
         break;
+      case 'fluxRegion':
+        handleUpdateRegion(id, updates);
+        break;
+      case 'regionBox':
+        handleUpdateRegionBox(id, updates);
+        break;
     }
-  }, [allElements, handleUpdateGeometry, handleUpdateSource, handleUpdateBoundary, handleUpdateLattice]);
+  }, [allElements, handleUpdateGeometry, handleUpdateSource, handleUpdateBoundary, handleUpdateLattice, handleUpdateRegion, handleUpdateRegionBox]);
 
   // Store initial positions for batch dragging
   const batchDragInitialPositions = useRef<Record<string, { x: number; y: number }>>({});
@@ -888,9 +974,12 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         case 'lattice':
           updateLattice(element.id, updates);
           break;
+        case 'fluxRegion':
+          updateRegion(element.id, updates);
+          break;
       }
     });
-  }, [allElements, updateGeometry, updateSource, updateLattice]);
+  }, [allElements, updateGeometry, updateSource, updateLattice, updateRegion]);
 
   // Batch commit handler for multi-selection
   const handleBatchCommit = useCallback((ids: string[], draggedElementUpdate: Partial<any>, delta: { deltaX: number; deltaY: number }) => {
@@ -927,13 +1016,19 @@ const ProjectCanvas: React.FC<Props> = (props) => {
         case 'lattice':
           handleUpdateLattice(element.id, updates);
           break;
+        case 'fluxRegion':
+          handleUpdateRegion(element.id, updates);
+          break;
+        case 'regionBox':
+          handleUpdateRegionBox(element.id, updates);
+          break;
         // Note: boundaries don't have positions so they're not included
       }
     });
     
     // Clear initial positions after commit
     batchDragInitialPositions.current = {};
-  }, [allElements, handleUpdateGeometry, handleUpdateSource, handleUpdateLattice]);
+  }, [allElements, handleUpdateGeometry, handleUpdateSource, handleUpdateLattice, handleUpdateRegion, handleUpdateRegionBox]);
 
   // --- Render ---
   return (
@@ -1142,7 +1237,11 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                 height: pxToLattice(box.height),
               };
               // --- Find intersecting geometries ---
-              const selected = [...geometries, ...sources, ...lattices].filter(elem => {
+              const allCanvasElements = getAllElements();
+              const selected = allCanvasElements.filter(elem => {
+                // Skip locked elements from selection
+                if (elem.locked) return false;
+                
                 if (elem.kind === "rectangle") {
                   const rx = elem.pos.x - elem.width / 2;
                   const ry = elem.pos.y - elem.height / 2;
@@ -1181,13 +1280,9 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                     elem.pos.y <= latticeBox.y + latticeBox.height
                   );
                 } else if (elem.kind === "pmlBoundary") {
-                  // Assume has pos, thickness, treat as rectangle (in lattice units)
-                  const rx = elem.pos.x - (elem.thickness || 0) / 2;
-                  const ry = elem.pos.y - (elem.thickness || 0) / 2;
-                  return rectsIntersect(
-                    { x: rx, y: ry, width: elem.thickness || 1, height: elem.thickness || 1 },
-                    latticeBox
-                  );
+                  // PML boundaries don't have a specific position, they're global
+                  // For selection purposes, we'll consider them non-selectable via rectangle
+                  return false;
                 } else if (elem.kind === "lattice") {
                   // Check if lattice origin is in selection box
                   return (
@@ -1195,6 +1290,36 @@ const ProjectCanvas: React.FC<Props> = (props) => {
                     elem.pos.x <= latticeBox.x + latticeBox.width &&
                     elem.pos.y >= latticeBox.y &&
                     elem.pos.y <= latticeBox.y + latticeBox.height
+                  );
+                } else if (elem.regionType === "flux" || elem.regionType === "energy" || elem.regionType === "force") {
+                  // Region selection logic - similar to ContinuousSourceProperties dimension handling
+                  const sizeX = elem.size?.x || 0;
+                  const sizeY = elem.size?.y || 0;
+                  
+                  if (sizeX === 0 && sizeY === 0) {
+                    // Point region
+                    return (
+                      elem.pos.x >= latticeBox.x &&
+                      elem.pos.x <= latticeBox.x + latticeBox.width &&
+                      elem.pos.y >= latticeBox.y &&
+                      elem.pos.y <= latticeBox.y + latticeBox.height
+                    );
+                  } else {
+                    // Line or area region - treat as rectangle
+                    const rx = elem.pos.x - sizeX / 2;
+                    const ry = elem.pos.y - sizeY / 2;
+                    return rectsIntersect(
+                      { x: rx, y: ry, width: sizeX, height: sizeY },
+                      latticeBox
+                    );
+                  }
+                } else if (elem.kind === "regionBox") {
+                  // Region box selection logic - treat as rectangle
+                  const rx = elem.pos.x - elem.width / 2;
+                  const ry = elem.pos.y - elem.height / 2;
+                  return rectsIntersect(
+                    { x: rx, y: ry, width: elem.width, height: elem.height },
+                    latticeBox
                   );
                 }
                 return false;

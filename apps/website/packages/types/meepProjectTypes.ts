@@ -33,6 +33,8 @@ export interface ProjectScene {
   rectHeight: number;
   /** Resolution of the scene/simulation grid. Must be an integer. Default: 4 */
   resolution: number;
+  /** Simulation run time in scale-free units. Must be a positive integer. Default: 100 */
+  runTime: number;
   /** Characteristic length scale */
   a: number;
   /** Unit for the characteristic length */
@@ -59,6 +61,16 @@ export interface ProjectScene {
    * Each lattice has at least: id, kind, and lattice-specific fields.
    */
   lattices?: any[]; // Change from GeometryObject[] to any[] for now
+  /**
+   * All flux region objects for this scene.
+   * Each region has at least: id, kind, and region-specific fields.
+   */
+  regions?: any[];
+  /**
+   * All region box objects for this scene.
+   * Each region box has at least: id, kind, and region box-specific fields.
+   */
+  regionBoxes?: any[];
 }
 
 /* ---------- Project Code Interface ---------- */

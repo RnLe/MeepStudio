@@ -6,6 +6,8 @@ import { GeometryRenderer } from '../renderers/GeometryRenderer';
 import { SourceRenderer } from '../renderers/SourceRenderer';
 import { BoundaryRenderer } from '../renderers/BoundaryRenderer';
 import { LatticeRenderer } from '../renderers/LatticeRenderer';
+import { RegionRenderer } from '../renderers/RegionRenderer';
+import { RegionBoxRenderer } from '../renderers/RegionBoxRenderer';
 import { ResizeHandles } from '../utils/resizeHandles';
 import { useCanvasStore } from '../../stores/canvas';
 
@@ -47,7 +49,7 @@ export const ElementLayer: React.FC<ElementLayerProps> = ({
 
   // Sort elements by type for proper layering
   const sortedElements = React.useMemo(() => {
-    const order = ['lattice', 'cylinder', 'rectangle', 'triangle', 'source', 'boundary'];
+    const order = ['lattice', 'cylinder', 'rectangle', 'triangle', 'source', 'region', 'boundary'];
     return [...elements].sort((a, b) => {
       const aIndex = order.indexOf(getElementCategory(a));
       const bIndex = order.indexOf(getElementCategory(b));
@@ -57,7 +59,9 @@ export const ElementLayer: React.FC<ElementLayerProps> = ({
 
   return (
     <Layer>
-      {sortedElements.map((element) => {
+      {sortedElements
+        .filter(element => !element.invisible) // Don't render invisible elements
+        .map((element) => {
         const isSelected = selectedIds.includes(element.id);
         
         // Boundaries don't need CanvasElementComponent wrapper since they don't have position/drag behavior
@@ -135,6 +139,8 @@ export const ElementLayer: React.FC<ElementLayerProps> = ({
 function getElementCategory(element: CanvasElement): string {
   if (element.type === 'lattice') return 'lattice';
   if (element.type === 'pmlBoundary') return 'boundary';
+  if (element.type === 'fluxRegion') return 'region';
+  if (element.type === 'regionBox') return 'region';
   if ('component' in element) return 'source';
   return element.type;
 }
@@ -242,6 +248,83 @@ function renderElement(
         gridWidth={gridWidth}
         gridHeight={gridHeight}
         onSelect={onSelect}
+      />
+    );
+  }
+  
+  if (element.type === 'fluxRegion') {
+    return (
+      <RegionRenderer
+        region={element as any}
+        isSelected={isSelected}
+        scale={scale}
+        GRID_PX={GRID_PX}
+      />
+    );
+  }
+  
+  if (element.type === 'regionBox') {
+    return (
+      <RegionBoxRenderer
+        regionBox={element as any}
+        isSelected={isSelected}
+        scale={scale}
+        GRID_PX={GRID_PX}
+      />
+    );
+  }
+  
+  if (element.type === 'regionBox') {
+    // For region boxes with resize handles, we return a special structure when selected
+    if (isSelected && !element.locked && selectedIds?.length === 1) {
+      return (
+        <>
+          <RegionBoxRenderer
+            regionBox={element as any}
+            isSelected={isSelected}
+            scale={scale}
+            GRID_PX={GRID_PX}
+          />
+          <ResizeHandles
+            rectangle={element as any}
+            GRID_PX={GRID_PX}
+            scale={scale}
+            onResize={(updates: Partial<CanvasElement>) => onUpdate(element.id, updates)}
+            onResizeEnd={(updates: Partial<CanvasElement>) => onCommit(element.id, updates)}
+            snapToGrid={(value: number, forceGrid?: boolean, forceResolution?: boolean) => {
+              const res = resolution;
+              if (forceResolution && res && res > 1) {
+                const cellSize = 1 / res;
+                return Math.round(value / cellSize) * cellSize;
+              } else if (forceGrid) {
+                return Math.round(value);
+              } else if (resolutionSnapping && res && res > 1) {
+                const cellSize = 1 / res;
+                return Math.round(value / cellSize) * cellSize;
+              } else if (gridSnapping) {
+                return Math.round(value);
+              }
+              return value;
+            }}
+            gridSnapping={gridSnapping || false}
+            resolutionSnapping={resolutionSnapping || false}
+            showGrid={showGrid || false}
+            showResolutionOverlay={showResolutionOverlay || false}
+            toggleShowGrid={toggleShowGrid || (() => {})}
+            toggleShowResolutionOverlay={toggleShowResolutionOverlay || (() => {})}
+            handleUpdateGeometry={(id: string, updates: Partial<CanvasElement>) => onCommit(id, updates)}
+            setActiveInstructionSet={(key: string) => onSetActiveInstructionSet?.(key)}
+          />
+        </>
+      );
+    }
+    
+    return (
+      <RegionBoxRenderer
+        regionBox={element as any}
+        isSelected={isSelected}
+        scale={scale}
+        GRID_PX={GRID_PX}
       />
     );
   }

@@ -184,3 +184,71 @@ export function timeToSecondsSF(value: number, projectA: number, projectUnit: Le
   const aInMeters = projectA * lengthToMeters[projectUnit];
   return value * aInMeters / C;
 }
+
+/**
+ * Convert scale-free flux measurement units to physical units
+ * Flux is power (Watts) through a surface
+ * In scale-free units: power = c*ε₀*|E|²*a² (for electric field flux)
+ * @param value Scale-free flux weight value
+ * @param projectA Characteristic length scale
+ * @param projectUnit Unit of characteristic length
+ * @returns Formatted string with physical units
+ */
+export function convertFluxWeight(value: number, projectA: number, projectUnit: LengthUnit): string {
+  // In Meep scale-free units, power scales as c*a
+  // But the weight is dimensionless - it's a multiplier for the flux measurement
+  // So we show it as dimensionless but indicate the measurement units
+  return `${value.toPrecision(3)} × W`;
+}
+
+/**
+ * Convert scale-free energy measurement units to physical units
+ * Energy density integrated over volume gives energy (Joules)
+ * @param value Scale-free energy weight value
+ * @param projectA Characteristic length scale
+ * @param projectUnit Unit of characteristic length
+ * @returns Formatted string with physical units
+ */
+export function convertEnergyWeight(value: number, projectA: number, projectUnit: LengthUnit): string {
+  // Weight is dimensionless multiplier for energy measurement
+  return `${value.toPrecision(3)} × J`;
+}
+
+/**
+ * Convert scale-free force measurement units to physical units
+ * Force from Maxwell stress tensor (Newtons)
+ * @param value Scale-free force weight value
+ * @param projectA Characteristic length scale
+ * @param projectUnit Unit of characteristic length
+ * @returns Formatted string with physical units
+ */
+export function convertForceWeight(value: number, projectA: number, projectUnit: LengthUnit): string {
+  // Weight is dimensionless multiplier for force measurement
+  return `${value.toPrecision(3)} × N`;
+}
+
+/**
+ * Get the appropriate unit conversion for a region type
+ * @param regionType Type of region ('flux', 'energy', 'force')
+ * @param value Scale-free weight value
+ * @param projectA Characteristic length scale
+ * @param projectUnit Unit of characteristic length
+ * @returns Formatted string with appropriate physical units
+ */
+export function convertRegionWeight(
+  regionType: string,
+  value: number, 
+  projectA: number, 
+  projectUnit: LengthUnit
+): string {
+  switch (regionType) {
+    case 'flux':
+      return convertFluxWeight(value, projectA, projectUnit);
+    case 'energy':
+      return convertEnergyWeight(value, projectA, projectUnit);
+    case 'force':
+      return convertForceWeight(value, projectA, projectUnit);
+    default:
+      return convertFluxWeight(value, projectA, projectUnit);
+  }
+}

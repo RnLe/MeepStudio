@@ -171,9 +171,6 @@ export default function LeftExplorer() {
       });
       
       // Project data automatically updated through Zustand store
-      if (updated) {
-        console.log('Project title updated:', updated.title);
-      }
     } else {
       const updated = await updateLattice({
         documentId: renamingId,
@@ -181,9 +178,6 @@ export default function LeftExplorer() {
       });
       
       // Lattice data automatically updated through Zustand store
-      if (updated) {
-        console.log('Lattice title updated:', updated.title);
-      }
     }
     
     setRenamingId(null);
@@ -372,7 +366,8 @@ export default function LeftExplorer() {
                         onClick={(e) => {
                           e.stopPropagation();
                           clearAllSelections(); // Clear selections when opening code tab
-                          addCodeTabToProject(project.documentId);
+                          openProject(project); // First ensure the main project tab is open
+                          addCodeTabToProject(project.documentId); // Then add the code sub-tab
                         }}
                         title="Open code editor"
                       >

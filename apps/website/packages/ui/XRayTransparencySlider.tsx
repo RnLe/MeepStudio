@@ -64,11 +64,12 @@ export const XRayTransparencySlider: React.FC<XRayTransparencySliderProps> = ({
       setXRayTransparencySetting('background', value);
       setXRayTransparencySetting('geometries', value);
       setXRayTransparencySetting('boundaries', value);
-      setXRayTransparencySetting('sources', value);           // +++
+      setXRayTransparencySetting('sources', value);
+      setXRayTransparencySetting('regions', value);
     }
   };
 
-  const handleIndividualSliderChange = (element: 'background' | 'geometries' | 'boundaries' | 'sources', value: number) => {
+  const handleIndividualSliderChange = (element: 'background' | 'geometries' | 'boundaries' | 'sources' | 'regions', value: number) => {
     setXRayTransparencySetting(element, value);
   };
 
@@ -80,7 +81,8 @@ export const XRayTransparencySlider: React.FC<XRayTransparencySliderProps> = ({
     { key: 'background' as const, label: 'Background' },
     { key: 'geometries' as const, label: 'Geometries' },
     { key: 'boundaries' as const, label: 'Boundaries' },
-    { key: 'sources'    as const, label: 'Sources'    },    // +++
+    { key: 'sources'    as const, label: 'Sources'    },
+    { key: 'regions'    as const, label: 'Regions'    },
   ];
 
   return (

@@ -147,16 +147,17 @@ export const CanvasElementComponent: React.FC<CanvasElementProps> = ({
       x={element.pos.x * GRID_PX}
       y={element.pos.y * GRID_PX}
       rotation={(element.orientation || 0) * 180 / Math.PI}
-      draggable
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
-      onDragEnd={handleDragEnd}
-      onClick={(e) => {
+      draggable={!element.locked} // Locked objects cannot be dragged
+      onDragStart={element.locked ? undefined : handleDragStart}
+      onDragMove={element.locked ? undefined : handleDragMove}
+      onDragEnd={element.locked ? undefined : handleDragEnd}
+      onClick={element.locked ? undefined : (e) => {
         e.cancelBubble = true;
         onSelect(element.id, {
           shift: e.evt?.shiftKey || e.evt?.ctrlKey || e.evt?.metaKey || false,
         });
       }}
+      listening={!element.locked} // Locked objects don't listen to events
     >
       {/* shape + resize handles together – single transform applied */}
       {children}

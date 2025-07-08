@@ -702,26 +702,6 @@ const LatticeCanvas: React.FC<Props> = ({ lattice, ghPages }) => {
     return <>{elements}</>;
   };
 
-  // Debug log when lattice prop changes
-  React.useEffect(() => {
-    console.log('🎨 LatticeCanvas received new lattice prop:', {
-      documentId: lattice?.documentId,
-      latticeType: lattice?.latticeType,
-      basis1: lattice?.meepLattice?.basis1,
-      basis2: lattice?.meepLattice?.basis2,
-    });
-  }, [lattice]);
-  
-  // Debug log when store values change
-  React.useEffect(() => {
-    console.log('🏪 LatticeCanvas store values changed:', {
-      currentBasis1,
-      currentBasis2,
-      currentLatticeType,
-      canvasUpdateTrigger
-    });
-  }, [currentBasis1, currentBasis2, currentLatticeType, canvasUpdateTrigger]);
-  
   return (
     <div
       ref={containerRef}
