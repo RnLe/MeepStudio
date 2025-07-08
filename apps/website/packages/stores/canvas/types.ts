@@ -136,16 +136,16 @@ export interface OverlaySlice {
   toggleShowColors: () => void;
   
   colorSettings: {
-    offState: { background: boolean; geometries: boolean; boundaries: boolean; };
-    onState:  { background: boolean; geometries: boolean; boundaries: boolean; };
+    offState: { background: boolean; geometries: boolean; boundaries: boolean; sources: boolean; regions: boolean; };
+    onState:  { background: boolean; geometries: boolean; boundaries: boolean; sources: boolean; regions: boolean; };
   };
   colorSettingsRevision: number;
   setColorSetting: (
     state: 'offState' | 'onState',
-    element: 'background' | 'geometries' | 'boundaries',
+    element: 'background' | 'geometries' | 'boundaries' | 'sources' | 'regions',
     value: boolean
   ) => void;
-  getElementColorVisibility: (element: 'background' | 'geometries' | 'boundaries') => boolean;
+  getElementColorVisibility: (element: 'background' | 'geometries' | 'boundaries' | 'sources' | 'regions') => boolean;
   
   xRayTransparency: number;
   xRayTransparencyRevision: number;

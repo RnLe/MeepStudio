@@ -18,6 +18,8 @@ export const SourceRenderer: React.FC<SourceRendererProps> = ({
 }) => {
   // Get the full source data from the store
   const sources = useCanvasStore((s) => s.sources);
+  const showXRayMode = useCanvasStore((s) => s.showXRayMode);
+  const getElementXRayTransparency = useCanvasStore((s) => s.getElementXRayTransparency);
   const fullSource = sources.find(s => s.id === source.id) as Source | undefined;
   
   if (!fullSource) return null;
@@ -28,13 +30,17 @@ export const SourceRenderer: React.FC<SourceRendererProps> = ({
   const visualType = sizeX === 0 && sizeY === 0 ? 'point' : 
                     (sizeX === 0 || sizeY === 0) ? 'line' : 'rectangle';
 
-  // Base colors remain the same
+  // Colors and transparency
   const baseColor = source.kind === "continuousSource" ? "#f59e0b" :
                    source.kind === "gaussianSource" ? "#3b82f6" :
                    source.kind === "eigenModeSource" ? "#8b5cf6" :
                    source.kind === "gaussianBeamSource" ? "#10b981" : "#6b7280";
 
   const strokeColor = isSelected ? "#50a2ff" : "#000000";
+  
+  // Calculate transparency
+  const sourceTransparency = getElementXRayTransparency('sources');
+  const finalOpacity = showXRayMode ? sourceTransparency : 1;
 
   switch (visualType) {
     case 'point':
@@ -45,6 +51,7 @@ export const SourceRenderer: React.FC<SourceRendererProps> = ({
           radius={6 / scale}
           fill={isSelected ? "#50a2ff" : "#000000"}
           stroke={isSelected ? "#50a2ff" : "#000000"}
+          opacity={finalOpacity}
         />
       );
 
@@ -55,6 +62,7 @@ export const SourceRenderer: React.FC<SourceRendererProps> = ({
           stroke={isSelected ? "#50a2ff" : "#000000"}
           strokeWidth={6 / scale}
           lineCap="butt"
+          opacity={finalOpacity}
         />
       );
 
@@ -68,6 +76,7 @@ export const SourceRenderer: React.FC<SourceRendererProps> = ({
           fill="#000000"
           stroke={isSelected ? "#50a2ff" : "#000000"}
           strokeWidth={2 / scale}
+          opacity={finalOpacity}
         />
       );
   }

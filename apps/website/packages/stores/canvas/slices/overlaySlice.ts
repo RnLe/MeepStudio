@@ -23,8 +23,8 @@ export const createOverlaySlice: StateCreator<
   toggleShowColors: () => set({ showColors: !get().showColors }),
   
   colorSettings: {
-    offState: { background: false, geometries: false, boundaries: false },
-    onState:  { background: true,  geometries: true,  boundaries: true  },
+    offState: { background: false, geometries: false, boundaries: false, sources: false, regions: false },
+    onState:  { background: true,  geometries: true,  boundaries: true,  sources: true,  regions: true  },
   },
   
   colorSettingsRevision: 0,

@@ -54,8 +54,11 @@ export const Dial: React.FC<DialProps> = ({
   const hasDragged = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Internal minimum to avoid precision issues, but preserve negative ranges
-  const internalMin = min < 0 ? min : Math.max(min, 1e-10);
+  // Internal minimum to avoid precision issues, but preserve negative ranges for linear mode only
+  const internalMin = React.useMemo(() => 
+    mode === "linear" ? (min < 0 ? min : Math.max(min, 1e-10)) : Math.max(min, 1e-10),
+    [mode, min]
+  );
   const effectiveStep = Math.max(step, 1e-10);
 
   // Check if value differs from default
@@ -81,21 +84,18 @@ export const Dial: React.FC<DialProps> = ({
       // In linear mode, value directly maps to rotations
       return clampedVal * 2 * Math.PI;
     } else {
-      // 10x mode - handle very large values and negative numbers
-      if (Math.abs(clampedVal) >= 1e19) {
+      // 10x mode - exponential scaling, no sign switching
+      if (clampedVal >= 1e19) {
         // For values near infinity, map to a high rotation value
-        return Math.sign(clampedVal) * 19 * 2 * Math.PI;
+        return 19 * 2 * Math.PI;
       }
-      if (clampedVal === 0) {
-        return 0;
+      if (clampedVal <= 0) {
+        // In exponential mode, never go to 0 or negative
+        return Math.log10(Math.max(effectiveStep, 1e-10)) * 2 * Math.PI;
       }
-      // For negative values, use the log of absolute value and preserve sign
-      const sign = Math.sign(clampedVal);
-      const absVal = Math.abs(clampedVal);
-      // Allow going down to very small values (like 0.001)
-      const minLogVal = Math.log10(Math.max(effectiveStep, 1e-10));
-      const logVal = Math.max(Math.log10(absVal), minLogVal);
-      return sign * logVal * 2 * Math.PI;
+      // Use log10 for exponential scaling
+      const logVal = Math.log10(clampedVal);
+      return logVal * 2 * Math.PI;
     }
   }, [mode, internalMin, max, effectiveStep]);
 
@@ -106,28 +106,17 @@ export const Dial: React.FC<DialProps> = ({
       const val = rotation / (2 * Math.PI);
       return Math.max(internalMin, Math.min(max, val));
     } else {
-      // 10x mode - handle negative rotations
+      // 10x mode - exponential scaling, no sign switching
       const revolutions = rotation / (2 * Math.PI);
-      if (Math.abs(revolutions) >= 19) {
-        // Near max rotation, return very large value with correct sign
-        return Math.sign(revolutions) * Math.min(Math.abs(max), 1e20);
-      }
-      if (revolutions === 0) {
-        return 0;
-      }
-      // For negative revolutions, use the sign and exponential of absolute value
-      const sign = Math.sign(revolutions);
-      const absRevolutions = Math.abs(revolutions);
-      const minLogVal = Math.log10(Math.max(effectiveStep, 1e-10));
-      
-      // Allow exponential mode to go down to the step size
-      if (absRevolutions < minLogVal) {
-        // Below minimum log value, return step size with correct sign
-        return sign * Math.max(effectiveStep, 1e-10);
+      if (revolutions >= 19) {
+        // Near max rotation, return very large value
+        return Math.min(max, 1e20);
       }
       
-      const val = sign * Math.pow(10, absRevolutions);
-      return Math.max(internalMin, Math.min(max, val));
+      // Convert log value back to actual value
+      const val = Math.pow(10, revolutions);
+      // Ensure we stay within bounds and never go below the effective step
+      return Math.max(Math.max(effectiveStep, 1e-10), Math.min(max, val));
     }
   }, [mode, internalMin, max, effectiveStep]);
 
@@ -204,7 +193,8 @@ export const Dial: React.FC<DialProps> = ({
 
   const handleInputSubmit = () => {
     const newValue = parseFloat(editValue);
-    if (!isNaN(newValue) && newValue >= internalMin && newValue <= max) {
+    const effectiveMin = mode === "10x" ? Math.max(effectiveStep, 1e-10) : internalMin;
+    if (!isNaN(newValue) && newValue >= effectiveMin && newValue <= max) {
       onChange(newValue);
     }
     setIsEditing(false);
@@ -303,6 +293,11 @@ export const Dial: React.FC<DialProps> = ({
       const adjustedMantissa = val / Math.pow(10, adjustedExp);
       return `${adjustedMantissa.toFixed(1)}e${adjustedExp}`;
     }
+    // In exponential mode, never show 0
+    if (mode === "10x") {
+      const minValue = Math.max(effectiveStep, 1e-10);
+      return formatValue(minValue);
+    }
     return "0";
   };
 
@@ -352,22 +347,33 @@ export const Dial: React.FC<DialProps> = ({
             wheelStep = Math.max(wheelStep, 0.1);
           }
         } else if (mode === "10x") {
-          // For 10x mode, use logarithmic stepping
-          wheelStep = Math.max(value * 0.1, effectiveStep);
+          // For 10x mode, use logarithmic stepping - multiply/divide by factor
+          wheelStep = Math.max(value * 0.1, value / 10);
         }
         
         // Calculate new value
         let newValue = value;
         if (e.deltaY < 0) {
-          newValue = Math.min(max, value + wheelStep);
+          if (mode === "10x") {
+            // In exponential mode, multiply by a factor
+            newValue = Math.min(max, value * 1.1);
+          } else {
+            newValue = Math.min(max, value + wheelStep);
+          }
         } else if (e.deltaY > 0) {
-          newValue = Math.max(internalMin, value - wheelStep);
+          if (mode === "10x") {
+            // In exponential mode, divide by a factor, but don't go below minimum
+            const minExpValue = Math.max(effectiveStep, 1e-10);
+            newValue = Math.max(minExpValue, value / 1.1);
+          } else {
+            newValue = Math.max(internalMin, value - wheelStep);
+          }
         }
         
-        // Snap to step
-        const snappedValue = Math.round(newValue / effectiveStep) * effectiveStep;
+        // Snap to step (only for linear mode)
+        const finalValue = mode === "linear" ? Math.round(newValue / effectiveStep) * effectiveStep : newValue;
         
-        onChange(snappedValue);
+        onChange(finalValue);
       }}
     >
       <div className="relative">

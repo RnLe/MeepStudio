@@ -833,7 +833,9 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                       const backgroundVisible = getElementColorVisibility('background');
                       const geometriesVisible = getElementColorVisibility('geometries');
                       const boundariesVisible = getElementColorVisibility('boundaries');
-                      return backgroundVisible || geometriesVisible || boundariesVisible;
+                      const sourcesVisible = getElementColorVisibility('sources');
+                      const regionsVisible = getElementColorVisibility('regions');
+                      return backgroundVisible || geometriesVisible || boundariesVisible || sourcesVisible || regionsVisible;
                     })();
                     
                     return (
@@ -880,7 +882,9 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({ project, dimension, ghPag
                               const backgroundVisible = getElementColorVisibility('background');
                               const geometriesVisible = getElementColorVisibility('geometries');
                               const boundariesVisible = getElementColorVisibility('boundaries');
-                              const anyColorVisible = backgroundVisible || geometriesVisible || boundariesVisible;
+                              const sourcesVisible = getElementColorVisibility('sources');
+                              const regionsVisible = getElementColorVisibility('regions');
+                              const anyColorVisible = backgroundVisible || geometriesVisible || boundariesVisible || sourcesVisible || regionsVisible;
                               
                               if (anyColorVisible) {
                                 // Show colored palette icon when at least one element type has colors enabled

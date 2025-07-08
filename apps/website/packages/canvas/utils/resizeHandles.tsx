@@ -66,8 +66,12 @@ export function ResizeHandles({
   const currentResizeState = React.useRef<Partial<RectEl>>({});
   
   // Calculate rectangle bounds in canvas coordinates (relative to center)
-  const halfWidth = (rectangle.width * GRID_PX) / 2;
-  const halfHeight = (rectangle.height * GRID_PX) / 2;
+  // Use actual displayed dimensions (accounting for minimum size) for handle positioning
+  const minSize = 0.001;
+  const displayWidth = Math.max(minSize, rectangle.width);
+  const displayHeight = Math.max(minSize, rectangle.height);
+  const halfWidth = (displayWidth * GRID_PX) / 2;
+  const halfHeight = (displayHeight * GRID_PX) / 2;
   
   // Corner handles (relative to rectangle center)
   const corners = [
@@ -96,9 +100,8 @@ export function ResizeHandles({
   // Custom cursor for rotation handle
   const rotateIconCursor = React.useMemo(() => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2a10 10 0 1 0 10 10" />
-      <path d="M12 2v4" />
-      <path d="m22 12-4-2v4z" fill="black" />
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+      <path d="M21 3v5h-5"/>
     </svg>`;
     const encoded = btoa(svg);
     return `url('data:image/svg+xml;base64,${encoded}') 12 12, auto`;
@@ -195,70 +198,105 @@ export function ResizeHandles({
           // Convert pointer position to local coordinates
           const localPos = transform.point(pointerPos);
           
-          // Calculate mouse movement delta
-          const deltaX = (localPos.x - initialLocalPos.x) / GRID_PX;
-          const deltaY = (localPos.y - initialLocalPos.y) / GRID_PX;
+          // Calculate mouse movement delta in global coordinates
+          const globalDeltaX = (localPos.x - initialLocalPos.x) / GRID_PX;
+          const globalDeltaY = (localPos.y - initialLocalPos.y) / GRID_PX;
+          
+          // Transform mouse delta to rectangle's local coordinate system
+          // This is crucial for rotated rectangles - without this transformation,
+          // the "opposite" corners would drift when resizing
+          const rectangleRotation = rectangle.orientation || 0;
+          const cos = Math.cos(-rectangleRotation); // Negative because we want to rotate the delta back
+          const sin = Math.sin(-rectangleRotation);
+          const deltaX = globalDeltaX * cos - globalDeltaY * sin;
+          const deltaY = globalDeltaX * sin + globalDeltaY * cos;
           
           // Calculate new dimensions and position based on handle
           let newWidth = rectangle.width;
           let newHeight = rectangle.height;
-          let newPosX = rectangle.pos.x;
-          let newPosY = rectangle.pos.y;
+          // Calculate position changes in local coordinates first
+          let localPosChangeX = 0;
+          let localPosChangeY = 0;
           
           switch (handleName) {
             case 'nw':
               // North-west: move left and top edges
               newWidth = rectangle.width - deltaX;
               newHeight = rectangle.height - deltaY;
-              newPosX = rectangle.pos.x + deltaX / 2;
-              newPosY = rectangle.pos.y + deltaY / 2;
+              localPosChangeX = deltaX / 2;
+              localPosChangeY = deltaY / 2;
               break;
             case 'ne':
               // North-east: move right and top edges
               newWidth = rectangle.width + deltaX;
               newHeight = rectangle.height - deltaY;
-              newPosX = rectangle.pos.x + deltaX / 2;
-              newPosY = rectangle.pos.y + deltaY / 2;
+              localPosChangeX = deltaX / 2;
+              localPosChangeY = deltaY / 2;
               break;
             case 'sw':
               // South-west: move left and bottom edges
               newWidth = rectangle.width - deltaX;
               newHeight = rectangle.height + deltaY;
-              newPosX = rectangle.pos.x + deltaX / 2;
-              newPosY = rectangle.pos.y + deltaY / 2;
+              localPosChangeX = deltaX / 2;
+              localPosChangeY = deltaY / 2;
               break;
             case 'se':
               // South-east: move right and bottom edges
               newWidth = rectangle.width + deltaX;
               newHeight = rectangle.height + deltaY;
-              newPosX = rectangle.pos.x + deltaX / 2;
-              newPosY = rectangle.pos.y + deltaY / 2;
+              localPosChangeX = deltaX / 2;
+              localPosChangeY = deltaY / 2;
               break;
             case 'n':
               // North: only move top edge
               newHeight = rectangle.height - deltaY;
-              newPosY = rectangle.pos.y + deltaY / 2;
+              localPosChangeY = deltaY / 2;
               break;
             case 's':
               // South: only move bottom edge
               newHeight = rectangle.height + deltaY;
-              newPosY = rectangle.pos.y + deltaY / 2;
+              localPosChangeY = deltaY / 2;
               break;
             case 'w':
               // West: only move left edge
               newWidth = rectangle.width - deltaX;
-              newPosX = rectangle.pos.x + deltaX / 2;
+              localPosChangeX = deltaX / 2;
               break;
             case 'e':
               // East: only move right edge
               newWidth = rectangle.width + deltaX;
-              newPosX = rectangle.pos.x + deltaX / 2;
+              localPosChangeX = deltaX / 2;
               break;
           }
           
+          // Transform position changes back to global coordinates
+          // The center position changes calculated in local coords need to be rotated
+          // back to global coords so the rectangle moves correctly in world space
+          const cosGlobal = Math.cos(rectangleRotation);
+          const sinGlobal = Math.sin(rectangleRotation);
+          const globalPosChangeX = localPosChangeX * cosGlobal - localPosChangeY * sinGlobal;
+          const globalPosChangeY = localPosChangeX * sinGlobal + localPosChangeY * cosGlobal;
+          
+          // Apply position changes in global coordinates
+          let newPosX = rectangle.pos.x + globalPosChangeX;
+          let newPosY = rectangle.pos.y + globalPosChangeY;
+          
           // Apply minimum size constraints
-          newWidth = Math.max(0.1, newWidth);
-          newHeight = Math.max(0.1, newHeight);
+          const minSize = 0.001;
+          
+          // For edge handles, stop processing if we hit minimum size
+          if (['w', 'e'].includes(handleName) && newWidth < minSize) {
+            return; // Stop processing - width would be too small
+          }
+          if (['n', 's'].includes(handleName) && newHeight < minSize) {
+            return; // Stop processing - height would be too small
+          }
+          
+          // For corner handles, clamp to minimum size
+          if (['nw', 'ne', 'sw', 'se'].includes(handleName)) {
+            newWidth = Math.max(minSize, newWidth);
+            newHeight = Math.max(minSize, newHeight);
+          }
           
           // Apply snapping
           newWidth = snapToGrid(newWidth, shiftPressed, ctrlPressed);
@@ -456,44 +494,29 @@ export function ResizeHandles({
         />
       ))}
       
-      {/* Rotation handle */}
-      <Group
-        x={relRotHandle.x}
-        y={relRotHandle.y}
-        onMouseEnter={(e) => {
-          const container = e.target.getStage()?.container();
-          if (container) container.style.cursor = rotateIconCursor;
-        }}
-        onMouseLeave={(e) => {
-          const container = e.target.getStage()?.container();
-          if (container) container.style.cursor = 'default';
-        }}
-        {...handleRotation}
-      >
-        <Circle
-          radius={8 / scale}
-          fill="#006FEE"
-          stroke="white"
-          strokeWidth={1 / scale}
-        />
-        <Path
-          data="M -3 -1 A 3 3 0 1 1 1 -3"
-          stroke="white"
-          strokeWidth={1.2 / scale}
-          lineCap="round"
-          scaleX={1 / scale}
-          scaleY={1 / scale}
-        />
-        <Path
-          data="M 1 -3 L -0.5 -3 L 1 -3 L 1 -1.5"
-          stroke="white"
-          strokeWidth={1.2 / scale}
-          lineCap="round"
-          lineJoin="round"
-          scaleX={1 / scale}
-          scaleY={1 / scale}
-        />
-      </Group>
+      {/* Rotation handle - only show for rectangles, not region boxes */}
+      {rectangle.type === "rectangle" && (
+        <Group
+          x={relRotHandle.x}
+          y={relRotHandle.y}
+          onMouseEnter={(e) => {
+            const container = e.target.getStage()?.container();
+            if (container) container.style.cursor = rotateIconCursor;
+          }}
+          onMouseLeave={(e) => {
+            const container = e.target.getStage()?.container();
+            if (container) container.style.cursor = 'default';
+          }}
+          {...handleRotation}
+        >
+          <Circle
+            radius={6 / scale}
+            fill="#ff8c00"
+            stroke="white"
+            strokeWidth={1 / scale}
+          />
+        </Group>
+      )}
       
       {/* Rotation helper arc */}
       {isRotating && (
