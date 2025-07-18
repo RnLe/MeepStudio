@@ -151,27 +151,39 @@ export default function StudentMaterialsPage() {
                   <span className="text-white font-bold text-lg">Q³</span>
                 </div>
                 <span className="text-xl font-semibold text-slate-800 dark:text-slate-200">
-                  Quantum QrashQourse
+                  <span className="hidden sm:inline">Quantum QrashQourse</span>
                 </span>
               </Link>
             </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/q3" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            <div className="flex items-center space-x-2 sm:space-x-4 lg:space-x-8 text-sm sm:text-base">
+              <Link href="/q3" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap">
                 Home
               </Link>
-              <Link href="/q3/association" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <Link href="/q3/association" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap hidden sm:block">
                 The Association
               </Link>
-              <Link href="/q3/mini-games" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <Link href="/q3/association" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap sm:hidden">
+                Association
+              </Link>
+              <Link href="/q3/mini-games" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap hidden sm:block">
                 Quantum Mini-Games
               </Link>
-              <Link href="/q3/university-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <Link href="/q3/mini-games" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap sm:hidden">
+                Games
+              </Link>
+              <Link href="/q3/university-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap hidden md:block">
                 University Materials
               </Link>
-              <Link href="/q3/student-materials" className="text-blue-600 dark:text-blue-400 font-medium">
+              <Link href="/q3/university-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap md:hidden">
+                Uni
+              </Link>
+              <Link href="/q3/student-materials" className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap hidden md:block">
                 Student Materials
               </Link>
-              <Link href="/q3/events" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <Link href="/q3/student-materials" className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap md:hidden">
+                Student
+              </Link>
+              <Link href="/q3/events" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap">
                 Events
               </Link>
             </div>

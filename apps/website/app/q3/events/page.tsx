@@ -400,7 +400,7 @@ export default function EventsPage() {
                   <span className="text-white font-bold text-lg">Q³</span>
                 </div>
                 <span className="text-xl font-semibold text-slate-800 dark:text-slate-200">
-                  Quantum QrashQourse
+                  <span className="hidden sm:inline">Quantum QrashQourse</span>
                 </span>
               </Link>
             </div>
