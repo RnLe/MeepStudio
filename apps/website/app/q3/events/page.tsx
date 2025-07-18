@@ -13,6 +13,7 @@ interface Event {
   country: string;
   targetGroup: string;
   date: Date;
+  endDate?: Date;
   duration: string;
   applicationLink: string;
   category: 'workshop' | 'seminar' | 'lab-visit' | 'competition';
@@ -25,6 +26,8 @@ export default function EventsPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
+  const [calendarStartMonth, setCalendarStartMonth] = useState<number>(new Date().getMonth());
+  const [calendarStartYear, setCalendarStartYear] = useState<number>(new Date().getFullYear());
 
   // Generate events with floating dates starting from today
   const events: Event[] = useMemo(() => {
@@ -40,7 +43,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 16-18',
         daysFromToday: 15,
         duration: '3 days',
-        applicationLink: 'https://cern.ch/quantum-workshop',
+        applicationLink: 'https://home.cern',
         category: 'workshop' as const,
         maxParticipants: 25,
         level: 'beginner' as const
@@ -55,7 +58,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 17-18',
         daysFromToday: 32,
         duration: '1 day',
-        applicationLink: 'https://mpq.mpg.de/quantum-crypto',
+        applicationLink: 'https://www.mpq.mpg.de',
         category: 'seminar' as const,
         maxParticipants: 40,
         level: 'advanced' as const
@@ -70,7 +73,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 15-17',
         daysFromToday: 45,
         duration: 'Half day',
-        applicationLink: 'https://qutech.nl/lab-visit',
+        applicationLink: 'https://qutech.nl',
         category: 'lab-visit' as const,
         maxParticipants: 15,
         level: 'intermediate' as const
@@ -85,7 +88,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 16-18',
         daysFromToday: 67,
         duration: '2 days',
-        applicationLink: 'https://quantum-flagship.eu/challenge',
+        applicationLink: 'https://qt.eu',
         category: 'competition' as const,
         maxParticipants: 100,
         level: 'advanced' as const
@@ -100,7 +103,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 15-18',
         daysFromToday: 89,
         duration: '2 days',
-        applicationLink: 'https://univie.ac.at/quantum-sensing',
+        applicationLink: 'https://www.univie.ac.at',
         category: 'workshop' as const,
         maxParticipants: 30,
         level: 'beginner' as const
@@ -115,7 +118,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 17-18',
         daysFromToday: 112,
         duration: '1 day',
-        applicationLink: 'https://polytechnique.edu/quantum-comm',
+        applicationLink: 'https://www.polytechnique.edu',
         category: 'seminar' as const,
         maxParticipants: 35,
         level: 'intermediate' as const
@@ -130,7 +133,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 16-18',
         daysFromToday: 134,
         duration: '4 days',
-        applicationLink: 'https://cam.ac.uk/quantum-algorithms',
+        applicationLink: 'https://www.cam.ac.uk',
         category: 'workshop' as const,
         maxParticipants: 20,
         level: 'advanced' as const
@@ -145,7 +148,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 15-17',
         daysFromToday: 156,
         duration: '1 day',
-        applicationLink: 'https://kth.se/quantum-lab',
+        applicationLink: 'https://www.kth.se',
         category: 'lab-visit' as const,
         maxParticipants: 18,
         level: 'intermediate' as const
@@ -160,7 +163,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 17-18',
         daysFromToday: 178,
         duration: '5 days',
-        applicationLink: 'https://ethz.ch/quantum-summer',
+        applicationLink: 'https://ethz.ch',
         category: 'workshop' as const,
         maxParticipants: 50,
         level: 'advanced' as const
@@ -175,7 +178,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 16-18',
         daysFromToday: 201,
         duration: 'Half day',
-        applicationLink: 'https://nbi.ku.dk/quantum-careers',
+        applicationLink: 'https://www.nbi.ku.dk',
         category: 'seminar' as const,
         maxParticipants: 200,
         level: 'beginner' as const
@@ -190,7 +193,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 17-18',
         daysFromToday: 223,
         duration: '2 days',
-        applicationLink: 'https://ibm.com/quantum-error-correction',
+        applicationLink: 'https://www.research.ibm.com',
         category: 'workshop' as const,
         maxParticipants: 25,
         level: 'advanced' as const
@@ -205,7 +208,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 16-18',
         daysFromToday: 245,
         duration: '3 days',
-        applicationLink: 'https://uibk.ac.at/quantum-simulation',
+        applicationLink: 'https://www.uibk.ac.at',
         category: 'workshop' as const,
         maxParticipants: 30,
         level: 'intermediate' as const
@@ -220,7 +223,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 15-18',
         daysFromToday: 267,
         duration: '3 days',
-        applicationLink: 'https://quantum-alliance.eu/talent-competition',
+        applicationLink: 'https://qt.eu',
         category: 'competition' as const,
         maxParticipants: 75,
         level: 'advanced' as const
@@ -235,7 +238,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 16-18',
         daysFromToday: 289,
         duration: '2 days',
-        applicationLink: 'https://ptb.de/quantum-metrology',
+        applicationLink: 'https://www.ptb.de',
         category: 'workshop' as const,
         maxParticipants: 20,
         level: 'intermediate' as const
@@ -250,7 +253,7 @@ export default function EventsPage() {
         targetGroup: 'Ages 17-18',
         daysFromToday: 312,
         duration: '1 day',
-        applicationLink: 'https://tcd.ie/quantum-information',
+        applicationLink: 'https://www.tcd.ie',
         category: 'seminar' as const,
         maxParticipants: 40,
         level: 'advanced' as const
@@ -261,9 +264,20 @@ export default function EventsPage() {
       const eventDate = new Date(today);
       eventDate.setDate(eventDate.getDate() + event.daysFromToday);
       
+      // Calculate end date based on duration
+      const endDate = new Date(eventDate);
+      const durationDays = event.duration.toLowerCase().includes('day') ? 
+        parseInt(event.duration.match(/\d+/)?.[0] || '1') : 
+        event.duration.toLowerCase().includes('half') ? 0.5 : 1;
+      
+      if (durationDays > 1) {
+        endDate.setDate(endDate.getDate() + Math.floor(durationDays) - 1);
+      }
+      
       return {
         ...event,
-        date: eventDate
+        date: eventDate,
+        endDate: endDate
       };
     });
   }, []);
@@ -310,6 +324,32 @@ export default function EventsPage() {
   };
 
   const calendarDays = generateCalendar();
+
+  const navigateCalendar = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      if (calendarStartMonth === 0) {
+        setCalendarStartMonth(11);
+        setCalendarStartYear(calendarStartYear - 1);
+      } else {
+        setCalendarStartMonth(calendarStartMonth - 1);
+      }
+    } else {
+      if (calendarStartMonth === 11) {
+        setCalendarStartMonth(0);
+        setCalendarStartYear(calendarStartYear + 1);
+      } else {
+        setCalendarStartMonth(calendarStartMonth + 1);
+      }
+    }
+  };
+
+  const scrollToEvent = (eventId: string) => {
+    setSelectedEvent(eventId);
+    const eventElement = document.getElementById(`event-${eventId}`);
+    if (eventElement) {
+      eventElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     if (direction === 'prev') {
@@ -364,23 +404,37 @@ export default function EventsPage() {
                 </span>
               </Link>
             </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/q3" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            
+            {/* Navigation Links - Always Visible */}
+            <div className="flex items-center space-x-2 sm:space-x-4 lg:space-x-8 text-sm sm:text-base">
+              <Link href="/q3" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap">
                 Home
               </Link>
-              <Link href="/q3/association" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <Link href="/q3/association" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap hidden sm:block">
                 The Association
               </Link>
-              <Link href="/q3/mini-games" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <Link href="/q3/association" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap sm:hidden">
+                Association
+              </Link>
+              <Link href="/q3/mini-games" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap hidden sm:block">
                 Quantum Mini-Games
               </Link>
-              <Link href="/q3/university-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <Link href="/q3/mini-games" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap sm:hidden">
+                Games
+              </Link>
+              <Link href="/q3/university-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap hidden md:block">
                 University Materials
               </Link>
-              <Link href="/q3/student-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <Link href="/q3/university-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap md:hidden">
+                Uni
+              </Link>
+              <Link href="/q3/student-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap hidden md:block">
                 Student Materials
               </Link>
-              <Link href="/q3/events" className="text-blue-600 dark:text-blue-400 font-medium">
+              <Link href="/q3/student-materials" className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap md:hidden">
+                Student
+              </Link>
+              <Link href="/q3/events" className="text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">
                 Events
               </Link>
             </div>
@@ -412,98 +466,147 @@ export default function EventsPage() {
 
       {/* Calendar Section */}
       <section className="py-16 bg-white/50 dark:bg-slate-800/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Calendar Header */}
-          <div className="flex items-center justify-between mb-8">
-            <button
-              onClick={() => navigateMonth('prev')}
-              className="p-2 rounded-lg bg-white dark:bg-slate-900 shadow-md hover:shadow-lg transition-shadow border border-slate-200 dark:border-slate-700"
-            >
-              <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-            </button>
-            
-            <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
-              {monthNames[selectedMonth]} {selectedYear}
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-4">
+              6-Month Calendar Overview
             </h2>
-            
+            <p className="text-lg text-slate-600 dark:text-slate-300">
+              Click on any event to jump to details below
+            </p>
+          </div>
+
+          {/* Calendar Navigation */}
+          <div className="flex items-center justify-center mb-8">
             <button
-              onClick={() => navigateMonth('next')}
-              className="p-2 rounded-lg bg-white dark:bg-slate-900 shadow-md hover:shadow-lg transition-shadow border border-slate-200 dark:border-slate-700"
+              onClick={() => navigateCalendar('prev')}
+              className="p-3 rounded-xl bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl transition-all duration-200 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600"
             >
-              <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+              <ChevronLeft className="w-6 h-6 text-slate-600 dark:text-slate-300" />
+            </button>
+            <div className="mx-8 text-center">
+              <span className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {new Date(calendarStartYear, calendarStartMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} 
+                {' - '}
+                {new Date(calendarStartYear, calendarStartMonth + 5).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </span>
+            </div>
+            <button
+              onClick={() => navigateCalendar('next')}
+              className="p-3 rounded-xl bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl transition-all duration-200 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600"
+            >
+              <ChevronRight className="w-6 h-6 text-slate-600 dark:text-slate-300" />
             </button>
           </div>
 
-          {/* Calendar Grid */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {/* Week headers */}
-            <div className="grid grid-cols-7 bg-slate-50 dark:bg-slate-800">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="p-4 text-center font-semibold text-slate-600 dark:text-slate-300">
-                  {day}
-                </div>
-              ))}
-            </div>
+          {/* 6-Month Calendar Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }, (_, monthOffset) => {
+              const currentMonth = new Date(calendarStartYear, calendarStartMonth + monthOffset);
+              
+              const monthEvents = events.filter(event => {
+                const eventMonth = event.date.getMonth();
+                const eventYear = event.date.getFullYear();
+                return eventMonth === currentMonth.getMonth() && eventYear === currentMonth.getFullYear();
+              });
 
-            {/* Calendar days */}
-            {calendarDays.map((week, weekIndex) => (
-              <div key={weekIndex} className="grid grid-cols-7 border-t border-slate-200 dark:border-slate-700">
-                {week.map((day, dayIndex) => (
-                  <div
-                    key={dayIndex}
-                    className={`p-2 h-24 border-r border-slate-200 dark:border-slate-700 relative ${
-                      !day.isCurrentMonth ? 'bg-slate-50 dark:bg-slate-800/50' : ''
-                    }`}
-                  >
-                    <div className={`text-sm font-medium mb-1 ${
-                      day.isCurrentMonth 
-                        ? 'text-slate-800 dark:text-slate-200' 
-                        : 'text-slate-400 dark:text-slate-500'
-                    }`}>
-                      {day.date.getDate()}
-                    </div>
+              // Generate calendar for this month
+              const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+              const lastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+              const startDate = new Date(firstDay);
+              startDate.setDate(startDate.getDate() - firstDay.getDay());
+              
+              const monthDays = [];
+              const tempDate = new Date(startDate);
+              
+              for (let week = 0; week < 6; week++) {
+                const weekDays = [];
+                for (let day = 0; day < 7; day++) {
+                  const dayEvents = events.filter(event => {
+                    const eventStart = new Date(event.date);
+                    const eventEnd = event.endDate ? new Date(event.endDate) : new Date(event.date);
+                    const currentDay = new Date(tempDate);
                     
-                    {day.events.map(event => (
-                      <div
-                        key={event.id}
-                        className="w-full text-xs p-1 mb-1 rounded cursor-pointer transition-all duration-200 hover:scale-105"
-                        style={{
-                          backgroundColor: event.category === 'workshop' ? '#dbeafe' :
-                                         event.category === 'seminar' ? '#e9d5ff' :
-                                         event.category === 'lab-visit' ? '#dcfce7' : '#fed7aa'
-                        }}
-                        onMouseEnter={() => setHoveredEvent(event.id)}
-                        onMouseLeave={() => setHoveredEvent(null)}
-                        onClick={() => setSelectedEvent(event.id)}
-                      >
-                        <div className="truncate font-medium text-slate-800">
-                          {event.title}
-                        </div>
+                    // Check if current day falls within event range
+                    return currentDay >= eventStart && currentDay <= eventEnd;
+                  });
+                  
+                  weekDays.push({
+                    date: new Date(tempDate),
+                    isCurrentMonth: tempDate.getMonth() === currentMonth.getMonth(),
+                    events: dayEvents
+                  });
+                  
+                  tempDate.setDate(tempDate.getDate() + 1);
+                }
+                monthDays.push(weekDays);
+              }
+
+              return (
+                <div key={monthOffset} className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  {/* Month Header */}
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 text-center">
+                    <h3 className="text-xl font-bold">
+                      {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </h3>
+                  </div>
+
+                  {/* Week headers */}
+                  <div className="grid grid-cols-7 bg-slate-50 dark:bg-slate-800 text-xs">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                      <div key={day} className="p-2 text-center font-semibold text-slate-600 dark:text-slate-300">
+                        {day}
                       </div>
                     ))}
-
-                    {/* Tooltip */}
-                    {hoveredEvent && day.events.find(e => e.id === hoveredEvent) && (
-                      <div className="absolute z-50 bg-slate-900 text-white p-3 rounded-lg shadow-xl text-sm max-w-64 -top-2 left-full ml-2">
-                        {(() => {
-                          const event = day.events.find(e => e.id === hoveredEvent)!;
-                          return (
-                            <>
-                              <div className="font-semibold mb-1">{event.title}</div>
-                              <div className="text-slate-300 mb-2">{event.institute}</div>
-                              <div className="flex items-center text-slate-400 text-xs">
-                                <MapPin className="w-3 h-3 mr-1" />
-                                {event.location}, {event.country}
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-            ))}
+
+                  {/* Calendar days */}
+                  {monthDays.map((week, weekIndex) => (
+                    <div key={weekIndex} className="grid grid-cols-7 border-t border-slate-200 dark:border-slate-700">
+                      {week.map((day, dayIndex) => (
+                        <div
+                          key={dayIndex}
+                          className={`p-1 h-16 border-r border-slate-200 dark:border-slate-700 relative text-xs ${
+                            !day.isCurrentMonth ? 'bg-slate-50 dark:bg-slate-800/50' : ''
+                          }`}
+                        >
+                          <div className={`text-xs font-medium mb-1 ${
+                            day.isCurrentMonth 
+                              ? 'text-slate-800 dark:text-slate-200' 
+                              : 'text-slate-400 dark:text-slate-500'
+                          }`}>
+                            {day.date.getDate()}
+                          </div>
+                          
+                          {day.events.slice(0, 2).map((event, eventIndex) => (
+                            <div
+                              key={event.id}
+                              className="w-full text-xs p-1 mb-1 rounded cursor-pointer transition-all duration-200 hover:scale-105 truncate"
+                              style={{
+                                backgroundColor: event.category === 'workshop' ? '#dbeafe' :
+                                               event.category === 'seminar' ? '#e9d5ff' :
+                                               event.category === 'lab-visit' ? '#dcfce7' : '#fed7aa'
+                              }}
+                              onClick={() => scrollToEvent(event.id)}
+                            >
+                              <div className="truncate font-medium text-slate-800">
+                                {event.title}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {day.events.length > 2 && (
+                            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                              +{day.events.length - 2} more
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -524,6 +627,7 @@ export default function EventsPage() {
             {events.map(event => (
               <div
                 key={event.id}
+                id={`event-${event.id}`}
                 className={`bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-lg border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
                   selectedEvent === event.id 
                     ? 'border-blue-400 dark:border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30' 
